@@ -4,4 +4,6 @@ ghc-options:
   "$everything": -haddock
 
 packages:
-- .
+- rulecheck
+# - demo-domain
+# - demo-test
