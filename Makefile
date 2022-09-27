@@ -1,5 +1,5 @@
 include Makefile.base
 
 .PHONY: exe
-exe: build
-	stack exec -- rulecheck-exe
+exe:
+	stack build --test --no-run-tests --exec rulecheck-exe
