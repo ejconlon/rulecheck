@@ -5,5 +5,5 @@ ghc-options:
 
 packages:
 - rulecheck
-# - demo-domain
-# - demo-test
+- demo-domain
+- demo-test
