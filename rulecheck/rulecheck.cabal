@@ -11,6 +11,7 @@ build-type:     Simple
 library
   exposed-modules:
       Rulecheck
+      Rulecheck.Monad
   other-modules:
       Paths_rulecheck
   hs-source-dirs:
@@ -18,6 +19,7 @@ library
   default-extensions:
       BangPatterns
       ConstraintKinds
+      DataKinds
       DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
@@ -33,6 +35,7 @@ library
       LambdaCase
       KindSignatures
       MultiParamTypeClasses
+      MultiWayIf
       Rank2Types
       ScopedTypeVariables
       StandaloneDeriving
@@ -44,6 +47,16 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie
   build-depends:
       base >=4.12 && <5
+    , exceptions
+    , generic-lens
+    , ghc-lib
+    , ghc-lib-parser
+    , little-logger
+    , little-rio
+    , mtl
+    , template-haskell
+    , text
+    , unliftio-core
   default-language: Haskell2010
 
 executable rulecheck-exe
@@ -55,6 +68,7 @@ executable rulecheck-exe
   default-extensions:
       BangPatterns
       ConstraintKinds
+      DataKinds
       DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
@@ -70,6 +84,7 @@ executable rulecheck-exe
       LambdaCase
       KindSignatures
       MultiParamTypeClasses
+      MultiWayIf
       Rank2Types
       ScopedTypeVariables
       StandaloneDeriving
@@ -81,7 +96,17 @@ executable rulecheck-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.12 && <5
+    , exceptions
+    , generic-lens
+    , ghc-lib
+    , ghc-lib-parser
+    , little-logger
+    , little-rio
+    , mtl
     , rulecheck
+    , template-haskell
+    , text
+    , unliftio-core
   default-language: Haskell2010
 
 test-suite rulecheck-test
@@ -94,6 +119,7 @@ test-suite rulecheck-test
   default-extensions:
       BangPatterns
       ConstraintKinds
+      DataKinds
       DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
@@ -109,6 +135,7 @@ test-suite rulecheck-test
       LambdaCase
       KindSignatures
       MultiParamTypeClasses
+      MultiWayIf
       Rank2Types
       ScopedTypeVariables
       StandaloneDeriving
@@ -120,7 +147,17 @@ test-suite rulecheck-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.12 && <5
+    , exceptions
+    , generic-lens
+    , ghc-lib
+    , ghc-lib-parser
+    , little-logger
+    , little-rio
+    , mtl
     , rulecheck
     , tasty
     , tasty-hunit
+    , template-haskell
+    , text
+    , unliftio-core
   default-language: Haskell2010

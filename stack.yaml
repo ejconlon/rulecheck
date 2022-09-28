@@ -3,6 +3,10 @@ resolver: lts-19.25
 ghc-options:
   "$everything": -haddock
 
+extra-deps:
+- little-logger-1.0.1
+- little-rio-1.0.1
+
 packages:
 - rulecheck
 - demo-domain
