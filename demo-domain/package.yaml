@@ -3,6 +3,7 @@ version:             0.1.0
 
 dependencies:
 - base >= 4.12 && < 5
+- containers
 
 default-extensions:
 - BangPatterns
@@ -45,3 +46,16 @@ ghc-options:
 
 library:
   source-dirs: src
+
+tests:
+  demo-domain-test:
+    main:                Main.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - demo-domain
+    - tasty
+    - tasty-hunit
