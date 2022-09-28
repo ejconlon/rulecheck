@@ -1,6 +1,7 @@
 module Rulecheck.Rendering
   ( ConvertErr (..)
   , convertAndRender
+  , outputString
   ) where
 
 import GHC.ThToHs (convertToHsDecls)
@@ -47,3 +48,6 @@ convertAndRender thDecls = case convertThDecls thDecls of
     errStr <- renderSDoc errDoc
     throwM (ConvertErr errStr)
   Right hsDecls -> renderSDoc (renderHsDecls hsDecls)
+
+outputString :: (Functor m, HasDynFlags m, Outputable a) => a -> m String
+outputString = renderSDoc . ppr

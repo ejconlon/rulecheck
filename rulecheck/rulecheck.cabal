@@ -12,6 +12,7 @@ library
   exposed-modules:
       Rulecheck
       Rulecheck.Monad
+      Rulecheck.Parsing
       Rulecheck.Rendering
   other-modules:
       Paths_rulecheck
