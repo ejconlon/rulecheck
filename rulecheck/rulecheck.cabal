@@ -12,6 +12,7 @@ library
   exposed-modules:
       Rulecheck
       Rulecheck.Monad
+      Rulecheck.Rendering
   other-modules:
       Paths_rulecheck
   hs-source-dirs:
@@ -55,7 +56,6 @@ library
     , little-logger
     , little-rio
     , mtl
-    , template-haskell
     , text
     , unliftio-core
   default-language: Haskell2010
@@ -106,7 +106,6 @@ executable rulecheck-exe
     , little-rio
     , mtl
     , rulecheck
-    , template-haskell
     , text
     , unliftio-core
   default-language: Haskell2010
@@ -160,7 +159,6 @@ test-suite rulecheck-test
     , rulecheck
     , tasty
     , tasty-hunit
-    , template-haskell
     , text
     , unliftio-core
   default-language: Haskell2010
