@@ -6,9 +6,10 @@ module Rulecheck.Monad
   , RcM (..)
   , runRcM
   , GhcM
-  , liftGhcM
+  , raiseGhcM
+  , lowerGhcM
+  , rcGhcM
   , runGhcM
-  , defaultDynFlags
   ) where
 
 import GHC.Generics (Generic)
@@ -72,7 +73,7 @@ instance HasStateRef HscEnv (GhcEnv r) where
   stateRefL = field @"geStateRef"
 
 newtype GhcM r a = GhcM { unGhcM :: RIO (GhcEnv r) a }
-  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadReader (GhcEnv r), MonadState HscEnv, MonadLogger)
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadUnliftIO, MonadReader (GhcEnv r), MonadState HscEnv, MonadLogger)
 
 instance HasDynFlags (GhcM r) where
   getDynFlags = asks geDynFlags
@@ -81,16 +82,17 @@ instance GhcMonad (GhcM r) where
   getSession = get
   setSession = put
 
-liftGhcM :: RIO r a -> GhcM r a
-liftGhcM act = GhcM $ do
+raiseGhcM :: RIO r a -> GhcM r a
+raiseGhcM act = GhcM $ do
   r <- asks geLiftEnv
   liftIO (runRIO r act)
 
-runGhcM :: DynFlags -> GhcM r a -> RIO r a
-runGhcM dynFlags act = do
+lowerGhcM :: GhcM r a -> RIO r a
+lowerGhcM act = do
   r <- ask
   liftIO $ do
     runGhc (Just libdir) $ do
+      dynFlags <- getDynFlags
       sess <- getSession
       sr <- newSomeRef sess
       let ge = GhcEnv r dynFlags sr
@@ -100,6 +102,8 @@ runGhcM dynFlags act = do
       setSession sess'
       pure ret
 
--- TODO this is a LARGE struct - come up with some good defaults
-defaultDynFlags :: DynFlags
-defaultDynFlags = error "TODO"
+rcGhcM :: RcM a -> GhcM RcEnv a
+rcGhcM = raiseGhcM . unRcM
+
+runGhcM :: GhcM r a -> r -> IO a
+runGhcM act r = runRIO r (lowerGhcM act)
