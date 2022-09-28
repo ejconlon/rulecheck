@@ -28,7 +28,7 @@ format:
 
 .PHONY: lint
 lint:
-	stack exec -- hlint -i 'Parse error' -i 'Reduce duplication' -i 'Use <=<' src
+	stack exec -- hlint -i 'Parse error' -i 'Reduce duplication' -i 'Use <=<' rulecheck/src demo-domain/src
 
 .PHONY: gen-hie
 gen-hie:
