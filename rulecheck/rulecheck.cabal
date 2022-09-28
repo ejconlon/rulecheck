@@ -51,6 +51,7 @@ library
     , generic-lens
     , ghc-lib
     , ghc-lib-parser
+    , ghc-paths
     , little-logger
     , little-rio
     , mtl
@@ -100,6 +101,7 @@ executable rulecheck-exe
     , generic-lens
     , ghc-lib
     , ghc-lib-parser
+    , ghc-paths
     , little-logger
     , little-rio
     , mtl
@@ -151,6 +153,7 @@ test-suite rulecheck-test
     , generic-lens
     , ghc-lib
     , ghc-lib-parser
+    , ghc-paths
     , little-logger
     , little-rio
     , mtl

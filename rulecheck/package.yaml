@@ -13,6 +13,7 @@ dependencies:
 - unliftio-core
 - mtl
 - ghc-lib-parser
+- ghc-paths
 
 default-extensions:
 - BangPatterns
