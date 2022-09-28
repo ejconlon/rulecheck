@@ -6,12 +6,6 @@ import Language.Haskell.TH.Syntax (Q, Exp (..), Dec (..), Body (..), Pat (..), L
 import Rulecheck.Rendering (convertAndRender)
 import Rulecheck.Monad (runGhcM)
 
-testSimple :: TestTree
-testSimple = testCase "simple" $ do
-    let actual = (1 + 1) :: Int
-        expected = 2 :: Int
-    actual @?= expected
-
 -- Example from here: https://markkarpov.com/tutorial/th.html
 mkFunExp :: Q Exp
 mkFunExp = do
@@ -35,6 +29,5 @@ testRender = testCase "render" $ do
 
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
-  [ testSimple
-  , testRender
+  [ testRender
   ]
