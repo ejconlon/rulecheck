@@ -1,12 +1,13 @@
 module Main (main) where
 
 import Control.Monad.IO.Class (liftIO)
+import GHC.Plugins (unLoc)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Language.Haskell.TH.Syntax (Q, Exp (..), Dec (..), Body (..), Pat (..), Lit (..), Clause (..), newName, runQ, mkName)
 import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Monad (runGhcM)
-import Rulecheck.Parsing (parseModule, fakeFilePath)
+import Rulecheck.Parsing (getRules, parseModule, fakeFilePath)
 
 -- Example from here: https://markkarpov.com/tutorial/th.html
 mkFunExp :: Q Exp
@@ -39,8 +40,19 @@ testParse = testCase "parse" $ do
   -- TODO assert something about the parsed module
   pure ()
 
+testGetRules :: TestTree
+testGetRules = testCase "getRules" $ do
+  contents <- readFile "../demo-domain/src/DemoDomain.hs"
+  [expected1, expected2] <- flip runGhcM () $ do
+    pmod <- parseModule fakeFilePath contents
+    let rules =  getRules (unLoc pmod)
+    mapM outputString rules
+  expected1 @?= "{-# RULES \"mul1\" forall x. x .* Const 1 = x #-}"
+  expected2 @?= "{-# RULES \"div_id\" forall x. x ./ x = Const 1 #-}"
+
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
   [ testRender
   , testParse
+  , testGetRules
   ]

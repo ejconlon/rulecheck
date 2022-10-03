@@ -1,13 +1,14 @@
 module Rulecheck.Parsing
   ( ParseErr (..)
   , fakeFilePath
+  , getRules
   , parseModule
   ) where
 
 import Control.Monad.Catch (MonadThrow (..))
 import Control.Exception (Exception)
-import GHC.Plugins (Located, HasDynFlags (..), mkRealSrcLoc, mkFastString)
-import GHC.Hs (HsModule)
+import GHC.Plugins (unLoc, Located, HasDynFlags (..), mkRealSrcLoc, mkFastString)
+import GHC.Hs (GhcPs, HsDecl(..), RuleDecls, HsModule(..))
 import GHC.Parser.Lexer (ParseResult(..), P (..), mkPState, getErrorMessages)
 import Data.Foldable (toList)
 import GHC.Data.StringBuffer (stringToStringBuffer)
@@ -31,6 +32,11 @@ runParser filename contents parser = do
 
 fakeFilePath :: FilePath
 fakeFilePath = "<interactive>"
+
+getRules :: HsModule -> [RuleDecls GhcPs]
+getRules hsMod = concatMap getRuleDecl (hsmodDecls hsMod) where
+  getRuleDecl decl | RuleD _ ruleDecls <- unLoc decl = [ruleDecls]
+  getRuleDecl _ = []
 
 parseModule :: (MonadThrow m, HasDynFlags m) => FilePath -> String -> m (Located HsModule)
 parseModule fp contents = runParser fp contents GP.parseModule
