@@ -15,6 +15,10 @@ dependencies:
 - hie-bios
 - template-haskell
 - hslogger
+# These are for prototyping the test interface:
+- QuickCheck
+- tasty
+- tasty-quickcheck
 
 default-extensions:
 - BangPatterns

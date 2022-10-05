@@ -14,6 +14,7 @@ library
       Rulecheck.Monad
       Rulecheck.Parsing
       Rulecheck.Rendering
+      Rulecheck.TestSketch
       Rulecheck.Typecheck
   other-modules:
       Paths_rulecheck
@@ -49,7 +50,8 @@ library
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie
   build-depends:
-      base >=4.12 && <5
+      QuickCheck
+    , base >=4.12 && <5
     , exceptions
     , generic-lens
     , ghc ==9.0.2
@@ -59,6 +61,8 @@ library
     , little-logger
     , little-rio
     , mtl
+    , tasty
+    , tasty-quickcheck
     , template-haskell
     , text
     , unliftio-core
@@ -101,7 +105,8 @@ test-suite rulecheck-test
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.12 && <5
+      QuickCheck
+    , base >=4.12 && <5
     , exceptions
     , generic-lens
     , ghc ==9.0.2
@@ -114,6 +119,7 @@ test-suite rulecheck-test
     , rulecheck
     , tasty
     , tasty-hunit
+    , tasty-quickcheck
     , template-haskell
     , text
     , unliftio-core
