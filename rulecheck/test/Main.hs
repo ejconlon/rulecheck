@@ -33,7 +33,7 @@ testRender = testCase "render" $ do
 testParse :: TestTree
 testParse = testCase "parse" $ do
   let contents = "module Foo where foo = \\ x_0 -> (x_0 + 1)"
-  pmod <- flip runGhcM () $ do
+  _pmod <- flip runGhcM () $ do
     pmod <- parseModule fakeFilePath contents
     outputString pmod >>= liftIO . putStrLn
     pure pmod

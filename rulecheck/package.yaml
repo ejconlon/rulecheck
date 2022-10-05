@@ -13,8 +13,7 @@ dependencies:
 - mtl
 - ghc-lib-parser
 - ghc-paths
-# TH may just come with one of the ghc-lib packages...
-# - template-haskell
+- hie-bios
 
 default-extensions:
 - BangPatterns

@@ -54,6 +54,7 @@ library
     , ghc-lib
     , ghc-lib-parser
     , ghc-paths
+    , hie-bios
     , little-logger
     , little-rio
     , mtl
@@ -104,6 +105,7 @@ test-suite rulecheck-test
     , ghc-lib
     , ghc-lib-parser
     , ghc-paths
+    , hie-bios
     , little-logger
     , little-rio
     , mtl
