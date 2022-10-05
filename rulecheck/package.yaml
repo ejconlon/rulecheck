@@ -3,7 +3,7 @@ version:             0.1.0
 
 dependencies:
 - base >= 4.12 && < 5
-- ghc-lib
+- ghc == 9.0.2
 - exceptions
 - little-rio
 - little-logger
@@ -11,9 +11,10 @@ dependencies:
 - generic-lens
 - unliftio-core
 - mtl
-- ghc-lib-parser
 - ghc-paths
 - hie-bios
+- template-haskell
+- hslogger
 
 default-extensions:
 - BangPatterns

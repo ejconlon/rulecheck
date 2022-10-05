@@ -1,6 +1,7 @@
 module Main (main) where
 
 import Control.Monad.IO.Class (liftIO)
+import Data.Maybe
 import GHC.Plugins (unLoc)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
@@ -8,6 +9,10 @@ import Language.Haskell.TH.Syntax (Q, Exp (..), Dec (..), Body (..), Pat (..), L
 import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Monad (runGhcM)
 import Rulecheck.Parsing (getRules, parseModule, fakeFilePath)
+import Rulecheck.Typecheck (getNameUnsafe, typecheck)
+
+-- For debugging
+-- import System.Log.Logger
 
 -- Example from here: https://markkarpov.com/tutorial/th.html
 mkFunExp :: Q Exp
@@ -50,9 +55,18 @@ testGetRules = testCase "getRules" $ do
   expected1 @?= "{-# RULES \"mul1\" forall x. x .* Const 1 = x #-}"
   expected2 @?= "{-# RULES \"div_id\" forall x. x ./ x = Const 1 #-}"
 
+testGetNameUnsafe :: TestTree
+testGetNameUnsafe = testCase "getName" $ do
+  -- For debugging
+  -- updateGlobalLogger "hie-bios" $ setLevel DEBUG
+  tcm <- runGhcM (typecheck "../demo-domain/src/DemoDomain.hs") ()
+  isJust (getNameUnsafe tcm ".*") @?= True
+  isJust (getNameUnsafe tcm "NONEXISTANT") @?= False
+
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
   [ testRender
   , testParse
   , testGetRules
+  , testGetNameUnsafe
   ]
