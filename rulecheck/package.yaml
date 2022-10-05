@@ -14,6 +14,10 @@ dependencies:
 - ghc-lib-parser
 - ghc-paths
 - hie-bios
+# These are for prototyping the test interface:
+- QuickCheck
+- tasty
+- tasty-quickcheck
 
 default-extensions:
 - BangPatterns
