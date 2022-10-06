@@ -2,14 +2,13 @@ module Main (main) where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe
-import GHC (getLoc, TyThing(..))
-import GHC.Plugins (varType, showSDocUnsafe, ppr, unLoc)
-import Test.Tasty (DependencyType(..), TestTree, after, defaultMain, testGroup)
+import GHC.Plugins (varType, unLoc)
+import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Language.Haskell.TH.Syntax (Q, Exp (..), Dec (..), Body (..), Pat (..), Lit (..), Clause (..), newName, runQ, mkName)
 import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Monad (runGhcM)
-import Rulecheck.Parsing (getRules, parseModule, fakeFilePath)
+import Rulecheck.Parsing (getParsedRuleDecls, parseModule, fakeFilePath)
 import Rulecheck.Typecheck
 import Rulecheck.Rule
 
@@ -47,12 +46,12 @@ testParse = testCase "parse" $ do
   -- TODO assert something about the parsed module
   pure ()
 
-testGetRules :: TestTree
-testGetRules = testCase "getRules" $ do
+testGetParsedRuleDecls :: TestTree
+testGetParsedRuleDecls = testCase "getParsedRuleDecls" $ do
   contents <- readFile "../demo-domain/src/DemoDomain.hs"
   [expected1, expected2] <- flip runGhcM () $ do
     pmod <- parseModule fakeFilePath contents
-    let rules =  getRules (unLoc pmod)
+    let rules =  getParsedRuleDecls (unLoc pmod)
     mapM outputString rules
   expected1 @?= "{-# RULES \"mul1\" forall x. x .* Const 1 = x #-}"
   expected2 @?= "{-# RULES \"div_id\" forall x. x ./ x = Const 1 #-}"
@@ -92,6 +91,6 @@ main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
   [ testRender
   , testParse
-  , testGetRules
+  , testGetParsedRuleDecls
   , testGetRule
   ]

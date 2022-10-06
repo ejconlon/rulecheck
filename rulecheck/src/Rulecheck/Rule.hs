@@ -7,10 +7,14 @@ import GHC.Types.Var(Var, varType)
 import Rulecheck.Typecheck (getType)
 import Rulecheck.Monad (GhcM)
 
+-- | A `Rule` is obtained from a Haskell RULES declaration (`LRuleDecl`);
+--   it contains all of the information necessary to construct fuzzing test cases
 data Rule = Rule
   { ruleArgs    :: [Var]
   , ruleLHS     :: HsExpr GhcTc
   , ruleRHS     :: HsExpr GhcTc
+
+  -- | The type of `ruleLHS`, presumably this is also the type of `ruleRHS`!
   , ruleLHSType :: Kind
   }
 
@@ -33,6 +37,9 @@ getRuleArguments decl =
     getID (RuleBndr _ id) = unLoc id
     getID _               = error "unimplemented" -- TODO
 
+-- | Obtains a `Rule` from the corresponding typechecked rule declaration
+-- Note that this requires interacting with GHC to get the type of the LHS of the rule
+-- See `getType` for more details.
 ruleFromDecl :: LRuleDecl GhcTc -> GhcM a Rule
 ruleFromDecl decl =
   do

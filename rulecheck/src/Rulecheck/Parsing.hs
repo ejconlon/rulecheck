@@ -1,7 +1,7 @@
 module Rulecheck.Parsing
   ( ParseErr (..)
   , fakeFilePath
-  , getRules
+  , getParsedRuleDecls
   , parseModule
   ) where
 
@@ -33,8 +33,15 @@ runParser filename contents parser = do
 fakeFilePath :: FilePath
 fakeFilePath = "<interactive>"
 
-getRules :: HsModule -> [RuleDecls GhcPs]
-getRules hsMod = concatMap getRuleDecl (hsmodDecls hsMod) where
+-- | Returns the rule declarations in this module. This resulting declarations
+--   do not contain type information. This function should NOT be used to obtain the
+--   `Rule` objects for fuzzing; for that, you should use `getTypecheckedRuleDecls`
+--
+--   This function may be useful for a quick inspection of the rules in arbitrary
+--   Haskell files, as it operates on a parsed AST (and therefore does not require
+--   importing modules, typechecking, etc.)
+getParsedRuleDecls :: HsModule -> [RuleDecls GhcPs]
+getParsedRuleDecls hsMod = concatMap getRuleDecl (hsmodDecls hsMod) where
   getRuleDecl decl | RuleD _ ruleDecls <- unLoc decl = [ruleDecls]
   getRuleDecl _ = []
 

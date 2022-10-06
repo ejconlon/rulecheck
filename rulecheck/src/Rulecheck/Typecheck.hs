@@ -48,6 +48,7 @@ typecheck filename =
         Just c  -> loadCradle c
         Nothing -> loadImplicitCradle filename
 
+-- | For debugging only
 getNameUnsafe :: TypecheckedModule -> String -> Maybe Name
 getNameUnsafe tcm symName =
   let
@@ -55,12 +56,14 @@ getNameUnsafe tcm symName =
   in
     find (\n -> showSDocUnsafe (ppr n) == symName) topScope
 
+-- | For debugging only
 getBinds :: TypecheckedModule -> [LHsBindLR GhcTc GhcTc]
 getBinds tcm = bagToList $ typecheckedSource tcm
 
 getTypecheckedRuleDecls :: TypecheckedModule -> [LRuleDecl GhcTc]
 getTypecheckedRuleDecls tcm = tcg_rules $ fst $ tm_internals_ tcm
 
+-- | For debugging only
 getTypeForNameUnsafe :: TypecheckedModule -> String -> GhcM a (Maybe Kind)
 getTypeForNameUnsafe tcm symName
   | Just name <- getNameUnsafe tcm symName
@@ -73,10 +76,15 @@ getTypeForNameUnsafe tcm symName
   | otherwise = return Nothing
 
 
+-- | For debugging only
 getModuleTopLevelScope :: TypecheckedModule -> [String]
 getModuleTopLevelScope m =
   map (showSDocUnsafe . ppr) $ fromJust $ modInfoTopLevelScope $ moduleInfo m
 
+-- | Obtains the type of a given expression. Note that this requires converting
+--   the expression to Core and computing the resulting type.
+--   In GHC 9.4.2, this can be done in a pure fashion, see:
+--   https://hackage.haskell.org/package/ghc-9.4.2/docs/GHC-Hs-Syn-Type.html
 getType :: HscEnv -> LHsExpr GhcTc -> IO (Maybe Kind)
 getType env expr = do
   (_, coreExpr) <- deSugarExpr env expr
