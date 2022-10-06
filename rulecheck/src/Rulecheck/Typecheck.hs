@@ -1,9 +1,8 @@
 module Rulecheck.Typecheck
   ( getBinds
   , getNameUnsafe
-  , getRuleArguments
-  , getRuleBody
-  , getTypecheckedRules
+  , getType
+  , getTypecheckedRuleDecls
   , getTypeForNameUnsafe
   , typecheck
   ) where
@@ -14,8 +13,10 @@ import Data.Maybe (fromJust)
 import Data.Void (Void)
 import HIE.Bios
 import Rulecheck.Monad (GhcM)
-import GHC
+import GHC hiding (exprType)
+import GHC.Core.Utils (exprType)
 import GHC.Tc.Types
+import GHC.HsToCore
 import GHC.Data.Bag (bagToList)
 import GHC.Utils.Outputable
 import GHC.Types.Var(Var, varType)
@@ -57,27 +58,8 @@ getNameUnsafe tcm symName =
 getBinds :: TypecheckedModule -> [LHsBindLR GhcTc GhcTc]
 getBinds tcm = bagToList $ typecheckedSource tcm
 
-getTypecheckedRules :: TypecheckedModule -> [LRuleDecl GhcTc]
-getTypecheckedRules tcm = tcg_rules $ fst $ tm_internals_ tcm
-
--- | Returns the left and right-hand-sides of the rule
-getRuleBody :: LRuleDecl GhcTc -> (HsExpr GhcTc, HsExpr GhcTc)
-getRuleBody decl =
-  let
-    decl' = unLoc decl
-  in
-    (unLoc (rd_lhs decl'), unLoc (rd_rhs decl'))
-
-getRuleArguments :: LRuleDecl GhcTc -> [Var]
-getRuleArguments decl =
-  let
-    args = rd_tmvs (unLoc decl)
-  in
-    map (getID . unLoc) args
-
-  where
-    getID (RuleBndr _ id) = unLoc id
-    getID _               = error "unimplemented" -- TODO
+getTypecheckedRuleDecls :: TypecheckedModule -> [LRuleDecl GhcTc]
+getTypecheckedRuleDecls tcm = tcg_rules $ fst $ tm_internals_ tcm
 
 getTypeForNameUnsafe :: TypecheckedModule -> String -> GhcM a (Maybe Kind)
 getTypeForNameUnsafe tcm symName
@@ -94,3 +76,8 @@ getTypeForNameUnsafe tcm symName
 getModuleTopLevelScope :: TypecheckedModule -> [String]
 getModuleTopLevelScope m =
   map (showSDocUnsafe . ppr) $ fromJust $ modInfoTopLevelScope $ moduleInfo m
+
+getType :: HscEnv -> LHsExpr GhcTc -> IO (Maybe Kind)
+getType env expr = do
+  (_, coreExpr) <- deSugarExpr env expr
+  return (exprType <$> coreExpr)

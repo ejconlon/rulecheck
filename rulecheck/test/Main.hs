@@ -11,6 +11,7 @@ import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Monad (runGhcM)
 import Rulecheck.Parsing (getRules, parseModule, fakeFilePath)
 import Rulecheck.Typecheck
+import Rulecheck.Rule
 
 -- For debugging
 -- import System.Log.Logger
@@ -70,48 +71,27 @@ testGetTypeForNameUnsafe = testCase "getTypeForName" $ do
     outputString (fromJust typ)
   expected @?= "main:DemoDomain.Expr\n-> main:DemoDomain.Expr -> main:DemoDomain.Expr"
 
-testGetTypecheckedRules :: TestTree
-testGetTypecheckedRules = testCase "getTypecheckedRules" $ do
-  -- For debugging
-  -- updateGlobalLogger "hie-bios" $ setLevel DEBUG
-  expected <- flip runGhcM () $ do
-    tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
-    let rules = getTypecheckedRules tcm
-    mapM outputString rules
-  mapM_ putStrLn expected
-
-testGetRuleBody :: TestTree
-testGetRuleBody = testCase "getRuleBody" $ do
+testGetRule :: TestTree
+testGetRule = testCase "getRule" $ do
   flip runGhcM () $ do
     tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
-    let [rule1, _] = getTypecheckedRules tcm
-    let [arg]     = getRuleArguments rule1
-    let (lhs, rhs) = getRuleBody rule1
-    arg' <- outputString arg
-    lhs' <- outputString lhs
-    rhs' <- outputString rhs
-    -- If this fails, make this test less fragile
+    let [rule1, _] = getTypecheckedRuleDecls tcm
+    rule <- ruleFromDecl rule1
+    let [arg] = ruleArgs rule
+    arg'    <- outputString arg -- A unique mangled name
+    argTyp  <- outputString (varType arg)
+    lhs'    <- outputString (ruleLHS rule)
+    rhs'    <- outputString (ruleRHS rule)
+    retType <- outputString (ruleLHSType rule)
+    liftIO $ argTyp   @?= "main:DemoDomain.Expr"
     liftIO $ lhs' @?= (arg' ++ " main:DemoDomain../ " ++ arg')
     liftIO $ rhs' @?= "main:DemoDomain.Const 1"
-
-testGetRuleArguments :: TestTree
-testGetRuleArguments = testCase "getRuleArguments" $ do
-  flip runGhcM () $ do
-    tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
-    let [rule1, _] = getTypecheckedRules tcm
-    let [rule1Arg] = getRuleArguments rule1
-    ident <- outputString rule1Arg
-    typ   <- outputString $ varType rule1Arg
-    liftIO $ typ   @?= "main:DemoDomain.Expr"
+    liftIO $ retType @?= "main:DemoDomain.Expr"
 
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
   [ testRender
   , testParse
   , testGetRules
-  -- Tests invoking typechecker must run sequentially
-  , testGetRuleBody
-  , after AllSucceed "getRuleBody" testGetRuleArguments
-  , after AllSucceed "getRuleArguments" testGetNameUnsafe
-  , after AllSucceed "getName" testGetTypeForNameUnsafe
+  , testGetRule
   ]
