@@ -15,7 +15,7 @@ library
       Rulecheck.Parsing
       Rulecheck.Rendering
       Rulecheck.Rule
-      Rulecheck.TestSketch
+      Rulecheck.Testing
       Rulecheck.Typecheck
   other-modules:
       Paths_rulecheck

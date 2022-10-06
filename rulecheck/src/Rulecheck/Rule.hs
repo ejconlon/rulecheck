@@ -1,22 +1,18 @@
 module Rulecheck.Rule
   ( Rule(..)
   , RuleSide(..)
-  , ruleArgs
-  , ruleLHS
-  , ruleRHS
-  , ruleLHSType
   , ruleFromDecl
   , sketchTestFunction
   ) where
 
-import Prelude hiding ((<>))
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Maybe (fromJust)
-import GHC
-import GHC.Types.Var(Var, varType)
-import GHC.Utils.Outputable
-import Rulecheck.Typecheck (getType)
+import GHC (GhcMonad (..), GhcTc, HsExpr, Kind, LHsExpr, LRuleDecl, RuleBndr (RuleBndr), RuleDecl (..), unLoc)
+import GHC.Types.Var (Var, varType)
+import GHC.Utils.Outputable (Outputable (..), SDoc, parens, pprWithCommas, text, ($+$), (<+>))
+import Prelude hiding ((<>))
 import Rulecheck.Monad (GhcM)
+import Rulecheck.Typecheck (getType)
 
 data RuleSide = LHS | RHS
 
@@ -51,13 +47,13 @@ getRuleArguments decl =
     map (getID . unLoc) args
 
   where
-    getID (RuleBndr _ id) = unLoc id
+    getID (RuleBndr _ ident) = unLoc ident
     getID _               = error "unimplemented" -- TODO
 
 -- | Obtains a `Rule` from the corresponding typechecked rule declaration
 -- Note that this requires interacting with GHC to get the type of the LHS of the rule
 -- See `getType` for more details.
-ruleFromDecl :: LRuleDecl GhcTc -> GhcM a Rule
+ruleFromDecl :: LRuleDecl GhcTc -> GhcM Rule
 ruleFromDecl decl =
   do
     let args       = getRuleArguments decl
@@ -82,5 +78,5 @@ sketchTestFunction rule side =
 
   where
     asTuple []     = undefined
-    asTuple [elem] = ppr elem
+    asTuple [el] = ppr el
     asTuple elems  = parens $ pprWithCommas ppr elems

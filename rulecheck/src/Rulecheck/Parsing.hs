@@ -5,14 +5,14 @@ module Rulecheck.Parsing
   , parseModule
   ) where
 
-import Control.Monad.Catch (MonadThrow (..))
 import Control.Exception (Exception)
-import GHC.Plugins (unLoc, Located, HasDynFlags (..), mkRealSrcLoc, mkFastString)
-import GHC.Hs (GhcPs, HsDecl(..), RuleDecls, HsModule(..))
-import GHC.Parser.Lexer (ParseResult(..), P (..), mkPState, getErrorMessages)
+import Control.Monad.Catch (MonadThrow (..))
 import Data.Foldable (toList)
 import GHC.Data.StringBuffer (stringToStringBuffer)
+import GHC.Hs (GhcPs, HsDecl (..), HsModule (..), RuleDecls)
 import qualified GHC.Parser as GP
+import GHC.Parser.Lexer (P (..), ParseResult (..), getErrorMessages, mkPState)
+import GHC.Plugins (HasDynFlags (..), Located, mkFastString, mkRealSrcLoc, unLoc)
 
 newtype ParseErr =
     ParseErr [String]

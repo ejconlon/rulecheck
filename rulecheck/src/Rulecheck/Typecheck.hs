@@ -7,46 +7,31 @@ module Rulecheck.Typecheck
   , typecheck
   ) where
 
-import Control.Monad.IO.Class (MonadIO (..))
 import Data.List (find)
 import Data.Maybe (fromJust)
-import Data.Void (Void)
-import HIE.Bios
-import Rulecheck.Monad (GhcM)
-import GHC hiding (exprType)
+import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, Name, TyThing (..), TypecheckedMod (..),
+            TypecheckedModule (..), getModuleGraph, mgModSummaries, modInfoLookupName, modInfoTopLevelScope,
+            parseModule, typecheckModule)
 import GHC.Core.Utils (exprType)
-import GHC.Tc.Types
-import GHC.HsToCore
 import GHC.Data.Bag (bagToList)
-import GHC.Utils.Outputable
-import GHC.Types.Var(Var, varType)
+import GHC.HsToCore (deSugarExpr)
+import GHC.Tc.Types (TcGblEnv (..))
+import GHC.Types.Var (varType)
+import GHC.Utils.Outputable (Outputable (..), showSDocUnsafe)
+import HIE.Bios (loadFile)
+import Rulecheck.Monad (GhcM)
 
-typecheck :: String -> GhcM a TypecheckedModule
-typecheck filename =
-  do
-    cradle            <- liftIO getCradle
-    compileOptsResult <- liftIO $ getCompilerOptions filename cradle
-    let opts = fromCradleLoadResult compileOptsResult
-    _                <- initSession opts
-    -- For some reason, this does not return the expected result.
-    -- Get the typechecked module from the dependency graph.
-    _                <- loadFile (filename, filename)
-    graph            <- getModuleGraph
-    let [modSummary] = mgModSummaries graph
-    parsed           <- parseModule modSummary
-    typecheckModule parsed
-
-  where
-
-    fromCradleLoadResult (CradleSuccess r) = r
-    fromCradleLoadResult other             = error (show other)
-
-    getCradle :: IO (Cradle Void)
-    getCradle = do
-      maybeCradle <- findCradle filename
-      case maybeCradle of
-        Just c  -> loadCradle c
-        Nothing -> loadImplicitCradle filename
+typecheck :: String -> GhcM TypecheckedModule
+typecheck filename = do
+  -- For some reason, this does not return the expected result.
+  -- Get the typechecked module from the dependency graph.
+  _                <- loadFile (filename, filename)
+  graph            <- getModuleGraph
+  case mgModSummaries graph of
+    [modSummary] ->  do
+      parsed <- parseModule modSummary
+      typecheckModule parsed
+    _ -> fail "Expected one module"
 
 -- | For debugging only
 getNameUnsafe :: TypecheckedModule -> String -> Maybe Name
@@ -64,14 +49,14 @@ getTypecheckedRuleDecls :: TypecheckedModule -> [LRuleDecl GhcTc]
 getTypecheckedRuleDecls tcm = tcg_rules $ fst $ tm_internals_ tcm
 
 -- | For debugging only
-getTypeForNameUnsafe :: TypecheckedModule -> String -> GhcM a (Maybe Kind)
+getTypeForNameUnsafe :: TypecheckedModule -> String -> GhcM (Maybe Kind)
 getTypeForNameUnsafe tcm symName
   | Just name <- getNameUnsafe tcm symName
   = do
       thing <- modInfoLookupName (moduleInfo tcm) name
       return $ case thing of
-        Just (AnId id) -> Just $ varType id
-        Just _         -> undefined -- TODO
+        Just (AnId ident) -> Just $ varType ident
+        Just _         -> error "TODO"
         Nothing        -> Nothing
   | otherwise = return Nothing
 

@@ -4,15 +4,16 @@ module Rulecheck.Rendering
   , outputString
   ) where
 
-import GHC.ThToHs (convertToHsDecls)
-import GHC.Utils.Error (MsgDoc)
-import GHC.Hs.Decls (LHsDecl)
-import GHC.Hs.Extension (GhcPs)
-import Language.Haskell.TH.Syntax (Dec)
-import GHC.Plugins (UnhelpfulSpanReason (..), Origin (..), SrcSpan (..), Outputable (..), HasDynFlags (..), PprStyle (..), reallyAlwaysQualify)
-import GHC.Utils.Outputable (SDoc, vcat, renderWithStyle, initSDocContext)
 import Control.Exception (Exception)
 import Control.Monad.Catch (MonadThrow, throwM)
+import GHC.Hs.Decls (LHsDecl)
+import GHC.Hs.Extension (GhcPs)
+import GHC.Plugins (HasDynFlags (..), Origin (..), Outputable (..), PprStyle (..), SrcSpan (..),
+                    UnhelpfulSpanReason (..), reallyAlwaysQualify)
+import GHC.ThToHs (convertToHsDecls)
+import GHC.Utils.Error (MsgDoc)
+import GHC.Utils.Outputable (SDoc, initSDocContext, renderWithStyle, vcat)
+import Language.Haskell.TH.Syntax (Dec)
 
 -- Convert a sequence of TH declarations (abstract syntax) to HS declarations (concrete syntax)
 convertThDecls :: [Dec] -> Either MsgDoc [LHsDecl GhcPs]

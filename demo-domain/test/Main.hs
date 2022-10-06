@@ -1,7 +1,7 @@
 module Main where
 
-import DemoDomain
 import Data.Map as Map
+import DemoDomain
 
 main :: IO ()
 main = do

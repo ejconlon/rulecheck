@@ -30,8 +30,10 @@ newline: lf
 
 language_extensions:
   - DataKinds
+  - DerivingStrategies
   - ExplicitForAll
   - FlexibleContexts
+  - GeneralizedNewtypeDeriving
   - LambdaCase
   - MultiParamTypeClasses
   - MultiWayIf
