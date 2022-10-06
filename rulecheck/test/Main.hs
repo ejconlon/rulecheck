@@ -2,15 +2,15 @@ module Main (main) where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe
-import GHC (TyThing(..))
-import GHC.Plugins (showSDocUnsafe, ppr, unLoc)
+import GHC (getLoc, TyThing(..))
+import GHC.Plugins (varType, showSDocUnsafe, ppr, unLoc)
 import Test.Tasty (DependencyType(..), TestTree, after, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Language.Haskell.TH.Syntax (Q, Exp (..), Dec (..), Body (..), Pat (..), Lit (..), Clause (..), newName, runQ, mkName)
 import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Monad (runGhcM)
 import Rulecheck.Parsing (getRules, parseModule, fakeFilePath)
-import Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, typecheck)
+import Rulecheck.Typecheck
 
 -- For debugging
 -- import System.Log.Logger
@@ -64,19 +64,54 @@ testGetNameUnsafe = testCase "getName" $ do
 
 testGetTypeForNameUnsafe :: TestTree
 testGetTypeForNameUnsafe = testCase "getTypeForName" $ do
+  expected <- flip runGhcM () $ do
+    tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
+    typ      <- getTypeForNameUnsafe tcm ".*"
+    outputString (fromJust typ)
+  expected @?= "main:DemoDomain.Expr\n-> main:DemoDomain.Expr -> main:DemoDomain.Expr"
+
+testGetTypecheckedRules :: TestTree
+testGetTypecheckedRules = testCase "getTypecheckedRules" $ do
   -- For debugging
   -- updateGlobalLogger "hie-bios" $ setLevel DEBUG
-  Just typ <- flip runGhcM () $ do
-    tcm <- typecheck "../demo-domain/src/DemoDomain.hs"
-    getTypeForNameUnsafe tcm ".*"
-  showSDocUnsafe (ppr typ) @?= "Expr -> Expr -> Expr"
+  expected <- flip runGhcM () $ do
+    tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
+    let rules = getTypecheckedRules tcm
+    mapM outputString rules
+  mapM_ putStrLn expected
+
+testGetRuleBody :: TestTree
+testGetRuleBody = testCase "getRuleBody" $ do
+  flip runGhcM () $ do
+    tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
+    let [rule1, _] = getTypecheckedRules tcm
+    let [arg]     = getRuleArguments rule1
+    let (lhs, rhs) = getRuleBody rule1
+    arg' <- outputString arg
+    lhs' <- outputString lhs
+    rhs' <- outputString rhs
+    -- If this fails, make this test less fragile
+    liftIO $ lhs' @?= (arg' ++ " main:DemoDomain../ " ++ arg')
+    liftIO $ rhs' @?= "main:DemoDomain.Const 1"
+
+testGetRuleArguments :: TestTree
+testGetRuleArguments = testCase "getRuleArguments" $ do
+  flip runGhcM () $ do
+    tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
+    let [rule1, _] = getTypecheckedRules tcm
+    let [rule1Arg] = getRuleArguments rule1
+    ident <- outputString rule1Arg
+    typ   <- outputString $ varType rule1Arg
+    liftIO $ typ   @?= "main:DemoDomain.Expr"
 
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
   [ testRender
   , testParse
   , testGetRules
-  , testGetNameUnsafe
-  -- Otherwise a ".hie" file will be busy
+  -- Tests invoking typechecker must run sequentially
+  , testGetRuleBody
+  , after AllSucceed "getRuleBody" testGetRuleArguments
+  , after AllSucceed "getRuleArguments" testGetNameUnsafe
   , after AllSucceed "getName" testGetTypeForNameUnsafe
   ]
