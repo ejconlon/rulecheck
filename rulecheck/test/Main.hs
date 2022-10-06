@@ -3,7 +3,7 @@ module Main (main) where
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe
 import GHC.Plugins (varType, unLoc)
-import Test.Tasty (TestTree, defaultMain, testGroup)
+import Test.Tasty (DependencyType(..), after, TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Language.Haskell.TH.Syntax (Q, Exp (..), Dec (..), Body (..), Pat (..), Lit (..), Clause (..), newName, runQ, mkName)
 import Rulecheck.Rendering (convertAndRender, outputString)
@@ -87,10 +87,25 @@ testGetRule = testCase "getRule" $ do
     liftIO $ rhs' @?= "main:DemoDomain.Const 1"
     liftIO $ retType @?= "main:DemoDomain.Expr"
 
+testSketchTestFunction :: TestTree
+testSketchTestFunction = testCase "sketchTestFunction" $ do
+  flip runGhcM () $ do
+    tcm      <- typecheck "../demo-domain/src/DemoDomain.hs"
+    let [rule1, _] = getTypecheckedRuleDecls tcm
+    rule <- ruleFromDecl rule1
+    let [arg] = ruleArgs rule
+    arg'    <- outputString arg -- A unique mangled name
+    tf      <- outputString (sketchTestFunction rule LHS)
+    let [sig, body] = lines tf
+    liftIO $ sig  @?= "test :: main:DemoDomain.Expr -> main:DemoDomain.Expr"
+    liftIO $ body @?= ("test " ++ arg' ++ " = " ++ arg' ++ " main:DemoDomain../ " ++ arg')
+
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
   [ testRender
   , testParse
   , testGetParsedRuleDecls
   , testGetRule
+  -- Tests involving typechecking on the same module cannot be run concurrently
+  , after AllFinish "getRule" testSketchTestFunction
   ]
