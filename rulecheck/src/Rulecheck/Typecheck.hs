@@ -1,12 +1,14 @@
-module Rulecheck.Typecheck (getNameUnsafe, typecheck) where
+module Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, typecheck) where
 
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.List (find)
 import Data.Maybe (fromJust)
+import Data.Void (Void)
 import HIE.Bios
 import Rulecheck.Monad (GhcM)
 import GHC
 import GHC.Utils.Outputable
+import GHC.Types.Var(varType)
 
 typecheck :: String -> GhcM a TypecheckedModule
 typecheck filename =
@@ -28,8 +30,12 @@ typecheck filename =
     fromCradleLoadResult (CradleSuccess r) = r
     fromCradleLoadResult other             = error (show other)
 
-    getCradle :: IO (Cradle ())
-    getCradle = loadImplicitCradle filename
+    getCradle :: IO (Cradle Void)
+    getCradle = do
+      maybeCradle <- findCradle filename
+      case maybeCradle of
+        Just c  -> loadCradle c
+        Nothing -> loadImplicitCradle filename
 
 getNameUnsafe :: TypecheckedModule -> String -> Maybe Name
 getNameUnsafe tcm symName =
@@ -37,6 +43,18 @@ getNameUnsafe tcm symName =
     topScope = fromJust $ modInfoTopLevelScope (moduleInfo tcm)
   in
     find (\n -> showSDocUnsafe (ppr n) == symName) topScope
+
+getTypeForNameUnsafe :: TypecheckedModule -> String -> GhcM a (Maybe Kind)
+getTypeForNameUnsafe tcm symName
+  | Just name <- getNameUnsafe tcm symName
+  = do
+      thing <- modInfoLookupName (moduleInfo tcm) name
+      return $ case thing of
+        Just (AnId id) -> Just $ varType id
+        Just _         -> undefined -- TODO
+        Nothing        -> Nothing
+  | otherwise = return Nothing
+
 
 getModuleTopLevelScope :: TypecheckedModule -> [String]
 getModuleTopLevelScope m =

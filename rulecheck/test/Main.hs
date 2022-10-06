@@ -2,14 +2,15 @@ module Main (main) where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe
-import GHC.Plugins (unLoc)
-import Test.Tasty (TestTree, defaultMain, testGroup)
+import GHC (TyThing(..))
+import GHC.Plugins (showSDocUnsafe, ppr, unLoc)
+import Test.Tasty (DependencyType(..), TestTree, after, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Language.Haskell.TH.Syntax (Q, Exp (..), Dec (..), Body (..), Pat (..), Lit (..), Clause (..), newName, runQ, mkName)
 import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Monad (runGhcM)
 import Rulecheck.Parsing (getRules, parseModule, fakeFilePath)
-import Rulecheck.Typecheck (getNameUnsafe, typecheck)
+import Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, typecheck)
 
 -- For debugging
 -- import System.Log.Logger
@@ -57,11 +58,18 @@ testGetRules = testCase "getRules" $ do
 
 testGetNameUnsafe :: TestTree
 testGetNameUnsafe = testCase "getName" $ do
-  -- For debugging
-  -- updateGlobalLogger "hie-bios" $ setLevel DEBUG
   tcm <- runGhcM (typecheck "../demo-domain/src/DemoDomain.hs") ()
   isJust (getNameUnsafe tcm ".*") @?= True
   isJust (getNameUnsafe tcm "NONEXISTANT") @?= False
+
+testGetTypeForNameUnsafe :: TestTree
+testGetTypeForNameUnsafe = testCase "getTypeForName" $ do
+  -- For debugging
+  -- updateGlobalLogger "hie-bios" $ setLevel DEBUG
+  Just typ <- flip runGhcM () $ do
+    tcm <- typecheck "../demo-domain/src/DemoDomain.hs"
+    getTypeForNameUnsafe tcm ".*"
+  showSDocUnsafe (ppr typ) @?= "Expr -> Expr -> Expr"
 
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
@@ -69,4 +77,6 @@ main = defaultMain $ testGroup "Rulecheck"
   , testParse
   , testGetRules
   , testGetNameUnsafe
+  -- Otherwise a ".hie" file will be busy
+  , after AllSucceed "getName" testGetTypeForNameUnsafe
   ]
