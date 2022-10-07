@@ -31,6 +31,7 @@ newline: lf
 language_extensions:
   - DataKinds
   - DerivingStrategies
+  - DerivingVia
   - ExplicitForAll
   - FlexibleContexts
   - GeneralizedNewtypeDeriving

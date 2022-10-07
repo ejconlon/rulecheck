@@ -3,8 +3,8 @@ module DemoDomain where
 import Control.Exception (Exception)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Test.QuickCheck (Arbitrary)
 import GHC.Generics (Generic)
+import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.Arbitrary.Generic (GenericArbitrary (..))
 
 data Expr =
