@@ -3,8 +3,13 @@ module Rulecheck.Rule
   , RuleSide(..)
   , ruleFromDecl
   , ruleSideDoc
+  , rulePairDoc
+  , ruleTestDoc
+  , ruleModuleHeaderDoc
+  , ruleModuleDoc
   ) where
 
+import Control.Monad (foldM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Char (isAlphaNum)
 import Data.List (isPrefixOf)
@@ -85,7 +90,7 @@ sanitizeName = sanitizeString . zString . fs_zenc
 sideString :: RuleSide -> String
 sideString = \case
   LHS -> "lhs"
-  RHS -> "lhs"
+  RHS -> "rhs"
 
 asTuple :: Outputable a => [a] -> SDoc
 asTuple [] = text "()"
@@ -103,10 +108,12 @@ hackReplaceIn src dest = go where
       else y : go ys
 
 -- awful - remove "main:" prefix anywhere in the text
+-- TODO maybe try a different strategy in renderSDoc?
+-- something instead of "let sty = PprDump reallyAlwaysQualify"
 hackReplaceMain :: (Functor m, HasDynFlags m) => Outputable a => a -> m SDoc
 hackReplaceMain = fmap (text . hackReplaceIn "main:" "") . outputString
 
--- | Renders a single side of the rule
+-- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
 ruleSideDoc :: (Monad m, HasDynFlags m) => Rule -> RuleSide -> m SDoc
 ruleSideDoc rule side = do
   let prefix = "fn_" ++ sideString side ++ "_"
@@ -119,3 +126,41 @@ ruleSideDoc rule side = do
   pure $!
     text name <+> text "::" <+> argTypes <+> text "->" <+> resultTyp $+$
     text name <+> args' <+> text "=" <+> body
+
+-- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
+rulePairDoc :: Rule -> SDoc
+rulePairDoc rule =
+  let prefixLhs = "fn_" ++ sideString LHS ++ "_"
+      prefixRhs = "fn_" ++ sideString RHS ++ "_"
+      bareName = sanitizeName (ruleName rule)
+      nameLhs = prefixLhs ++ bareName
+      nameRhs = prefixRhs ++ bareName
+      nameRule = "rule_" ++ bareName
+  in text nameRule <+> text ":: SomeTestableRule" $+$
+     text nameRule <+> text "= SomeTestableRule" <+> parens (text "TestableRule" <+> text nameLhs <+> text nameRhs)
+
+-- | Renders the rule test defn like "test_NAME :: TestTree \n test_NAME = ..."
+ruleTestDoc :: Rule -> SDoc
+ruleTestDoc rule =
+  let bareName = sanitizeName (ruleName rule)
+      nameRule = "rule_" ++ bareName
+      nameTest = "test_" ++ bareName
+      nameQuot = "\"" ++ bareName ++ "\""
+  in text nameTest <+> text ":: TestTree" $+$
+     text nameTest <+> text "= testSomeTestableRule" <+> text nameQuot <+> text nameRule
+
+-- | Renders the test module header
+ruleModuleHeaderDoc :: String -> SDoc
+ruleModuleHeaderDoc modName =
+  text "module" <+> text modName <+> text "where" $+$
+  text "import Test.Tasty (TestTree)" $+$
+  text "import Rulecheck.Testing (SomeTestableRule (..), TestableRule (..), testSomeTestableRule)"
+
+-- | Renders the entire test module
+ruleModuleDoc :: (Monad m, HasDynFlags m) => String -> [Rule] -> m SDoc
+ruleModuleDoc modName rules =
+  let f r = do
+        lhs <- ruleSideDoc r LHS
+        rhs <- ruleSideDoc r RHS
+        pure (lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r)
+  in foldM (\x r -> fmap (x $+$) (f r)) (ruleModuleHeaderDoc modName) rules
