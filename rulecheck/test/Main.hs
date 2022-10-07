@@ -85,24 +85,25 @@ testGetRule = testCase "getRule" $ do
     argTyp  <- outputString (varType arg)
     lhs'    <- outputString (ruleLHS rule)
     rhs'    <- outputString (ruleRHS rule)
-    retType <- outputString (ruleLHSType rule)
+    retType <- outputString (ruleType rule)
     liftIO $ argTyp   @?= "main:DemoDomain.Expr"
     liftIO $ lhs' @?= (arg' ++ " main:DemoDomain../ " ++ arg')
     liftIO $ rhs' @?= "main:DemoDomain.Const 1"
     liftIO $ retType @?= "main:DemoDomain.Expr"
 
-testSketchTestFunction :: TestTree
-testSketchTestFunction = testCase "sketchTestFunction" $ do
+testRuleSideDoc :: TestTree
+testRuleSideDoc = testCase "ruleSidedoc" $ do
   cradleGhcM demoDomainFile $ do
-    tcm      <- typecheck demoDomainFile
+    tcm <- typecheck demoDomainFile
     let [rule1, _] = getTypecheckedRuleDecls tcm
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
-    arg'    <- outputString arg -- A unique mangled name
-    tf      <- outputString (ruleSideDoc rule LHS)
+    arg' <- outputString arg -- A unique mangled name
+    doc <- ruleSideDoc rule LHS
+    tf <- outputString doc
     let [sig, body] = lines tf
-    liftIO $ sig  @?= "fn_lhs_divzuid :: main:DemoDomain.Expr -> main:DemoDomain.Expr"
-    liftIO $ body @?= ("fn_lhs_divzuid " ++ arg' ++ " = " ++ arg' ++ " main:DemoDomain../ " ++ arg')
+    liftIO $ sig  @?= "fn_lhs_divzuid :: DemoDomain.Expr -> DemoDomain.Expr"
+    liftIO $ body @?= ("fn_lhs_divzuid " ++ arg' ++ " = " ++ arg' ++ " DemoDomain../ " ++ arg')
 
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
@@ -111,5 +112,5 @@ main = defaultMain $ testGroup "Rulecheck"
   , testGetParsedRuleDecls
   , testGetRule
   -- Tests involving typechecking on the same module cannot be run concurrently
-  , after AllFinish "getRule" testSketchTestFunction
+  , after AllFinish "getRule" testRuleSideDoc
   ]

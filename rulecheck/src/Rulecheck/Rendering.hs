@@ -1,5 +1,6 @@
 module Rulecheck.Rendering
   ( ConvertErr (..)
+  , renderSDoc
   , convertAndRender
   , outputString
   ) where
