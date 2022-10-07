@@ -53,8 +53,12 @@ tests:
     - -with-rtsopts=-N
     - -O0
     - -fno-enable-rewrite-rules
+    build-tools:
+      tasty-discover:tasty-discover
     dependencies:
     - rulecheck
     - demo-domain
+    - QuickCheck
     - tasty
     - tasty-hunit
+    - tasty-quickcheck
