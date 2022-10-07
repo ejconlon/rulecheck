@@ -1,15 +1,15 @@
 module Main (main) where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.Maybe
+import Data.Maybe (fromJust, isJust)
 import GHC.Plugins (unLoc, varType)
 import Language.Haskell.TH.Syntax (Body (..), Clause (..), Dec (..), Exp (..), Lit (..), Pat (..), Q, mkName, newName,
                                    runQ)
 import Rulecheck.Monad (cradleGhcM, runGhcM)
 import Rulecheck.Parsing (fakeFilePath, getParsedRuleDecls, parseModule)
 import Rulecheck.Rendering (convertAndRender, outputString)
-import Rulecheck.Rule
-import Rulecheck.Typecheck
+import Rulecheck.Rule (Rule (..), RuleSide (..), ruleFromDecl, ruleSideDoc)
+import Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, getTypecheckedRuleDecls, typecheck)
 import Test.Tasty (DependencyType (..), TestTree, after, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 
@@ -99,10 +99,10 @@ testSketchTestFunction = testCase "sketchTestFunction" $ do
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
     arg'    <- outputString arg -- A unique mangled name
-    tf      <- outputString (sketchTestFunction rule LHS)
+    tf      <- outputString (ruleSideDoc rule LHS)
     let [sig, body] = lines tf
-    liftIO $ sig  @?= "divzuid :: main:DemoDomain.Expr -> main:DemoDomain.Expr"
-    liftIO $ body @?= ("divzuid " ++ arg' ++ " = " ++ arg' ++ " main:DemoDomain../ " ++ arg')
+    liftIO $ sig  @?= "fn_lhs_divzuid :: main:DemoDomain.Expr -> main:DemoDomain.Expr"
+    liftIO $ body @?= ("fn_lhs_divzuid " ++ arg' ++ " = " ++ arg' ++ " main:DemoDomain../ " ++ arg')
 
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"

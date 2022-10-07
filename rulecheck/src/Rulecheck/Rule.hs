@@ -2,7 +2,7 @@ module Rulecheck.Rule
   ( Rule(..)
   , RuleSide(..)
   , ruleFromDecl
-  , sketchTestFunction
+  , ruleSideDoc
   ) where
 
 import Control.Monad.IO.Class (MonadIO (..))
@@ -78,12 +78,18 @@ sanitizeString = map (\c -> if isAlphaNum c then c else '_')
 sanitizeName :: RuleName -> String
 sanitizeName = sanitizeString . zString . fs_zenc
 
--- | Presents a sketch on what one of the test functions should look like.
---   A more robust implementation would construct a valid AST
-sketchTestFunction :: Rule -> RuleSide -> SDoc
-sketchTestFunction rule side =
+-- | Just a string prefix for a rule side
+sideString :: RuleSide -> String
+sideString = \case
+  LHS -> "lhs"
+  RHS -> "lhs"
+
+-- | Renders a single side of the rule
+ruleSideDoc :: Rule -> RuleSide -> SDoc
+ruleSideDoc rule side =
   let
-    name      = sanitizeName (ruleName rule)
+    prefix    = "fn_" ++ sideString side ++ "_"
+    name      = prefix ++ sanitizeName (ruleName rule)
     args      = ruleArgs rule
     body      = ppr $ getSide side rule
     argTypes  = asTuple $ map varType args
