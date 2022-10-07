@@ -12,5 +12,11 @@ cradle:
     - path: "rulecheck/src"
       component: "rulecheck:lib"
 
+    - path: "rulecheck/exe/Main.hs"
+      component: "rulecheck:exe:rulecheck-exe"
+
+    - path: "rulecheck/exe/Paths_rulecheck.hs"
+      component: "rulecheck:exe:rulecheck-exe"
+
     - path: "rulecheck/test"
       component: "rulecheck:test:rulecheck-test"

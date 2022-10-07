@@ -101,8 +101,8 @@ testSketchTestFunction = testCase "sketchTestFunction" $ do
     arg'    <- outputString arg -- A unique mangled name
     tf      <- outputString (sketchTestFunction rule LHS)
     let [sig, body] = lines tf
-    liftIO $ sig  @?= "test :: main:DemoDomain.Expr -> main:DemoDomain.Expr"
-    liftIO $ body @?= ("test " ++ arg' ++ " = " ++ arg' ++ " main:DemoDomain../ " ++ arg')
+    liftIO $ sig  @?= "divzuid :: main:DemoDomain.Expr -> main:DemoDomain.Expr"
+    liftIO $ body @?= ("divzuid " ++ arg' ++ " = " ++ arg' ++ " main:DemoDomain../ " ++ arg')
 
 main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"

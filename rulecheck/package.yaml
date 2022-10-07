@@ -15,6 +15,8 @@ dependencies:
 - hie-bios
 - template-haskell
 - hslogger
+# For debugging
+- pretty-simple
 # These are for prototyping the test interface:
 - QuickCheck
 - tasty
@@ -64,17 +66,16 @@ ghc-options:
 library:
   source-dirs: src
 
-# TODO resurrect when we're ready to process files
-# executables:
-#   rulecheck-exe:
-#     main:                Main.hs
-#     source-dirs:         exe
-#     ghc-options:
-#     - -threaded
-#     - -rtsopts
-#     - -with-rtsopts=-N
-#     dependencies:
-#     - rulecheck
+executables:
+  rulecheck-exe:
+    main:                Main.hs
+    source-dirs:         exe
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - rulecheck
 
 tests:
   rulecheck-test:

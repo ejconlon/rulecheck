@@ -6,8 +6,11 @@ module Rulecheck.Rule
   ) where
 
 import Control.Monad.IO.Class (MonadIO (..))
+import Data.Char (isAlphaNum)
 import Data.Maybe (fromJust)
 import GHC (GhcMonad (..), GhcTc, HsExpr, Kind, LHsExpr, LRuleDecl, RuleBndr (RuleBndr), RuleDecl (..), unLoc)
+import GHC.Data.FastString (fs_zenc, zString)
+import GHC.Types.Basic (RuleName)
 import GHC.Types.Var (Var, varType)
 import GHC.Utils.Outputable (Outputable (..), SDoc, parens, pprWithCommas, text, ($+$), (<+>))
 import Prelude hiding ((<>))
@@ -19,7 +22,8 @@ data RuleSide = LHS | RHS
 -- | A `Rule` is obtained from a Haskell RULES declaration (`LRuleDecl`);
 --   it contains all of the information necessary to construct fuzzing test cases
 data Rule = Rule
-  { ruleArgs    :: [Var]
+  { ruleName    :: RuleName
+  , ruleArgs    :: [Var]
   , ruleLHS     :: HsExpr GhcTc
   , ruleRHS     :: HsExpr GhcTc
 
@@ -30,6 +34,9 @@ data Rule = Rule
 getSide :: RuleSide -> Rule -> HsExpr GhcTc
 getSide LHS = ruleLHS
 getSide RHS = ruleRHS
+
+getRuleName :: LRuleDecl GhcTc -> RuleName
+getRuleName = snd . unLoc . rd_name . unLoc
 
 -- | Returns the left and right-hand-sides of the rule
 getRuleBody :: LRuleDecl GhcTc -> (LHsExpr GhcTc, LHsExpr GhcTc)
@@ -58,23 +65,33 @@ ruleFromDecl decl =
   do
     let args       = getRuleArguments decl
     let (lhs, rhs) = getRuleBody decl
+    let name = getRuleName decl
     session <- getSession
     lhsTyp  <- liftIO $ getType session lhs
-    return $ Rule args (unLoc lhs) (unLoc rhs) (fromJust lhsTyp)
+    return $ Rule name args (unLoc lhs) (unLoc rhs) (fromJust lhsTyp)
+
+sanitizeString :: String -> String
+sanitizeString = map (\c -> if isAlphaNum c then c else '_')
+
+-- | Names can and often do contain characters that are not safe for identifiers.
+-- We just replace those characters with underscores.
+sanitizeName :: RuleName -> String
+sanitizeName = sanitizeString . zString . fs_zenc
 
 -- | Presents a sketch on what one of the test functions should look like.
 --   A more robust implementation would construct a valid AST
 sketchTestFunction :: Rule -> RuleSide -> SDoc
 sketchTestFunction rule side =
   let
+    name      = sanitizeName (ruleName rule)
     args      = ruleArgs rule
     body      = ppr $ getSide side rule
     argTypes  = asTuple $ map varType args
     resultTyp = ppr $ ruleLHSType rule
     args'     = asTuple args
   in
-    text "test ::" <+> argTypes <+> text "->" <+> resultTyp $+$
-    text "test" <+> args' <+> text "=" <+> body
+    text name <+> text "::" <+> argTypes <+> text "->" <+> resultTyp $+$
+    text name <+> args' <+> text "=" <+> body
 
   where
     asTuple []     = undefined

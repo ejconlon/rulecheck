@@ -9,9 +9,9 @@ module Rulecheck.Typecheck
 
 import Data.List (find)
 import Data.Maybe (fromJust)
-import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, Name, TyThing (..), TypecheckedMod (..),
-            TypecheckedModule (..), getModuleGraph, mgModSummaries, modInfoLookupName, modInfoTopLevelScope,
-            parseModule, typecheckModule)
+import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, ModuleName, Name, ParsedModule (pm_mod_summary),
+            TyThing (..), TypecheckedMod (..), TypecheckedModule (..), getModuleGraph, mgModSummaries,
+            modInfoLookupName, modInfoTopLevelScope, moduleName, ms_mod, parseModule, typecheckModule)
 import GHC.Core.Utils (exprType)
 import GHC.Data.Bag (bagToList)
 import GHC.HsToCore (deSugarExpr)
@@ -32,6 +32,9 @@ typecheck filename = do
       parsed <- parseModule modSummary
       typecheckModule parsed
     _ -> fail "Expected one module"
+
+tcmName :: TypecheckedModule -> ModuleName
+tcmName = moduleName . ms_mod . pm_mod_summary . tm_parsed_module
 
 -- | For debugging only
 getNameUnsafe :: TypecheckedModule -> String -> Maybe Name
