@@ -12,8 +12,10 @@ module Rulecheck.Rule
 import Control.Monad (foldM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Char (isAlphaNum)
+import Data.Foldable (foldl', toList)
 import Data.List (isPrefixOf)
 import Data.Maybe (fromJust)
+import Data.Set (Set)
 import GHC (GhcMonad (..), GhcTc, HsExpr, Kind, LHsExpr, LRuleDecl, RuleBndr (RuleBndr), RuleDecl (..), unLoc)
 import GHC.Data.FastString (fs_zenc, zString)
 import GHC.Driver.Session (HasDynFlags)
@@ -150,17 +152,18 @@ ruleTestDoc rule =
      text nameTest <+> text "= testSomeTestableRule" <+> text nameQuot <+> text nameRule
 
 -- | Renders the test module header
-ruleModuleHeaderDoc :: String -> SDoc
-ruleModuleHeaderDoc modName =
-  text "module" <+> text modName <+> text "where" $+$
-  text "import Test.Tasty (TestTree)" $+$
-  text "import Rulecheck.Testing (SomeTestableRule (..), TestableRule (..), testSomeTestableRule)"
+ruleModuleHeaderDoc :: String -> Set String -> SDoc
+ruleModuleHeaderDoc modName deps =
+  let start = text "module" <+> text modName <+> text "where" $+$
+        text "import Test.Tasty (TestTree)" $+$
+        text "import Rulecheck.Testing (SomeTestableRule (..), TestableRule (..), testSomeTestableRule)"
+  in foldl' (\x d -> x $+$ text "import qualified" <+> text d) start (toList deps)
 
 -- | Renders the entire test module
-ruleModuleDoc :: (Monad m, HasDynFlags m) => String -> [Rule] -> m SDoc
-ruleModuleDoc modName rules =
+ruleModuleDoc :: (Monad m, HasDynFlags m) => String -> Set String -> [Rule] -> m SDoc
+ruleModuleDoc modName deps rules =
   let f r = do
         lhs <- ruleSideDoc r LHS
         rhs <- ruleSideDoc r RHS
         pure (lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r)
-  in foldM (\x r -> fmap (x $+$) (f r)) (ruleModuleHeaderDoc modName) rules
+  in foldM (\x r -> fmap (x $+$) (f r)) (ruleModuleHeaderDoc modName deps) rules

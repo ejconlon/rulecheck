@@ -1,21 +1,22 @@
 module Rulecheck where
 
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering (outputString)
 import Rulecheck.Rule (ruleFromDecl, ruleModuleDoc)
 import Rulecheck.Typecheck (getTypecheckedRuleDecls, typecheck)
 
-generateFile :: FilePath -> String -> FilePath -> IO ()
-generateFile srcFile genModName _genModFile = do
+generateFile :: FilePath -> String -> Set String -> FilePath -> IO ()
+generateFile srcFile genModName genDeps genModFile = do
   modContents <- cradleGhcM srcFile $ do
     tcm <- typecheck srcFile
     let tcRules = getTypecheckedRuleDecls tcm
     rules <- traverse ruleFromDecl tcRules
-    modDoc <- ruleModuleDoc genModName rules
+    modDoc <- ruleModuleDoc genModName genDeps rules
     outputString modDoc
-  putStrLn modContents
-  -- TODO write the file
-  -- writeFile genModFile modContents
+  -- putStrLn modContents
+  writeFile genModFile modContents
 
 main :: IO ()
 main = do
@@ -23,4 +24,5 @@ main = do
   let srcFile = "demo-domain/src/DemoDomain.hs"
       genModName = "DemoTest.Generated.DemoDomain"
       genModFile = "demo-test/test/DemoTest/Generated/DemoDomain.hs"
-  generateFile srcFile genModName genModFile
+      genDeps = Set.fromList ["DemoDomain"]
+  generateFile srcFile genModName genDeps genModFile

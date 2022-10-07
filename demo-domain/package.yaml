@@ -4,6 +4,8 @@ version:             0.1.0
 dependencies:
 - base >= 4.12 && < 5
 - containers
+- QuickCheck
+- generic-arbitrary
 
 default-extensions:
 - BangPatterns

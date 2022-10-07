@@ -4,6 +4,7 @@ version:             0.1.0
 dependencies:
 - base >= 4.12 && < 5
 - ghc == 9.0.2
+- containers
 - exceptions
 - little-rio
 - little-logger
