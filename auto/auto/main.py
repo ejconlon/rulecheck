@@ -8,7 +8,42 @@ import requests as req
 
 RESOLVER = 'lts-19.27'
 PAGE = f'https://www.stackage.org/{RESOLVER}'
-BLACKLIST = set(['acme-foobar'])
+
+
+# These can't be unpacked - I think most are boot packages
+BLACKLIST = set([
+    'array',
+    'base',
+    'binary',
+    'bytestring',
+    'Cabal',
+    'containers',
+    'deepseq',
+    'directory',
+    'exceptions',
+    'filepath',
+    'ghc',
+    'ghc-bignum',
+    'ghc-prim',
+    'integer-gmp',
+    'mtl',
+    'parsec',
+    'pretty',
+    'process',
+    'stm',
+    'template-haskell',
+    'terminfo',
+    'text',
+    'time',
+    'transformers',
+    'unix',
+    'xhtml',
+])
+
+
+def parse_package(full_name: str) -> Dict[str, str]:
+    name, version = full_name.rsplit('-', maxsplit=1)
+    return {'name': name, 'version': version}
 
 
 def fake(listing: str):
@@ -26,8 +61,8 @@ def find(listing: Optional[str]):
     links = bs.find_all('a', attrs={'class': 'package-name'})
     packages: List[Dict[str, str]] = []
     for link in links:
-        print(link)
-        # TODO extract package name and version
+        package = parse_package(link.text)
+        packages.append(package)
     if listing is None:
         print(packages)
     else:
