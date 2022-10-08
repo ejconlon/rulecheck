@@ -1,0 +1,1087 @@
+[
+  {
+    "files": [
+      "src/Data/Functor/Rep.hs",
+      "src/Data/Functor/Contravariant/Rep.hs"
+    ],
+    "name": "adjunctions",
+    "version": "4.4.2"
+  },
+  {
+    "files": [
+      "tests/UnitTests.hs",
+      "src/Data/Aeson/Types/FromJSON.hs",
+      "src/Data/Aeson/Internal/ByteString.hs"
+    ],
+    "name": "aeson",
+    "version": "2.0.3.0"
+  },
+  {
+    "files": [
+      "src/full/Agda/TypeChecking/Monad/Base.hs",
+      "src/data/MAlonzo/src/MAlonzo/RTE.hs"
+    ],
+    "name": "Agda",
+    "version": "2.6.2.2"
+  },
+  {
+    "files": [
+      "src/Algebra/Graph.hs",
+      "src/Algebra/Graph/NonEmpty.hs",
+      "src/Algebra/Graph/AdjacencyIntMap.hs",
+      "src/Algebra/Graph/AdjacencyMap.hs",
+      "src/Algebra/Graph/NonEmpty/AdjacencyMap.hs"
+    ],
+    "name": "algebraic-graphs",
+    "version": "0.6.1"
+  },
+  {
+    "files": [
+      "Math/NumberTheory/Utils.hs",
+      "Math/NumberTheory/Powers/Modular.hs",
+      "Math/NumberTheory/Moduli/SomeMod.hs"
+    ],
+    "name": "arithmoi",
+    "version": "0.12.0.2"
+  },
+  {
+    "files": [
+      "src/Data/List/Compat.hs"
+    ],
+    "name": "base-compat",
+    "version": "0.11.2"
+  },
+  {
+    "files": [
+      "Basement/PrimType.hs",
+      "Basement/String.hs",
+      "Basement/UArray.hs",
+      "Basement/UTF8/Base.hs",
+      "Basement/UArray/Base.hs",
+      "Basement/Block/Base.hs"
+    ],
+    "name": "basement",
+    "version": "0.0.15"
+  },
+  {
+    "files": [
+      "src/Data/Biapplicative.hs"
+    ],
+    "name": "bifunctors",
+    "version": "5.5.13"
+  },
+  {
+    "files": [
+      "Data/BinaryList.hs"
+    ],
+    "name": "binary-list",
+    "version": "1.1.1.2"
+  },
+  {
+    "files": [
+      "src/Data/Bits/Extras.hs"
+    ],
+    "name": "bits",
+    "version": "0.6"
+  },
+  {
+    "files": [
+      "benchmarks/LazyByteString.hs"
+    ],
+    "name": "blaze-builder",
+    "version": "0.4.2.2"
+  },
+  {
+    "files": [
+      "Blaze/Text/Int.hs"
+    ],
+    "name": "blaze-textual",
+    "version": "0.2.2.1"
+  },
+  {
+    "files": [
+      "src/Data/Boring.hs"
+    ],
+    "name": "boring",
+    "version": "0.2"
+  },
+  {
+    "files": [
+      "src/Brick/Widgets/Core.hs"
+    ],
+    "name": "brick",
+    "version": "0.68.1"
+  },
+  {
+    "files": [
+      "Data/Byteable.hs"
+    ],
+    "name": "byteable",
+    "version": "0.1.1"
+  },
+  {
+    "files": [
+      "src/Data/ByteString/Short/Internal.hs",
+      "src/Data/ByteString/Builder/Internal.hs",
+      "src/Data/ByteString/Builder/Prim.hs"
+    ],
+    "name": "bytestring-builder",
+    "version": "0.10.8.2.0"
+  },
+  {
+    "files": [
+      "library/ByteString/StrictBuilder.hs"
+    ],
+    "name": "bytestring-strict-builder",
+    "version": "0.4.5.6"
+  },
+  {
+    "files": [
+      "src/Data/Trie/Internal/ByteString.hs"
+    ],
+    "name": "bytestring-trie",
+    "version": "0.2.7"
+  },
+  {
+    "files": [
+      "src/Data/Array/CArray/Base.hs"
+    ],
+    "name": "carray",
+    "version": "0.1.6.8"
+  },
+  {
+    "files": [
+      "Data/CaseInsensitive/Internal.hs"
+    ],
+    "name": "case-insensitive",
+    "version": "1.2.1.0"
+  },
+  {
+    "files": [
+      "src/Data/Csv/Encoding.hs",
+      "src/Data/Csv/Conversion/Internal.hs"
+    ],
+    "name": "cassava",
+    "version": "0.5.3.0"
+  },
+  {
+    "files": [
+      "src/Clash/Util/Interpolate.hs"
+    ],
+    "name": "clash-lib",
+    "version": "1.6.4"
+  },
+  {
+    "files": [
+      "src/Clash/Sized/Vector.hs",
+      "src/Clash/Sized/Internal/Unsigned.hs",
+      "src/Clash/Explicit/Signal.hs"
+    ],
+    "name": "clash-prelude",
+    "version": "1.6.4"
+  },
+  {
+    "files": [
+      "src/Graphics/Color/Adaptation/Internal.hs",
+      "src/Graphics/Color/Space/Internal.hs",
+      "src/Graphics/Color/Algebra/Elevator.hs"
+    ],
+    "name": "Color",
+    "version": "0.3.3"
+  },
+  {
+    "files": [
+      "src/Control/Lens/Cons/Extras.hs"
+    ],
+    "name": "concise",
+    "version": "0.1.0.1"
+  },
+  {
+    "files": [
+      "benchmarks/optimize-201408.hs",
+      "src/Data/Conduit/List.hs",
+      "src/Data/Conduit/Internal/Fusion.hs",
+      "src/Data/Conduit/Internal/Conduit.hs",
+      "src/Data/Conduit/Internal/Pipe.hs",
+      "src/Data/Conduit/Internal/List/Stream.hs"
+    ],
+    "name": "conduit",
+    "version": "1.3.4.2"
+  },
+  {
+    "files": [
+      "Crypto/Hash/SHA3.hs",
+      "Crypto/Hash/Skein256.hs",
+      "Crypto/Hash/SHA512.hs",
+      "Crypto/Hash/Skein512.hs"
+    ],
+    "name": "cryptohash",
+    "version": "0.11.9"
+  },
+  {
+    "files": [
+      "src/Data/CSV/Conduit/Conversion/Internal.hs"
+    ],
+    "name": "csv-conduit",
+    "version": "0.7.3.0"
+  },
+  {
+    "files": [
+      "Geom2D/CubicBezier/Basic.hs",
+      "Math/BernsteinPoly.hs"
+    ],
+    "name": "cubicbezier",
+    "version": "0.6.0.6"
+  },
+  {
+    "files": [
+      "test/extract/regression/RewriteRulesWithSigs.hs",
+      "test/extract/regression/RewriteRules.hs"
+    ],
+    "name": "doctest",
+    "version": "0.18.2"
+  },
+  {
+    "files": [
+      "test/extract/regression/RewriteRulesWithSigs.hs",
+      "test/extract/regression/RewriteRules.hs"
+    ],
+    "name": "doctest-parallel",
+    "version": "0.2.5"
+  },
+  {
+    "files": [
+      "Proof/Equational.hs"
+    ],
+    "name": "equational-reasoning",
+    "version": "0.7.0.1"
+  },
+  {
+    "files": [
+      "src/Data/OpenUnion.hs",
+      "src/Control/Eff/Internal.hs",
+      "src/Control/Eff/State/Lazy.hs",
+      "src/Control/Eff/State/OnDemand.hs",
+      "src/Control/Eff/State/Strict.hs"
+    ],
+    "name": "extensible-effects",
+    "version": "5.0.0.1"
+  },
+  {
+    "files": [
+      "Data/ByteString/FastBuilder/Internal.hs"
+    ],
+    "name": "fast-builder",
+    "version": "0.1.3.0"
+  },
+  {
+    "files": [
+      "Numeric/FastMath/NaN.hs",
+      "Numeric/FastMath/Approximation.hs",
+      "Numeric/FastMath/SignedZeros.hs"
+    ],
+    "name": "fast-math",
+    "version": "1.0.2"
+  },
+  {
+    "files": [
+      "Data/Graph/Inductive/PatriciaTree.hs"
+    ],
+    "name": "fgl",
+    "version": "5.7.0.3"
+  },
+  {
+    "files": [
+      "src/Data/Type/Nat.hs"
+    ],
+    "name": "fin",
+    "version": "0.2.1"
+  },
+  {
+    "files": [
+      "Data/Vector/Fixed/Cont.hs",
+      "Data/Vector/Fixed/Internal.hs"
+    ],
+    "name": "fixed-vector",
+    "version": "1.2.1.0"
+  },
+  {
+    "files": [
+      "src/Flat/Encoder/Strict.hs"
+    ],
+    "name": "flat",
+    "version": "0.4.4"
+  },
+  {
+    "files": [
+      "library/Focus.hs"
+    ],
+    "name": "focus",
+    "version": "1.0.3"
+  },
+  {
+    "files": [
+      "Foundation/Conduit/Internal.hs"
+    ],
+    "name": "foundation",
+    "version": "0.0.29"
+  },
+  {
+    "files": [
+      "data/examples/other/empty-forall-out.hs",
+      "data/examples/other/multiline-forall-out.hs",
+      "data/examples/other/empty-forall-four-out.hs",
+      "data/examples/other/empty-forall.hs",
+      "data/examples/other/multiline-forall-four-out.hs",
+      "data/examples/other/multiline-forall.hs",
+      "data/examples/declaration/rewrite-rule/prelude1.hs",
+      "data/examples/declaration/rewrite-rule/basic1-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-0-out.hs",
+      "data/examples/declaration/rewrite-rule/prelude4.hs",
+      "data/examples/declaration/rewrite-rule/prelude3-four-out.hs",
+      "data/examples/declaration/rewrite-rule/prelude4-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-1-four-out.hs",
+      "data/examples/declaration/rewrite-rule/basic2.hs",
+      "data/examples/declaration/rewrite-rule/prelude2-out.hs",
+      "data/examples/declaration/rewrite-rule/type-signature.hs",
+      "data/examples/declaration/rewrite-rule/forall-0-four-out.hs",
+      "data/examples/declaration/rewrite-rule/empty-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-1-out.hs",
+      "data/examples/declaration/rewrite-rule/prelude2-four-out.hs",
+      "data/examples/declaration/rewrite-rule/basic2-out.hs",
+      "data/examples/declaration/rewrite-rule/basic1-four-out.hs",
+      "data/examples/declaration/rewrite-rule/phase-four-out.hs",
+      "data/examples/declaration/rewrite-rule/empty-four-out.hs",
+      "data/examples/declaration/rewrite-rule/phase-out.hs",
+      "data/examples/declaration/rewrite-rule/type-signature-four-out.hs",
+      "data/examples/declaration/rewrite-rule/phase.hs",
+      "data/examples/declaration/rewrite-rule/basic1.hs",
+      "data/examples/declaration/rewrite-rule/prelude4-four-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-0.hs",
+      "data/examples/declaration/rewrite-rule/prelude3.hs",
+      "data/examples/declaration/rewrite-rule/prelude1-out.hs",
+      "data/examples/declaration/rewrite-rule/basic2-four-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-1.hs",
+      "data/examples/declaration/rewrite-rule/prelude2.hs",
+      "data/examples/declaration/rewrite-rule/prelude3-out.hs",
+      "data/examples/declaration/rewrite-rule/empty.hs",
+      "data/examples/declaration/rewrite-rule/prelude1-four-out.hs",
+      "data/examples/declaration/rewrite-rule/type-signature-out.hs"
+    ],
+    "name": "fourmolu",
+    "version": "0.4.0.0"
+  },
+  {
+    "files": [
+      "src/Data/OpenUnion/Internal.hs"
+    ],
+    "name": "freer-simple",
+    "version": "1.2.1.2"
+  },
+  {
+    "files": [
+      "src-ghc86/Language/Haskell/GHC/ExactPrint/Annotater.hs",
+      "src-ghc88/Language/Haskell/GHC/ExactPrint/Annotater.hs",
+      "src-ghc810/Language/Haskell/GHC/ExactPrint/Annotater.hs",
+      "tests/examples/ghc90/ExplicitSpecificityA1.hs",
+      "tests/examples/failing/UnicodeRules.hs",
+      "tests/examples/ghc88/ExplicitForAllRules1.hs",
+      "tests/examples/ghc88/empty-foralls2.hs",
+      "tests/examples/ghc710/Internals.hs",
+      "tests/examples/ghc710/Rules.hs",
+      "tests/examples/ghc710/RulesSemi.hs",
+      "tests/examples/ghc710/Dead1.hs",
+      "tests/examples/ghc80/RuleDefiningPlugin.hs",
+      "tests/examples/ghc80/T10689.hs",
+      "tests/examples/ghc80/Test10313.hs",
+      "tests/examples/ghc80/RulePragma.hs",
+      "tests/examples/ghc80/T10698.hs",
+      "tests/examples/ghc80/T9015.hs",
+      "tests/examples/ghc80/UnicodeRules.hs",
+      "tests/examples/ghc80/T10627.hs",
+      "src-ghc82/Language/Haskell/GHC/ExactPrint/Annotater.hs",
+      "src-ghc84/Language/Haskell/GHC/ExactPrint/Annotater.hs",
+      "src-ghc90/Language/Haskell/GHC/ExactPrint/Annotater.hs"
+    ],
+    "name": "ghc-exactprint",
+    "version": "0.6.4"
+  },
+  {
+    "files": [
+      "compiler/GHC/HsToCore.hs",
+      "compiler/GHC/ThToHs.hs",
+      "compiler/GHC/Core/Rules.hs",
+      "compiler/GHC/Core/Opt/Pipeline.hs",
+      "compiler/GHC/Core/Opt/CSE.hs",
+      "compiler/GHC/Core/Opt/Simplify.hs",
+      "compiler/GHC/Core/Opt/Simplify/Utils.hs",
+      "compiler/GHC/CoreToStg/Prep.hs",
+      "compiler/GHC/Tc/Utils/Zonk.hs",
+      "compiler/GHC/Tc/Gen/Rule.hs",
+      "compiler/GHC/HsToCore/Binds.hs",
+      "compiler/GHC/Rename/HsType.hs"
+    ],
+    "name": "ghc-lib",
+    "version": "9.0.2.20211226"
+  },
+  {
+    "files": [
+      "ghc-lib/stage0/compiler/build/GHC/Parser.hs",
+      "libraries/template-haskell/Language/Haskell/TH/Syntax.hs",
+      "libraries/template-haskell/Language/Haskell/TH/Ppr.hs",
+      "compiler/GHC/Core/SimpleOpt.hs",
+      "compiler/GHC/Core/Lint.hs",
+      "compiler/GHC/Core/Opt/OccurAnal.hs",
+      "compiler/GHC/Utils/Ppr.hs",
+      "compiler/GHC/Hs/Decls.hs",
+      "compiler/GHC/Hs/Type.hs",
+      "compiler/GHC/Data/FastString.hs"
+    ],
+    "name": "ghc-lib-parser",
+    "version": "9.0.2.20211226"
+  },
+  {
+    "files": [
+      "src/Data/Graph/Wrapper/Internal.hs"
+    ],
+    "name": "graph-wrapper",
+    "version": "0.2.6.0"
+  },
+  {
+    "files": [
+      "src/Numeric/Half/Internal.hs"
+    ],
+    "name": "half",
+    "version": "0.3.1"
+  },
+  {
+    "files": [
+      "tests/examples/RCategory.hs",
+      "tests/examples/Unicode.hs",
+      "tests/examples/Rules.hs",
+      "src/Language/Haskell/Exts/Pretty.hs",
+      "src/Language/Haskell/Exts/InternalLexer.hs",
+      "src/Language/Haskell/Exts/ExactPrint.hs"
+    ],
+    "name": "haskell-src-exts",
+    "version": "1.23.1"
+  },
+  {
+    "files": [
+      "testcases/testcase9.hs"
+    ],
+    "name": "hasktags",
+    "version": "0.72.0"
+  },
+  {
+    "files": [
+      "Data/Heap/Item.hs"
+    ],
+    "name": "heap",
+    "version": "1.0.4"
+  },
+  {
+    "files": [
+      "src/Data/Geometry/Line/Internal.hs"
+    ],
+    "name": "hgeometry",
+    "version": "0.14"
+  },
+  {
+    "files": [
+      "src/Numeric/LinearAlgebra/Static/Vector.hs"
+    ],
+    "name": "hmatrix-vector-sized",
+    "version": "0.1.3.0"
+  },
+  {
+    "files": [
+      "Data/Hourglass/Time.hs"
+    ],
+    "name": "hourglass",
+    "version": "0.2.12"
+  },
+  {
+    "files": [
+      "src/HaskellWorks/Data/Streams/Vector.hs",
+      "src/HaskellWorks/Data/Streams/Stream.hs",
+      "src/HaskellWorks/Data/Streams/Vector/Storable.hs"
+    ],
+    "name": "hw-streams",
+    "version": "0.0.1.0"
+  },
+  {
+    "files": [
+      "src/Data/List/Index.hs"
+    ],
+    "name": "ilist",
+    "version": "0.4.0.1"
+  },
+  {
+    "files": [
+      "Math/NumberTheory/Roots/Squares.hs",
+      "Math/NumberTheory/Roots/Fourth.hs",
+      "Math/NumberTheory/Roots/Cubes.hs"
+    ],
+    "name": "integer-roots",
+    "version": "1.0.2.0"
+  },
+  {
+    "files": [
+      "src/Data/String/Interpolate/Internal/Util.hs"
+    ],
+    "name": "interpolate",
+    "version": "0.2.1"
+  },
+  {
+    "files": [
+      "src/Data/Functor/Coyoneda.hs",
+      "src/Data/Functor/Yoneda.hs"
+    ],
+    "name": "kan-extensions",
+    "version": "5.2.5"
+  },
+  {
+    "files": [
+      "src/Data/Text/Lazy/Lens.hs",
+      "src/Data/Text/Strict/Lens.hs",
+      "src/Data/Vector/Generic/Lens.hs",
+      "src/Control/Lens/Indexed.hs",
+      "src/Control/Lens/Traversal.hs",
+      "src/Control/Lens/Internal/ByteString.hs"
+    ],
+    "name": "lens",
+    "version": "5.0.1"
+  },
+  {
+    "files": [
+      "src/Data/Stream/Monadic.hs"
+    ],
+    "name": "leveldb-haskell",
+    "version": "0.6.5"
+  },
+  {
+    "files": [
+      "src/Linear/Quaternion.hs"
+    ],
+    "name": "linear",
+    "version": "1.21.10"
+  },
+  {
+    "files": [
+      "src/Data/ListLike/UTF8.hs"
+    ],
+    "name": "ListLike",
+    "version": "4.7.7"
+  },
+  {
+    "files": [
+      "src/Numeric/Log.hs"
+    ],
+    "name": "log-domain",
+    "version": "0.13.2"
+  },
+  {
+    "files": [
+      "src/Data/Number/LogFloat.hs",
+      "src/Data/Number/Transfinite.hs"
+    ],
+    "name": "logfloat",
+    "version": "0.13.4"
+  },
+  {
+    "files": [
+      "src/Data/Massiv/Core/Loop.hs",
+      "src/Data/Massiv/Array/Mutable.hs",
+      "src/Data/Massiv/Array/Delayed/Push.hs",
+      "src/Data/Massiv/Array/Delayed/Pull.hs",
+      "src/Data/Massiv/Array/Delayed/Stream.hs",
+      "src/Data/Massiv/Array/Ops/Transform.hs"
+    ],
+    "name": "massiv",
+    "version": "1.0.2.0"
+  },
+  {
+    "files": [
+      "src/Data/Massiv/Array/IO/Base.hs"
+    ],
+    "name": "massiv-io",
+    "version": "1.0.0.1"
+  },
+  {
+    "files": [
+      "Data/Matrix.hs"
+    ],
+    "name": "matrix",
+    "version": "0.3.6.1"
+  },
+  {
+    "files": [
+      "src/Data/Matrix/Static.hs"
+    ],
+    "name": "matrix-static",
+    "version": "0.3"
+  },
+  {
+    "files": [
+      "Data/ByteArray/Pack.hs"
+    ],
+    "name": "memory",
+    "version": "0.16.0"
+  },
+  {
+    "files": [
+      "src/Data/MemoTrie.hs"
+    ],
+    "name": "MemoTrie",
+    "version": "0.6.10"
+  },
+  {
+    "files": [
+      "src/Lens/Micro/Internal.hs"
+    ],
+    "name": "microlens",
+    "version": "0.4.12.0"
+  },
+  {
+    "files": [
+      "src/Lens/Micro/GHC/Internal.hs"
+    ],
+    "name": "microlens-ghc",
+    "version": "0.4.13.2"
+  },
+  {
+    "files": [
+      "src/Lens/Micro/Platform.hs"
+    ],
+    "name": "microlens-platform",
+    "version": "0.4.2.1"
+  },
+  {
+    "files": [
+      "Data/Mod.hs",
+      "Data/Mod/Word.hs"
+    ],
+    "name": "mod",
+    "version": "0.1.2.2"
+  },
+  {
+    "files": [
+      "src/Data/MonoTraversable.hs",
+      "src/Data/Sequences.hs"
+    ],
+    "name": "mono-traversable",
+    "version": "1.0.15.3"
+  },
+  {
+    "files": [
+      "Database/MySQL/Internal/Blaze.hs"
+    ],
+    "name": "mysql-simple",
+    "version": "0.4.8.1"
+  },
+  {
+    "files": [
+      "src/Control/Natural/RULES.hs"
+    ],
+    "name": "natural-transformation",
+    "version": "0.4"
+  },
+  {
+    "files": [
+      "src/Data/IntMap/NonEmpty.hs",
+      "src/Data/IntMap/NonEmpty/Internal.hs",
+      "src/Data/Map/NonEmpty.hs",
+      "src/Data/Map/NonEmpty/Internal.hs",
+      "src/Data/Sequence/NonEmpty.hs",
+      "src/Data/Sequence/NonEmpty/Internal.hs"
+    ],
+    "name": "nonempty-containers",
+    "version": "0.3.4.4"
+  },
+  {
+    "files": [
+      "src/Number/Complex.hs",
+      "src/Algebra/ToRational.hs",
+      "src/Algebra/RealRing.hs",
+      "src/Algebra/ToInteger.hs"
+    ],
+    "name": "numeric-prelude",
+    "version": "0.4.4"
+  },
+  {
+    "files": [
+      "src/Optics/IxTraversal.hs",
+      "src/Optics/Traversal.hs",
+      "src/Optics/Internal/IxTraversal.hs",
+      "src/Optics/Internal/Traversal.hs"
+    ],
+    "name": "optics-core",
+    "version": "0.4.1"
+  },
+  {
+    "files": [
+      "src/Data/Text/Lazy/Optics.hs",
+      "src/Data/Text/Strict/Optics.hs",
+      "src/Data/Vector/Generic/Optics.hs",
+      "src/Optics/Extra/Internal/ByteString.hs"
+    ],
+    "name": "optics-extra",
+    "version": "0.4.2.1"
+  },
+  {
+    "files": [
+      "data/examples/other/empty-forall-out.hs",
+      "data/examples/other/multiline-forall-out.hs",
+      "data/examples/other/empty-forall.hs",
+      "data/examples/other/multiline-forall.hs",
+      "data/examples/declaration/rewrite-rule/prelude1.hs",
+      "data/examples/declaration/rewrite-rule/basic1-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-0-out.hs",
+      "data/examples/declaration/rewrite-rule/prelude4.hs",
+      "data/examples/declaration/rewrite-rule/prelude4-out.hs",
+      "data/examples/declaration/rewrite-rule/basic2.hs",
+      "data/examples/declaration/rewrite-rule/prelude2-out.hs",
+      "data/examples/declaration/rewrite-rule/type-signature.hs",
+      "data/examples/declaration/rewrite-rule/empty-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-1-out.hs",
+      "data/examples/declaration/rewrite-rule/basic2-out.hs",
+      "data/examples/declaration/rewrite-rule/phase-out.hs",
+      "data/examples/declaration/rewrite-rule/phase.hs",
+      "data/examples/declaration/rewrite-rule/basic1.hs",
+      "data/examples/declaration/rewrite-rule/forall-0.hs",
+      "data/examples/declaration/rewrite-rule/prelude3.hs",
+      "data/examples/declaration/rewrite-rule/prelude1-out.hs",
+      "data/examples/declaration/rewrite-rule/forall-1.hs",
+      "data/examples/declaration/rewrite-rule/prelude2.hs",
+      "data/examples/declaration/rewrite-rule/prelude3-out.hs",
+      "data/examples/declaration/rewrite-rule/empty.hs",
+      "data/examples/declaration/rewrite-rule/type-signature-out.hs"
+    ],
+    "name": "ormolu",
+    "version": "0.3.1.0"
+  },
+  {
+    "files": [
+      "Control/Parallel/Strategies.hs"
+    ],
+    "name": "parallel",
+    "version": "3.2.2.0"
+  },
+  {
+    "files": [
+      "src/Pinch/Internal/Builder.hs"
+    ],
+    "name": "pinch",
+    "version": "0.4.1.2"
+  },
+  {
+    "files": [
+      "src/Pipes.hs",
+      "src/Pipes/Prelude.hs",
+      "src/Pipes/Internal.hs",
+      "src/Pipes/Core.hs"
+    ],
+    "name": "pipes",
+    "version": "4.3.16"
+  },
+  {
+    "files": [
+      "src/Pipes/ByteString.hs"
+    ],
+    "name": "pipes-bytestring",
+    "version": "2.1.7"
+  },
+  {
+    "files": [
+      "src/Polysemy/State.hs"
+    ],
+    "name": "polysemy",
+    "version": "1.6.0.0"
+  },
+  {
+    "files": [
+      "src/BinomialQueue/Internals.hs",
+      "src/Data/PQueue/Internals.hs",
+      "src/Data/PQueue/Prio/Internals.hs"
+    ],
+    "name": "pqueue",
+    "version": "1.4.2.0"
+  },
+  {
+    "files": [
+      "Data/Primitive/SmallArray.hs",
+      "Data/Primitive/Array.hs"
+    ],
+    "name": "primitive",
+    "version": "0.7.3.0"
+  },
+  {
+    "files": [
+      "src/Protolude.hs"
+    ],
+    "name": "protolude",
+    "version": "0.3.2"
+  },
+  {
+    "files": [
+      "library/PtrPoker/Poke.hs"
+    ],
+    "name": "ptr-poker",
+    "version": "0.1.2.8"
+  },
+  {
+    "files": [
+      "Data/Range/RangeInternal.hs"
+    ],
+    "name": "range",
+    "version": "0.3.0.2"
+  },
+  {
+    "files": [
+      "src/Rattus/Future.hs",
+      "src/Rattus/Event.hs",
+      "src/Rattus/Stream.hs",
+      "src/Rattus/Primitives.hs"
+    ],
+    "name": "Rattus",
+    "version": "0.5.0.1"
+  },
+  {
+    "files": [
+      "src/Data/Semigroup/Apply.hs",
+      "src/Data/Semigroup/Applicative.hs",
+      "src/Data/Semigroup/Monad.hs"
+    ],
+    "name": "reducers",
+    "version": "3.12.4"
+  },
+  {
+    "files": [
+      "Data/Array/Repa/Eval/Reduction.hs"
+    ],
+    "name": "repa",
+    "version": "3.4.1.5"
+  },
+  {
+    "files": [
+      "src/Replace/Megaparsec.hs"
+    ],
+    "name": "replace-megaparsec",
+    "version": "1.4.5.0"
+  },
+  {
+    "files": [
+      "src/Data/Scientific.hs"
+    ],
+    "name": "scientific",
+    "version": "0.3.7.0"
+  },
+  {
+    "files": [
+      "Data/Semiring.hs"
+    ],
+    "name": "semirings",
+    "version": "0.6"
+  },
+  {
+    "files": [
+      "src/Servant/API/Stream.hs"
+    ],
+    "name": "servant",
+    "version": "0.19"
+  },
+  {
+    "files": [
+      "src/Data/Sized.hs"
+    ],
+    "name": "sized",
+    "version": "1.0.0.1"
+  },
+  {
+    "files": [
+      "src/Slist/Maybe.hs"
+    ],
+    "name": "slist",
+    "version": "0.2.0.0"
+  },
+  {
+    "files": [
+      "Data/SortedList.hs"
+    ],
+    "name": "sorted-list",
+    "version": "0.2.1.0"
+  },
+  {
+    "files": [
+      "src/Data/StorableVector/Lazy.hs"
+    ],
+    "name": "storablevector",
+    "version": "0.2.13.1"
+  },
+  {
+    "files": [
+      "src/Streaming/Prelude.hs",
+      "src/Streaming/Internal.hs"
+    ],
+    "name": "streaming",
+    "version": "0.2.3.1"
+  },
+  {
+    "files": [
+      "lib/Streaming/ByteString/Internal.hs"
+    ],
+    "name": "streaming-bytestring",
+    "version": "0.2.4"
+  },
+  {
+    "files": [
+      "src/inline.hs",
+      "src/Streamly/Internal/Data/Parser.hs",
+      "src/Streamly/Internal/Data/Array/PrimInclude.hs",
+      "src/Streamly/Internal/Data/Array/Foreign/Type.hs",
+      "src/Streamly/Internal/Data/Stream/StreamDK.hs",
+      "src/Streamly/Internal/Data/Stream/PreludeCommon.hs",
+      "src/Streamly/Internal/Data/Stream/StreamK/Type.hs",
+      "src/Streamly/Internal/Data/Stream/IsStream/Transform.hs",
+      "src/Streamly/Internal/Data/Stream/IsStream/Common.hs",
+      "src/Streamly/Internal/Data/Stream/IsStream/Generate.hs",
+      "src/Streamly/Internal/Data/Stream/IsStream/Enumeration.hs",
+      "src/Streamly/Internal/Data/Stream/IsStream/Combinators.hs",
+      "src/Streamly/Internal/Data/Stream/IsStream/Type.hs",
+      "src/Streamly/Internal/Data/Stream/StreamD/Nesting.hs",
+      "src/Streamly/Internal/Data/Stream/StreamD/Type.hs",
+      "src/Streamly/Internal/Data/Parser/ParserK/Type.hs",
+      "src/Streamly/Internal/Data/Time/Units.hs",
+      "src/Streamly/Internal/Data/SmallArray/Type.hs"
+    ],
+    "name": "streamly",
+    "version": "0.8.1.1"
+  },
+  {
+    "files": [
+      "src/Control/Subcategory/Zip.hs",
+      "src/Control/Subcategory/Foldable.hs"
+    ],
+    "name": "subcategories",
+    "version": "0.2.0.0"
+  },
+  {
+    "files": [
+      "src/Synthesizer/Plain/Signal.hs",
+      "src/Synthesizer/Basic/Phase.hs"
+    ],
+    "name": "synthesizer-core",
+    "version": "0.8.2.1"
+  },
+  {
+    "files": [
+      "Data/Text/ANSI.hs",
+      "Data/Text/Builder/ANSI.hs"
+    ],
+    "name": "text-ansi",
+    "version": "0.1.1"
+  },
+  {
+    "files": [
+      "src/Data/Text/Short/Internal.hs"
+    ],
+    "name": "text-short",
+    "version": "0.1.5"
+  },
+  {
+    "files": [
+      "src/Data/Zip.hs"
+    ],
+    "name": "TypeCompose",
+    "version": "0.9.14"
+  },
+  {
+    "files": [
+      "src/Html/Convert.hs"
+    ],
+    "name": "type-of-html",
+    "version": "1.6.2.0"
+  },
+  {
+    "files": [
+      "src/Data/Functor/Fixedpoint.hs"
+    ],
+    "name": "unification-fd",
+    "version": "0.11.2"
+  },
+  {
+    "files": [
+      "Data/Generics/Uniplate/Direct.hs"
+    ],
+    "name": "uniplate",
+    "version": "1.6.13"
+  },
+  {
+    "files": [
+      "src/Universum/String/Conversion.hs"
+    ],
+    "name": "universum",
+    "version": "1.7.3"
+  },
+  {
+    "files": [
+      "Data/UnixTime/Diff.hs"
+    ],
+    "name": "unix-time",
+    "version": "0.4.8"
+  },
+  {
+    "files": [
+      "Data/HashMap/Internal.hs",
+      "Data/HashMap/Internal/Array.hs",
+      "Data/HashMap/Internal/Strict.hs"
+    ],
+    "name": "unordered-containers",
+    "version": "0.2.17.0"
+  },
+  {
+    "files": [
+      "internal/GenUnboxTuple.hs",
+      "Data/Vector/Storable.hs",
+      "Data/Vector/Generic.hs",
+      "Data/Vector/Fusion/Bundle.hs",
+      "Data/Vector/Fusion/Stream/Monadic.hs",
+      "Data/Vector/Fusion/Bundle/Monadic.hs",
+      "Data/Vector/Storable/Mutable.hs",
+      "Data/Vector/Generic/New.hs"
+    ],
+    "name": "vector",
+    "version": "0.12.3.1"
+  },
+  {
+    "files": [
+      "Data/Vinyl/SRec.hs"
+    ],
+    "name": "vinyl",
+    "version": "0.13.3"
+  },
+  {
+    "files": [
+      "src/Graphics/Text/Width.hs"
+    ],
+    "name": "vty",
+    "version": "5.33"
+  },
+  {
+    "files": [
+      "src/Data/WideWord/Word128.hs",
+      "src/Data/WideWord/Int128.hs",
+      "src/Data/WideWord/Word256.hs"
+    ],
+    "name": "wide-word",
+    "version": "0.1.1.2"
+  },
+  {
+    "files": [
+      "Codec/Compression/Zlib/ByteStringCompat.hs"
+    ],
+    "name": "zlib",
+    "version": "0.6.3.0"
+  }
+]
