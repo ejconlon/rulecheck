@@ -18,6 +18,13 @@ packages:
       size: 259
   original:
     hackage: little-rio-1.0.1
+- completed:
+    hackage: int-like-0.1.1@sha256:07edfd99581f97b0384611660f9453d34bcdf17e19a4907d195d288e3dcee735,3093
+    pantry-tree:
+      sha256: a81c294faf72ab621b70cada1bd53c53eb1c36fe9e2ab18d3354192c0824a16e
+      size: 556
+  original:
+    hackage: int-like-0.1.1
 snapshots:
 - completed:
     sha256: 1ecad1f0bd2c27de88dbff6572446cfdf647c615d58a7e2e2085c6b7dfc04176

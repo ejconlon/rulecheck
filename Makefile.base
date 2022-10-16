@@ -16,7 +16,7 @@ deps:
 
 .PHONY: format
 format:
-	find . -name '*.hs' | xargs -t stack exec -- stylish-haskell -i
+	find rulecheck -name '*.hs' | xargs -t stack exec -- stylish-haskell -i
 
 .PHONY: lint
 lint:

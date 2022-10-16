@@ -15,8 +15,11 @@ library
       Rulecheck.Parsing
       Rulecheck.Rendering
       Rulecheck.Rule
+      Rulecheck.Synth
       Rulecheck.Testing
       Rulecheck.Typecheck
+      Rulecheck.UnionFind
+      Rulecheck.UnionMap
   other-modules:
       Paths_rulecheck
   hs-source-dirs:
@@ -59,11 +62,12 @@ library
     , ghc ==9.0.2
     , ghc-paths
     , hie-bios
-    , hslogger
+    , int-like
     , little-logger
     , little-rio
     , mtl
     , pretty-simple
+    , recursion-schemes
     , tasty
     , tasty-quickcheck
     , template-haskell
@@ -115,11 +119,12 @@ executable rulecheck-exe
     , ghc ==9.0.2
     , ghc-paths
     , hie-bios
-    , hslogger
+    , int-like
     , little-logger
     , little-rio
     , mtl
     , pretty-simple
+    , recursion-schemes
     , rulecheck
     , tasty
     , tasty-quickcheck
@@ -173,11 +178,12 @@ test-suite rulecheck-test
     , ghc ==9.0.2
     , ghc-paths
     , hie-bios
-    , hslogger
+    , int-like
     , little-logger
     , little-rio
     , mtl
     , pretty-simple
+    , recursion-schemes
     , rulecheck
     , tasty
     , tasty-hunit

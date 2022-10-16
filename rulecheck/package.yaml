@@ -15,7 +15,8 @@ dependencies:
 - ghc-paths
 - hie-bios
 - template-haskell
-- hslogger
+- int-like
+- recursion-schemes
 # For debugging
 - pretty-simple
 # These are for prototyping the test interface:
