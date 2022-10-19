@@ -1,5 +1,6 @@
 module Rulecheck.UnionFind
   ( UnionFind
+  , fromSet
   , empty
   , size
   , members
@@ -26,6 +27,9 @@ data UnionFind x = UnionFind
   , ufParents :: !(IntLikeMap x x)
   } deriving stock (Eq, Show)
 
+fromSet :: Coercible x Int => IntLikeSet x -> UnionFind x
+fromSet s = UnionFind (ILS.size s) (ILM.fromList (fmap (\x -> (x, x)) (ILS.toList s)))
+
 empty :: UnionFind x
 empty = UnionFind 0 ILM.empty
 
@@ -42,7 +46,7 @@ members u@(UnionFind _ p) = foldr go (ILM.empty, u) (ILM.keys p) where
 stateMembers :: (Eq x, Coercible x Int) => State (UnionFind x) (IntLikeMap x (IntLikeSet x))
 stateMembers = state members
 
-insert :: Coercible x Int =>x -> UnionFind x -> UnionFind x
+insert :: Coercible x Int => x -> UnionFind x -> UnionFind x
 insert x u@(UnionFind z p) =
   if ILM.member x p
     then u

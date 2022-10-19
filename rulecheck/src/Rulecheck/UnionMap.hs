@@ -1,5 +1,6 @@
 module Rulecheck.UnionMap
   ( UnionMap
+  , fromMap
   , empty
   , size
   , insert
@@ -22,6 +23,9 @@ data UnionMap k v = UnionMap
   { umFind :: !(UnionFind k)
   , umValues :: !(IntLikeMap k v)
   } deriving stock (Eq, Show)
+
+fromMap :: Coercible k Int => IntLikeMap k v -> UnionMap k v
+fromMap m = UnionMap (UF.fromSet (ILM.keysSet m)) m
 
 empty :: UnionMap k v
 empty = UnionMap UF.empty ILM.empty

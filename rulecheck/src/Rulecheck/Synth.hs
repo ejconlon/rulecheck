@@ -19,6 +19,9 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString)
 import Data.Text (Text)
+import Rulecheck.UnionMap (UnionMap)
+import qualified Rulecheck.UnionMap as UM
+import qualified IntLike.Map as ILM
 
 -- Program synthesis
 
@@ -199,6 +202,12 @@ newtype TmUniq = TmUniq { unTmUniq :: Int }
 type TyUnify = TyF TyUniq TyUniq
 type TmUnify = TmF TmUniq TmUniq
 
+getConstraints :: TyF w w -> Seq w
+getConstraints = \case
+  TyFreeF w -> w :<| Empty
+  TyConF _ ws -> ws
+  TyFunF wl wr -> wl :<| wr :<| Empty
+
 data TyVert =
     TyVertMeta !TyVar
   | TyVertSkolem !TyVar
@@ -219,7 +228,7 @@ exampleDecls = res where
 
 data Env = Env
   { envDecls :: !(Map TmName Decl)
-  , envTys :: !(Map TyUniq TyVert)
+  , envTys :: !(UnionMap TyUniq TyVert)
   , envGoalKey :: !TyUniq
   , envGoalVal :: !TyUnify
   , envDepthLim :: !Int
@@ -270,7 +279,6 @@ innerSearch _nominate _answer = do
       -- Do a cheap check on the outside to see if it might align
       let candVal = project (schemeBody (declScheme decl))
       when (mightAlign goalVal candVal) $ do
-        -- TODO add, align
         liftIO (putStrLn ("Might align: " ++ show candVal))
         pure ()
 
@@ -287,28 +295,28 @@ lookupCtx i = do
 
 initEnvSt :: MonadFail m => Map TmName Decl -> Scheme Index -> Int -> m (Env, St)
 initEnvSt decls (Scheme tvs ty) depthLim = do
-  let (msrc, ctx) = foldl' (\((mx, srcx), ctxx) tv -> ((Map.insert srcx (TyVertSkolem tv) mx, srcx + 1), ctxx :|> srcx)) ((Map.empty, 0), Seq.empty) tvs
+  let (msrc, ctx) = foldl' (\((mx, srcx), ctxx) tv -> ((ILM.insert srcx (TyVertSkolem tv) mx, srcx + 1), ctxx :|> srcx)) ((ILM.empty, 0), Seq.empty) tvs
   ((k, v), (m', src')) <- runBuild ctx msrc $ flip cata ty $ \case
     TyFreeF i -> do
       u <- lookupCtx i
       let v = TyFreeF u
       (m, src) <- get
-      put (Map.insert src (TyVertGround v) m, src + 1)
+      put (ILM.insert src (TyVertGround v) m, src + 1)
       pure (src, v)
     TyConF tn ps -> do
       us <- fmap (fmap fst) (sequence ps)
       let v = TyConF tn us
       (m, src) <- get
-      put (Map.insert src (TyVertGround v) m, src + 1)
+      put (ILM.insert src (TyVertGround v) m, src + 1)
       pure (src, v)
     TyFunF am bm -> do
       au <- fmap fst am
       bu <- fmap fst bm
       let v = TyFunF au bu
       (m, src) <- get
-      put (Map.insert src (TyVertGround v) m, src + 1)
+      put (ILM.insert src (TyVertGround v) m, src + 1)
       pure (src, v)
-  let env = Env decls m' k v depthLim
+  let env = Env decls (UM.fromMap m') k v depthLim
       st = St src' 0 Map.empty
   pure (env, st)
 
