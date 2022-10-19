@@ -82,7 +82,7 @@ stateFind = state . find
 data MergeRes x =
     MergeResMissing !x
   -- ^ Key not present in UF - must be added before merging
-  | MergeResUnchanged
+  | MergeResUnchanged !x
   -- ^ Root unchanged, though merge may path-compress in the process
   | MergeResChanged !x !x
   -- ^ (New root class, old root class)
@@ -105,7 +105,7 @@ merge i j u@(UnionFind z p) = guardMerge where
                 [] -> u
                 _ -> let p' = foldr (`ILM.insert` ix2) p acc
                     in UnionFind z p'
-        in (MergeResUnchanged, u')
+        in (MergeResUnchanged ix2, u')
       else
         let (kacc, knew, kold) =
               if ix2 < jx2

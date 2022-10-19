@@ -22,6 +22,7 @@ import Data.Text (Text)
 import Rulecheck.UnionMap (UnionMap)
 import qualified Rulecheck.UnionMap as UM
 import qualified IntLike.Map as ILM
+import Rulecheck.UnionFind (MergeRes(..))
 
 -- Program synthesis
 
@@ -84,16 +85,16 @@ deriving instance (Ord a, Ord r) => Ord (TmF a r)
 deriving instance (Show a, Show r) => Show (TmF a r)
 
 -- | Something that can go wrong when aligning (matching) two types
-data AlignErr =
-    AlignErrConHead !TyName !TyName
-  | AlignErrConArity !TyName !Int !Int
-  | AlignErrMismatch
+data AlignTyErr =
+    AlignTyErrConHead !TyName !TyName
+  | AlignTyErrConArity !TyName !Int !Int
+  | AlignTyErrMismatch
   deriving stock (Eq, Ord, Show)
 
-instance Exception AlignErr
+instance Exception AlignTyErr
 
 -- | Align (match) two types by lining up all the holes
-alignTys :: TyF x a -> TyF y b -> Either AlignErr (TyF (x, y) (a, b))
+alignTys :: TyF x a -> TyF y b -> Either AlignTyErr (TyF (x, y) (a, b))
 alignTys one two =
   case (one, two) of
     (TyFreeF x, TyFreeF y) -> Right (TyFreeF (x, y))
@@ -104,10 +105,10 @@ alignTys one two =
               lb = Seq.length bs
           in if la == lb
             then Right (TyConF n (Seq.zip as bs))
-            else Left (AlignErrConArity n la lb)
-        else Left (AlignErrConHead n m)
+            else Left (AlignTyErrConArity n la lb)
+        else Left (AlignTyErrConHead n m)
     (TyFunF q1 r1, TyFunF q2 r2) -> Right (TyFunF (q1, q2) (r1, r2))
-    _ -> Left AlignErrMismatch
+    _ -> Left AlignTyErrMismatch
 
 -- | Do two types have the potential to align?
 mightAlign :: TyF x a -> TyF y b -> Bool
@@ -202,17 +203,19 @@ newtype TmUniq = TmUniq { unTmUniq :: Int }
 type TyUnify = TyF TyUniq TyUniq
 type TmUnify = TmF TmUniq TmUniq
 
-getConstraints :: TyF w w -> Seq w
-getConstraints = \case
-  TyFreeF w -> w :<| Empty
-  TyConF _ ws -> ws
-  TyFunF wl wr -> wl :<| wr :<| Empty
+-- saves me from deriving bitraverse?
+bitraverseTyF :: Applicative m => (w -> m v) -> TyF w w -> m (TyF v v)
+bitraverseTyF f = \case
+  TyFreeF w -> fmap TyFreeF (f w)
+  TyConF tn ws -> fmap (TyConF tn) (traverse f ws)
+  TyFunF wl wr -> TyFunF <$> f wl <*> f wr
 
 data TyVert =
     TyVertMeta !TyVar
   | TyVertSkolem !TyVar
   | TyVertGround !TyUnify
   deriving stock (Eq, Ord, Show)
+
 
 exampleDecls :: Either (TmName, DeclErr) (Map TmName Decl)
 exampleDecls = res where
@@ -240,16 +243,25 @@ data St = St
   , stTms :: !(Map TmUniq TmUnify)
   } deriving stock (Eq, Show)
 
-data EnvSt = EnvSt
-  { esEnv :: !Env
-  , esSt :: !St
-  } deriving stock (Eq, Show)
+-- data EnvSt = EnvSt
+--   { esEnv :: !Env
+--   , esSt :: !St
+--   } deriving stock (Eq, Show)
 
-newtype InnerM a = InnerM { unInnerM :: StateT EnvSt IO a }
-  deriving newtype (Functor, Applicative, Monad, MonadState EnvSt, MonadIO)
+-- newtype InnerM a = InnerM { unInnerM :: StateT EnvSt IO a }
+--   deriving newtype (Functor, Applicative, Monad, MonadState EnvSt, MonadIO)
 
-runInnerM :: InnerM a -> EnvSt -> IO (a, EnvSt)
-runInnerM im = runStateT (unInnerM im)
+-- runInnerM :: InnerM a -> EnvSt -> IO (a, EnvSt)
+-- runInnerM im = runStateT (unInnerM im)
+
+-- embedInner :: InnerM a -> (a -> SearchM b) -> SearchM b
+-- embedInner im bind = do
+--   env <- ask
+--   st <- get
+--   let !es = EnvSt env st
+--   (a, EnvSt env' st') <- liftIO (runInnerM im es)
+--   put st'
+--   local (const env') (bind a)
 
 newtype SearchM a = SearchM { unSearchM :: ReaderT Env (StateT St IO) a }
   deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadIO)
@@ -257,14 +269,46 @@ newtype SearchM a = SearchM { unSearchM :: ReaderT Env (StateT St IO) a }
 runSearchM :: SearchM a -> Env -> St -> IO (a, St)
 runSearchM m env = runStateT (runReaderT (unSearchM m) env)
 
-embedInner :: InnerM a -> (a -> SearchM b) -> SearchM b
-embedInner im bind = do
-  env <- ask
-  st <- get
-  let !es = EnvSt env st
-  (a, EnvSt env' st') <- liftIO (runInnerM im es)
-  put st'
-  local (const env') (bind a)
+data AlignErr =
+    AlignErrMissing !TyUniq
+  | AlignErrEmbed !AlignTyErr
+  | AlignErrSkol !TyVar
+  deriving stock (Eq, Ord, Show)
+
+instance Exception AlignErr
+
+type AlignState = UnionMap TyUniq TyVert
+
+newtype AlignM a = AlignM { unAlignM :: StateT AlignState (Except AlignErr) a }
+  deriving newtype (Functor, Applicative, Monad, MonadError AlignErr, MonadState AlignState)
+
+runAlignM :: AlignM a -> AlignState -> Either AlignErr (a, AlignState)
+runAlignM m s = runExcept (runStateT (unAlignM m) s)
+
+alignVertsM :: TyVert -> TyVert -> AlignM TyVert
+alignVertsM vl vr = do
+  case (vl, vr) of
+    (TyVertMeta _, _) -> pure vr
+    (_, TyVertMeta _) -> pure vl
+    (TyVertSkolem tv, _) -> throwError (AlignErrSkol tv)
+    (_, TyVertSkolem tv) -> throwError (AlignErrSkol tv)
+    (TyVertGround tl, TyVertGround tr) -> do
+      case alignTys tl tr of
+        Left err -> throwError (AlignErrEmbed err)
+        Right tw -> fmap TyVertGround (bitraverseTyF (uncurry alignUniqM) tw)
+
+alignUniqM :: TyUniq -> TyUniq -> AlignM TyUniq
+alignUniqM ul ur = do
+  um <- get
+  (res, um') <- UM.merge alignVertsM ul ur um
+  put um'
+  case res of
+    MergeResMissing u -> throwError (AlignErrMissing u)
+    MergeResUnchanged u -> pure u
+    MergeResChanged u _ -> pure u
+
+recAlignTys :: TyUniq -> TyUniq -> UnionMap TyUniq TyVert -> Either AlignErr (TyUniq, UnionMap TyUniq TyVert)
+recAlignTys ul0 ur0 = runAlignM (alignUniqM ul0 ur0)
 
 innerSearch :: (Env -> SearchM ()) -> (TmUniq -> SearchM ()) -> SearchM ()
 innerSearch _nominate _answer = do
@@ -282,8 +326,9 @@ innerSearch _nominate _answer = do
         liftIO (putStrLn ("Might align: " ++ show candVal))
         pure ()
 
-runBuild :: a -> b -> ReaderT a (StateT b m) c -> m (c, b)
-runBuild a b m = runStateT (runReaderT m a) b
+-- just a helper for the cata
+runReaderStateM :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
+runReaderStateM r s m = runStateT (runReaderT m r) s
 
 lookupCtx :: (MonadFail m, MonadReader (Seq x) m) => Index -> m x
 lookupCtx i = do
@@ -296,7 +341,7 @@ lookupCtx i = do
 initEnvSt :: MonadFail m => Map TmName Decl -> Scheme Index -> Int -> m (Env, St)
 initEnvSt decls (Scheme tvs ty) depthLim = do
   let (msrc, ctx) = foldl' (\((mx, srcx), ctxx) tv -> ((ILM.insert srcx (TyVertSkolem tv) mx, srcx + 1), ctxx :|> srcx)) ((ILM.empty, 0), Seq.empty) tvs
-  ((k, v), (m', src')) <- runBuild ctx msrc $ flip cata ty $ \case
+  ((k, v), (m', src')) <- runReaderStateM ctx msrc $ flip cata ty $ \case
     TyFreeF i -> do
       u <- lookupCtx i
       let v = TyFreeF u

@@ -12,7 +12,8 @@ module Rulecheck.UnionMap
   , stateMerge
   ) where
 
-import Control.Monad.State.Strict (State, modify', state)
+import Control.Monad.State.Strict (State, modify', state, StateT, MonadState (..))
+import Control.Monad.Trans (lift)
 import Data.Coerce (Coercible)
 import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
@@ -50,21 +51,23 @@ stateFind :: (Eq k, Coercible k Int) => k -> State (UnionMap k v) (Maybe (k, v))
 stateFind k = state (find k)
 
 -- Must be symmetric, reflexive, etc
-type MergeFun e v = v -> v -> Either e v
+type MergeFun m v = v -> v -> m v
 
-merge :: (Ord k, Coercible k Int) => MergeFun e v -> k -> k -> UnionMap k v -> (Either e (MergeRes k), UnionMap k v)
+merge :: (Ord k, Coercible k Int, Monad m) => MergeFun m v -> k -> k -> UnionMap k v -> m (MergeRes k, UnionMap k v)
 merge f a b (UnionMap uf m) =
   let (res, uf') = UF.merge a b uf
   in case res of
-    MergeResChanged knew kold ->
+    MergeResChanged knew kold -> do
       let vnew = ILM.partialLookup knew m
           vold = ILM.partialLookup kold m
-      in case f vnew vold of
-        Left e -> (Left e, UnionMap uf' m)
-        Right vmerge ->
-          let m' = ILM.insert knew vmerge (ILM.delete kold m)
-          in (Right res, UnionMap uf' m')
-    _ -> (Right res, UnionMap uf' m)
+      vmerge <- f vnew vold
+      let m' = ILM.insert knew vmerge (ILM.delete kold m)
+      pure (res, UnionMap uf' m')
+    _ -> pure (res, UnionMap uf' m)
 
-stateMerge :: (Ord k, Coercible k Int) => MergeFun e v -> k -> k -> State (UnionMap k v) (Either e (MergeRes k))
-stateMerge f a b = state (merge f a b)
+stateMerge :: (Ord k, Coercible k Int, Monad m) => MergeFun m v -> k -> k -> StateT (UnionMap k v) m (MergeRes k)
+stateMerge f a b = do
+  um <- get
+  (res, um') <- lift (merge f a b um)
+  put um'
+  pure res
