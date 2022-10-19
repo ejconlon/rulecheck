@@ -8,11 +8,11 @@ import Control.Monad (foldM, when)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
-import Control.Monad.State.Strict (MonadState (..), StateT)
-import Data.Foldable (for_)
+import Control.Monad.State.Strict (MonadState (..), StateT (..))
+import Data.Foldable (for_, foldl')
 import Data.Functor.Foldable (cata, project)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
-import Data.IORef (newIORef, readIORef)
+import Data.IORef (newIORef, readIORef, modifyIORef', writeIORef)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
@@ -212,7 +212,9 @@ exampleDecls = res where
   tmA = TmFree "a"
   tmB = TmFree "b"
   res = mkDecls
-    [ ("myPlus", Scheme Empty tyIntFun2, Just (TmLam "a" (TmLam "b" (TmApp (TmApp (TmKnown "+") tmA) tmB))))
+    [ ("myZero", Scheme Empty tyInt, Just (TmKnown "0"))
+    , ("myOne", Scheme Empty tyInt, Just (TmKnown "1"))
+    , ("myPlus", Scheme Empty tyIntFun2, Just (TmLam "a" (TmLam "b" (TmApp (TmApp (TmKnown "+") tmA) tmB))))
     ]
 
 data Env = Env
@@ -221,21 +223,41 @@ data Env = Env
   , envGoalKey :: !TyUniq
   , envGoalVal :: !TyUnify
   , envDepthLim :: !Int
-  }
+  } deriving stock (Eq, Show)
 
 data St = St
   { stTySrc :: !TyUniq
   , stTmSrc :: !TmUniq
   , stTms :: !(Map TmUniq TmUnify)
-  }
+  } deriving stock (Eq, Show)
+
+data EnvSt = EnvSt
+  { esEnv :: !Env
+  , esSt :: !St
+  } deriving stock (Eq, Show)
+
+newtype InnerM a = InnerM { unInnerM :: StateT EnvSt IO a }
+  deriving newtype (Functor, Applicative, Monad, MonadState EnvSt, MonadIO)
+
+runInnerM :: InnerM a -> EnvSt -> IO (a, EnvSt)
+runInnerM im = runStateT (unInnerM im)
 
 newtype SearchM a = SearchM { unSearchM :: ReaderT Env (StateT St IO) a }
   deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadIO)
 
 runSearchM :: SearchM a -> Env -> St -> IO (a, St)
-runSearchM = error "TODO"
+runSearchM m env = runStateT (runReaderT (unSearchM m) env)
 
-innerSearch :: (TyUniq -> SearchM ()) -> (TmUniq -> SearchM ()) -> SearchM ()
+embedInner :: InnerM a -> (a -> SearchM b) -> SearchM b
+embedInner im bind = do
+  env <- ask
+  st <- get
+  let !es = EnvSt env st
+  (a, EnvSt env' st') <- liftIO (runInnerM im es)
+  put st'
+  local (const env') (bind a)
+
+innerSearch :: (Env -> SearchM ()) -> (TmUniq -> SearchM ()) -> SearchM ()
 innerSearch _nominate _answer = do
   goalVal <- asks envGoalVal
   depthLim <- asks envDepthLim
@@ -249,23 +271,74 @@ innerSearch _nominate _answer = do
       let candVal = project (schemeBody (declScheme decl))
       when (mightAlign goalVal candVal) $ do
         -- TODO add, align
+        liftIO (putStrLn ("Might align: " ++ show candVal))
         pure ()
 
-initEnv :: Scheme Index -> Int -> IO Env
-initEnv = error "TODO"
+runBuild :: a -> b -> ReaderT a (StateT b m) c -> m (c, b)
+runBuild a b m = runStateT (runReaderT m a) b
 
-outerSearch :: Scheme Index -> Int -> IO ([TmUniq], Map TmUniq TmUnify)
-outerSearch s d = go where
+lookupCtx :: (MonadFail m, MonadReader (Seq x) m) => Index -> m x
+lookupCtx i = do
+  xs <- ask
+  let j = Seq.length xs - unIndex i - 1
+  case Seq.lookup j xs of
+    Nothing -> fail ("Missing index " ++ show (unIndex i))
+    Just x -> pure x
+
+initEnvSt :: MonadFail m => Map TmName Decl -> Scheme Index -> Int -> m (Env, St)
+initEnvSt decls (Scheme tvs ty) depthLim = do
+  let (msrc, ctx) = foldl' (\((mx, srcx), ctxx) tv -> ((Map.insert srcx (TyVertSkolem tv) mx, srcx + 1), ctxx :|> srcx)) ((Map.empty, 0), Seq.empty) tvs
+  ((k, v), (m', src')) <- runBuild ctx msrc $ flip cata ty $ \case
+    TyFreeF i -> do
+      u <- lookupCtx i
+      let v = TyFreeF u
+      (m, src) <- get
+      put (Map.insert src (TyVertGround v) m, src + 1)
+      pure (src, v)
+    TyConF tn ps -> do
+      us <- fmap (fmap fst) (sequence ps)
+      let v = TyConF tn us
+      (m, src) <- get
+      put (Map.insert src (TyVertGround v) m, src + 1)
+      pure (src, v)
+    TyFunF am bm -> do
+      au <- fmap fst am
+      bu <- fmap fst bm
+      let v = TyFunF au bu
+      (m, src) <- get
+      put (Map.insert src (TyVertGround v) m, src + 1)
+      pure (src, v)
+  let env = Env decls m' k v depthLim
+      st = St src' 0 Map.empty
+  pure (env, st)
+
+outerSearch :: Map TmName Decl -> Scheme Index -> Int -> IO ([TmUniq], Map TmUniq TmUnify)
+outerSearch decls scheme depthLim = go where
   go = do
-    env <- initEnv s d
-    nomRef <- newIORef []
-    ansRef <- newIORef []
-    stRef <- newIORef (St 0 0 mempty)
+    (env, st) <- initEnvSt decls scheme depthLim
+    nomRef <- newIORef ([] :: [Env])
+    ansRef <- newIORef ([] :: [TmUniq])
+    stRef <- newIORef st
     let m = innerSearch (nominate nomRef) (answer ansRef)
-    _ <- loop nomRef env m
+    _ <- loop nomRef stRef env m
     finals <- liftIO (readIORef ansRef)
     meanings <- fmap stTms (readIORef stRef)
     pure (finals, meanings)
-  loop _nomRef _env _m = error "TODO"
-  nominate _nomRef _cand = error "TODO"
-  answer _ansRef _ans = error "TODO"
+  loop nomRef stRef env m = do
+    st <- readIORef stRef
+    ((), st') <- runSearchM m env st
+    writeIORef stRef st'
+    noms <- readIORef nomRef
+    case noms of
+      [] -> pure ()
+      env':envs -> do
+        writeIORef nomRef envs
+        loop nomRef stRef env' m
+  nominate nomRef env = liftIO (modifyIORef' nomRef (env:))
+  answer ansRef ans = liftIO (modifyIORef' ansRef (ans:))
+
+exampleSearch :: IO ([TmUniq], Map TmUniq TmUnify)
+exampleSearch = do
+  let scheme = Scheme mempty (TyCon "Int" mempty)
+  decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
+  outerSearch decls scheme 5
