@@ -1,12 +1,18 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Rulecheck.Synth where
 
 import Control.Exception (Exception)
+import Control.Monad (foldM)
+import Control.Monad.Except (Except, MonadError (..), runExcept)
+import Control.Monad.Reader (MonadReader (..), ReaderT (..))
 import Data.Foldable (toList)
 import Data.Functor.Foldable (cata)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
-import Data.Sequence (Seq)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString)
 import Data.Text (Text)
@@ -120,19 +126,66 @@ tmDepth = cata go where
 data Decl = Decl
   { declName :: !TmName
   , declScheme :: !(Scheme Index)
-  , declBody :: !(Tm Index)
+  , declBody :: !(Maybe (Tm Index))
   , declDepth :: !Int
   } deriving stock (Eq, Ord, Show)
 
 data DeclErr =
     DeclErrTy !TyVar
   | DeclErrTm !TmVar
+  | DeclErrDupe
   deriving stock (Eq, Ord, Show)
 
 instance Exception DeclErr
 
-decl :: TmName -> Scheme TyVar -> Tm TmVar -> Either DeclErr Decl
-decl = error "TODO"
+decl :: TmName -> Scheme TyVar -> Maybe (Tm TmVar) -> Either DeclErr Decl
+decl n s mt = do
+  s' <- namelessTy s
+  (mt', d) <- case mt of
+    Nothing -> pure (Nothing, 0)
+    Just t -> do
+      t' <- namelessTm t
+      let d = tmDepth t'
+      pure (Just t', d)
+  pure (Decl n s' mt' d)
+
+newtype M r e a = M { unM :: ReaderT r (Except e) a }
+  deriving newtype (Functor, Applicative, Monad, MonadReader r, MonadError e)
+
+runM :: M r e a -> r -> Either e a
+runM m r = runExcept (runReaderT (unM m) r)
+
+namelessTm :: Tm TmVar -> Either DeclErr (Tm Index)
+namelessTm = flip runM Seq.empty . cata go where
+  go = \case
+    TmFreeF a -> fmap TmFree (bind a)
+    TmKnownF k -> pure (TmKnown k)
+    TmAppF x y -> TmApp <$> x <*> y
+    TmLamF (Binder tvs x) -> local (<> tvs) x
+  bind a = do
+    tvs <- ask
+    let nvs = Seq.length tvs
+    case Seq.findIndexR (== a) tvs of
+      Nothing -> throwError (DeclErrTm a)
+      Just lvl -> pure (Index (nvs - lvl - 1))
+
+namelessTy :: Scheme TyVar -> Either DeclErr (Scheme Index)
+namelessTy (Binder tvs ty) = fmap (Binder tvs) (traverse bind ty) where
+  nvs = Seq.length tvs
+  bind a =
+    case Seq.findIndexR (== a) tvs of
+      Nothing -> Left (DeclErrTy a)
+      Just lvl -> Right (Index (nvs - lvl - 1))
+
+decls :: [(TmName, Scheme TyVar, Maybe (Tm TmVar))] -> Either (TmName, DeclErr) (Map TmName Decl)
+decls = foldM go Map.empty where
+  go m (n, s, mt) =
+    case decl n s mt of
+      Left e -> Left (n, e)
+      Right d ->
+        case Map.lookup n m of
+          Just _ -> Left (n, DeclErrDupe)
+          Nothing -> Right (Map.insert n d m)
 
 newtype Uniq = Uniq { unUniq :: Int }
   deriving stock (Show)
@@ -142,3 +195,13 @@ data UnifyVar x =
     UnifyVarMeta !Uniq
   | UnifyVarGround !(TyF x Uniq)
   deriving stock (Eq, Ord, Show)
+
+exampleDecls :: Either (TmName, DeclErr) (Map TmName Decl)
+exampleDecls = res where
+  tyInt = TyCon "Int" Empty
+  tyIntFun2 = TyFun tyInt (TyFun tyInt tyInt)
+  tmA = TmFree "a"
+  tmB = TmFree "b"
+  res = decls
+    [ ("myPlus", Binder Empty tyIntFun2, Just (TmLam (Binder (Seq.fromList ["a", "b"]) (TmApp (TmApp (TmKnown "+") tmA) tmB))))
+    ]
