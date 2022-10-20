@@ -19,7 +19,9 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString)
 import Data.Text (Text)
+import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
+import IntLike.Set (IntLikeSet)
 import Rulecheck.UnionFind (MergeRes (..))
 import Rulecheck.UnionMap (UnionMap)
 import qualified Rulecheck.UnionMap as UM
@@ -216,7 +218,6 @@ data TyVert =
   | TyVertGround !TyUnify
   deriving stock (Eq, Ord, Show)
 
-
 exampleDecls :: Either (TmName, DeclErr) (Map TmName Decl)
 exampleDecls = res where
   tyInt = TyCon "Int" Empty
@@ -241,9 +242,9 @@ data Env = Env
 
 data St = St
   { stTySrc :: !TyUniq
-  , stTyReps :: !(Map TyUniq TmUniq)
+  , stTyReps :: !(IntLikeMap TyUniq (IntLikeSet TmUniq))
   , stTmSrc :: !TmUniq
-  , stTms :: !(Map TmUniq TmUnify)
+  , stTms :: !(IntLikeMap TmUniq TmUnify)
   } deriving stock (Eq, Show)
 
 newtype SearchM a = SearchM { unSearchM :: ReaderT Env (StateT St IO) a }
@@ -324,8 +325,9 @@ innerSearch _nominate _answer = do
               -- * if parents is empty (this is top), emit an answer
               --   this answer will need to be checked later
               --   because we'll only know if search successfully filled out all subterms
-              -- * lookup the ty and see if it has a term in the map, otherwise
-              --   nominate an env (with appropriate goals, depth, and parents)
+              --   eventually use a dependency map to emit only finished stuff
+              -- * lookup the ty and nominate envs for children
+              --   (with appropriate goals, depth, and parents)
               error "TODO"
         pure ()
   -- TODO go through all function decls to find something that might fit the hole
@@ -352,31 +354,26 @@ lookupCtx i = do
 initEnvSt :: MonadFail m => Map TmName Decl -> Scheme Index -> Int -> m (Env, St)
 initEnvSt decls (Scheme tvs ty) depthLim = do
   let (msrc, ctx) = foldl' (\((mx, srcx), ctxx) tv -> ((ILM.insert srcx (TyVertSkolem tv) mx, srcx + 1), ctxx :|> srcx)) ((ILM.empty, 0), Seq.empty) tvs
+      insert v = do
+        (m, src) <- get
+        put (ILM.insert src (TyVertGround v) m, src + 1)
+        pure (src, v)
   ((k, v), (m', src')) <- runReaderStateM ctx msrc $ flip cata ty $ \case
     TyFreeF i -> do
       u <- lookupCtx i
-      let v = TyFreeF u
-      (m, src) <- get
-      put (ILM.insert src (TyVertGround v) m, src + 1)
-      pure (src, v)
+      insert (TyFreeF u)
     TyConF tn ps -> do
       us <- fmap (fmap fst) (sequence ps)
-      let v = TyConF tn us
-      (m, src) <- get
-      put (ILM.insert src (TyVertGround v) m, src + 1)
-      pure (src, v)
+      insert (TyConF tn us)
     TyFunF am bm -> do
       au <- fmap fst am
       bu <- fmap fst bm
-      let v = TyFunF au bu
-      (m, src) <- get
-      put (ILM.insert src (TyVertGround v) m, src + 1)
-      pure (src, v)
+      insert (TyFunF au bu)
   let env = Env decls Seq.empty (UM.fromMap m') [] k v depthLim
-      st = St src' Map.empty 0 Map.empty
+      st = St src' ILM.empty 0 ILM.empty
   pure (env, st)
 
-outerSearch :: Map TmName Decl -> Scheme Index -> Int -> IO ([TmUniq], Map TmUniq TmUnify)
+outerSearch :: Map TmName Decl -> Scheme Index -> Int -> IO ([TmUniq], IntLikeMap TyUniq (IntLikeSet TmUniq), IntLikeMap TmUniq TmUnify)
 outerSearch decls scheme depthLim = go where
   go = do
     (env, st) <- initEnvSt decls scheme depthLim
@@ -386,8 +383,9 @@ outerSearch decls scheme depthLim = go where
     let m = innerSearch (nominate nomRef) (answer ansRef)
     _ <- loop nomRef stRef env m
     finals <- liftIO (readIORef ansRef)
-    meanings <- fmap stTms (readIORef stRef)
-    pure (finals, meanings)
+    tyReps <- fmap stTyReps (readIORef stRef)
+    tms <- fmap stTms (readIORef stRef)
+    pure (finals, tyReps, tms)
   loop nomRef stRef env m = do
     st <- readIORef stRef
     ((), st') <- runSearchM m env st
@@ -401,7 +399,7 @@ outerSearch decls scheme depthLim = go where
   nominate nomRef env = liftIO (modifyIORef' nomRef (env:))
   answer ansRef ans = liftIO (modifyIORef' ansRef (ans:))
 
-exampleSearch :: IO ([TmUniq], Map TmUniq TmUnify)
+exampleSearch :: IO ([TmUniq], IntLikeMap TyUniq (IntLikeSet TmUniq), IntLikeMap TmUniq TmUnify)
 exampleSearch = do
   let scheme = Scheme mempty (TyCon "Int" mempty)
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
