@@ -53,16 +53,16 @@ stateFind k = state (find k)
 -- Must be symmetric, reflexive, etc
 type MergeFun m v = v -> v -> m v
 
-merge :: (Ord k, Coercible k Int, Monad m) => MergeFun m v -> k -> k -> UnionMap k v -> m (MergeRes k, UnionMap k v)
+merge :: (Ord k, Coercible k Int, Applicative m) => MergeFun m v -> k -> k -> UnionMap k v -> m (MergeRes k, UnionMap k v)
 merge f a b (UnionMap uf m) =
   let (res, uf') = UF.merge a b uf
   in case res of
     MergeResChanged knew kold -> do
       let vnew = ILM.partialLookup knew m
           vold = ILM.partialLookup kold m
-      vmerge <- f vnew vold
-      let m' = ILM.insert knew vmerge (ILM.delete kold m)
-      pure (res, UnionMap uf' m')
+      flip fmap (f vnew vold) $ \vmerge ->
+        let m' = ILM.insert knew vmerge (ILM.delete kold m)
+        in (res, UnionMap uf' m')
     _ -> pure (res, UnionMap uf' m)
 
 stateMerge :: (Ord k, Coercible k Int, Monad m) => MergeFun m v -> k -> k -> StateT (UnionMap k v) m (MergeRes k)
