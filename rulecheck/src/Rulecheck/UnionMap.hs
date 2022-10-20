@@ -12,7 +12,7 @@ module Rulecheck.UnionMap
   , stateMerge
   ) where
 
-import Control.Monad.State.Strict (State, modify', state, StateT, MonadState (..))
+import Control.Monad.State.Strict (MonadState (..), State, StateT, modify', state)
 import Control.Monad.Trans (lift)
 import Data.Coerce (Coercible)
 import IntLike.Map (IntLikeMap)

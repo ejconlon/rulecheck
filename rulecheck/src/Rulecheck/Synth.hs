@@ -9,20 +9,20 @@ import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
-import Data.Foldable (for_, foldl')
+import Data.Foldable (foldl', for_, toList)
 import Data.Functor.Foldable (cata, project)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
-import Data.IORef (newIORef, readIORef, modifyIORef', writeIORef)
+import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString)
 import Data.Text (Text)
+import qualified IntLike.Map as ILM
+import Rulecheck.UnionFind (MergeRes (..))
 import Rulecheck.UnionMap (UnionMap)
 import qualified Rulecheck.UnionMap as UM
-import qualified IntLike.Map as ILM
-import Rulecheck.UnionFind (MergeRes(..))
 
 -- Program synthesis
 
@@ -201,7 +201,7 @@ newtype TmUniq = TmUniq { unTmUniq :: Int }
   deriving newtype (Eq, Ord, Enum, Num)
 
 type TyUnify = TyF TyUniq TyUniq
-type TmUnify = TmF TmUniq TmUniq
+type TmUnify = TmF Index TyUniq
 
 -- saves me from deriving bitraverse?
 bitraverseTyF :: Applicative m => (w -> m v) -> TyF w w -> m (TyF v v)
@@ -231,7 +231,9 @@ exampleDecls = res where
 
 data Env = Env
   { envDecls :: !(Map TmName Decl)
+  , envCtx :: !(Seq TyUniq)
   , envTys :: !(UnionMap TyUniq TyVert)
+  , envParents :: ![TyUniq]
   , envGoalKey :: !TyUniq
   , envGoalVal :: !TyUnify
   , envDepthLim :: !Int
@@ -239,29 +241,10 @@ data Env = Env
 
 data St = St
   { stTySrc :: !TyUniq
+  , stTyReps :: !(Map TyUniq TmUniq)
   , stTmSrc :: !TmUniq
   , stTms :: !(Map TmUniq TmUnify)
   } deriving stock (Eq, Show)
-
--- data EnvSt = EnvSt
---   { esEnv :: !Env
---   , esSt :: !St
---   } deriving stock (Eq, Show)
-
--- newtype InnerM a = InnerM { unInnerM :: StateT EnvSt IO a }
---   deriving newtype (Functor, Applicative, Monad, MonadState EnvSt, MonadIO)
-
--- runInnerM :: InnerM a -> EnvSt -> IO (a, EnvSt)
--- runInnerM im = runStateT (unInnerM im)
-
--- embedInner :: InnerM a -> (a -> SearchM b) -> SearchM b
--- embedInner im bind = do
---   env <- ask
---   st <- get
---   let !es = EnvSt env st
---   (a, EnvSt env' st') <- liftIO (runInnerM im es)
---   put st'
---   local (const env') (bind a)
 
 newtype SearchM a = SearchM { unSearchM :: ReaderT Env (StateT St IO) a }
   deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadIO)
@@ -310,21 +293,49 @@ alignUniqM ul ur = do
 recAlignTys :: TyUniq -> TyUniq -> UnionMap TyUniq TyVert -> Either AlignErr (TyUniq, UnionMap TyUniq TyVert)
 recAlignTys ul0 ur0 = runAlignM (alignUniqM ul0 ur0)
 
+toListWithIndex :: Seq a -> [(a, Index)]
+toListWithIndex ss = zip (toList ss) (fmap Index [Seq.length ss - 1 .. 0])
+
 innerSearch :: (Env -> SearchM ()) -> (TmUniq -> SearchM ()) -> SearchM ()
 innerSearch _nominate _answer = do
-  goalVal <- asks envGoalVal
-  depthLim <- asks envDepthLim
-  decls <- asks envDecls
-  -- Go through all known decls to find something that might fit this hole
+  Env decls ctx _ _ goalKey goalVal depthLim <- ask
+  -- Go through all variables in context to find something that might fit the hole
+  for_ (toListWithIndex ctx) $ \(candKey, _idx) -> do
+    um <- asks envTys
+    case recAlignTys goalKey candKey um of
+      Left _ -> pure ()
+      Right (_u, _) -> do
+        -- TODO fill in var
+        error "TODO"
+  -- Go through all known decls to find something that might fit this hole exactly
   for_ (Map.toList decls) $ \(_name, decl) ->
     -- Only consider those that will fit our remaining depth
     when (declDepth decl <= depthLim) $ do
-      -- TODO match against function forms instead of whole scheme
       -- Do a cheap check on the outside to see if it might align
       let candVal = project (schemeBody (declScheme decl))
       when (mightAlign goalVal candVal) $ do
-        liftIO (putStrLn ("Might align: " ++ show candVal))
+        liftIO (putStrLn ("Might align: " ++ show candVal))  -- XXX
+        insertingTy (declScheme decl) $ \candKey -> do
+          um <- asks envTys
+          case recAlignTys goalKey candKey um of
+            Left _ -> pure ()
+            Right (_u, _um') -> do
+              -- * add term to map
+              -- * if parents is empty (this is top), emit an answer
+              --   this answer will need to be checked later
+              --   because we'll only know if search successfully filled out all subterms
+              -- * lookup the ty and see if it has a term in the map, otherwise
+              --   nominate an env (with appropriate goals, depth, and parents)
+              error "TODO"
         pure ()
+  -- TODO go through all function decls to find something that might fit the hole
+  -- given some arguments
+
+insertingTy :: Scheme Index -> (TyUniq -> SearchM ()) -> SearchM ()
+insertingTy _scheme onAdded = do
+  let u = error "TODO"
+  let env' = error "TODO"
+  local (const env') (onAdded u)
 
 -- just a helper for the cata
 runReaderStateM :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -361,8 +372,8 @@ initEnvSt decls (Scheme tvs ty) depthLim = do
       (m, src) <- get
       put (ILM.insert src (TyVertGround v) m, src + 1)
       pure (src, v)
-  let env = Env decls (UM.fromMap m') k v depthLim
-      st = St src' 0 Map.empty
+  let env = Env decls Seq.empty (UM.fromMap m') [] k v depthLim
+      st = St src' Map.empty 0 Map.empty
   pure (env, st)
 
 outerSearch :: Map TmName Decl -> Scheme Index -> Int -> IO ([TmUniq], Map TmUniq TmUnify)
