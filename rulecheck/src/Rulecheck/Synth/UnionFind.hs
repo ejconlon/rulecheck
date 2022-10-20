@@ -1,4 +1,4 @@
-module Rulecheck.UnionFind
+module Rulecheck.Synth.UnionFind
   ( UnionFind
   , fromSet
   , empty

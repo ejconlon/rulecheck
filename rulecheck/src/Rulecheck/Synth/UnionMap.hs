@@ -1,4 +1,4 @@
-module Rulecheck.UnionMap
+module Rulecheck.Synth.UnionMap
   ( UnionMap
   , fromMap
   , empty
@@ -17,8 +17,8 @@ import Control.Monad.Trans (lift)
 import Data.Coerce (Coercible)
 import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
-import Rulecheck.UnionFind (MergeRes (..), UnionFind)
-import qualified Rulecheck.UnionFind as UF
+import Rulecheck.Synth.UnionFind (MergeRes (..), UnionFind)
+import qualified Rulecheck.Synth.UnionFind as UF
 
 data UnionMap k v = UnionMap
   { umFind :: !(UnionFind k)

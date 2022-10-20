@@ -1,4 +1,4 @@
-module Rulecheck.DepMap
+module Rulecheck.Synth.DepMap
   ( DepMap
   , dependsOn
   , revDependsOn

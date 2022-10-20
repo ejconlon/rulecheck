@@ -11,16 +11,20 @@ build-type:     Simple
 library
   exposed-modules:
       Rulecheck
-      Rulecheck.DepMap
       Rulecheck.Monad
       Rulecheck.Parsing
       Rulecheck.Rendering
       Rulecheck.Rule
-      Rulecheck.Synth
+      Rulecheck.Synth.Align
+      Rulecheck.Synth.Core
+      Rulecheck.Synth.Decl
+      Rulecheck.Synth.DepMap
+      Rulecheck.Synth.Example
+      Rulecheck.Synth.Search
+      Rulecheck.Synth.UnionFind
+      Rulecheck.Synth.UnionMap
       Rulecheck.Testing
       Rulecheck.Typecheck
-      Rulecheck.UnionFind
-      Rulecheck.UnionMap
   other-modules:
       Paths_rulecheck
   hs-source-dirs:
