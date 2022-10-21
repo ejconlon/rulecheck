@@ -1,5 +1,7 @@
 module Rulecheck.Synth.UnionMap
   ( UnionMap
+  , unionFind
+  , valueMap
   , fromMap
   , empty
   , size
@@ -21,8 +23,8 @@ import Rulecheck.Synth.UnionFind (MergeRes (..), UnionFind)
 import qualified Rulecheck.Synth.UnionFind as UF
 
 data UnionMap k v = UnionMap
-  { umFind :: !(UnionFind k)
-  , umValues :: !(IntLikeMap k v)
+  { unionFind :: !(UnionFind k)
+  , valueMap :: !(IntLikeMap k v)
   } deriving stock (Eq, Show)
 
 fromMap :: Coercible k Int => IntLikeMap k v -> UnionMap k v
@@ -32,7 +34,7 @@ empty :: UnionMap k v
 empty = UnionMap UF.empty ILM.empty
 
 size :: UnionMap k v -> Int
-size = UF.size . umFind
+size = UF.size . unionFind
 
 insert :: Coercible k Int => k -> v -> UnionMap k v -> UnionMap k v
 insert k v (UnionMap uf m) = UnionMap (UF.insert k uf) (ILM.insert k v m)

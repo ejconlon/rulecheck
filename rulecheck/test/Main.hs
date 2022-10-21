@@ -10,6 +10,7 @@ import Rulecheck.Parsing (fakeFilePath, getParsedRuleDecls, parseModule)
 import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Rule (Rule (..), RuleSide (..), ruleFromDecl, ruleSideDoc)
 import Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, getTypecheckedRuleDecls, typecheck)
+import Test.Rulecheck.Synth.UnionMap
 import Test.Tasty (DependencyType (..), TestTree, after, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 
@@ -105,12 +106,18 @@ testRuleSideDoc = testCase "ruleSidedoc" $ do
     liftIO $ sig  @?= "fn_lhs_divzuid :: DemoDomain.Expr -> DemoDomain.Expr"
     liftIO $ body @?= ("fn_lhs_divzuid " ++ arg' ++ " = " ++ arg' ++ " DemoDomain../ " ++ arg')
 
-main :: IO ()
-main = defaultMain $ testGroup "Rulecheck"
+testEverything :: TestTree
+testEverything = testGroup "Everything"
   [ testRender
   , testParse
   , testGetParsedRuleDecls
   , testGetRule
   -- Tests involving typechecking on the same module cannot be run concurrently
   , after AllFinish "getRule" testRuleSideDoc
+  ]
+
+main :: IO ()
+main = defaultMain $ testGroup "Rulecheck"
+  [ testEverything
+  , testUnionMap
   ]
