@@ -4,12 +4,9 @@ module Rulecheck.Synth.Example where
 
 import Data.Map.Strict (Map)
 import Data.Sequence (Seq (..))
-import IntLike.Map (IntLikeMap)
-import IntLike.Set (IntLikeSet)
-import Rulecheck.Synth.Align (TyUniq)
-import Rulecheck.Synth.Core (Scheme (..), Tm (..), TmName, Ty (..))
+import Rulecheck.Synth.Core (Index (..), Scheme (..), Tm (..), TmName, Ty (..))
 import Rulecheck.Synth.Decl (Decl, DeclErr, mkDecls)
-import Rulecheck.Synth.Search (TmUnify, TmUniq, outerSearch)
+import Rulecheck.Synth.Search (SearchConfig (..), runSearchN)
 
 exampleDecls :: Either (TmName, DeclErr) (Map TmName Decl)
 exampleDecls = res where
@@ -23,8 +20,8 @@ exampleDecls = res where
     , ("myPlus", Scheme Empty tyIntFun2, Just (TmLam "a" (TmLam "b" (TmApp (TmApp (TmKnown "+") tmA) tmB))))
     ]
 
-exampleSearch :: IO ([TmUniq], IntLikeMap TyUniq (IntLikeSet TmUniq), IntLikeMap TmUniq TmUnify)
-exampleSearch = do
+exampleSearch :: Int -> IO [Tm Index]
+exampleSearch n = do
   let scheme = Scheme mempty (TyCon "Int" mempty)
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
-  outerSearch decls scheme 5
+  runSearchN (SearchConfig decls scheme 5) n

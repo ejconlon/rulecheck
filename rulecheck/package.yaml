@@ -17,6 +17,8 @@ dependencies:
 - template-haskell
 - int-like
 - recursion-schemes
+- logict
+- transformers
 # For debugging
 - pretty-simple
 # These are for prototyping the test interface:
