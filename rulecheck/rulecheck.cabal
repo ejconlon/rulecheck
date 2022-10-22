@@ -18,7 +18,6 @@ library
       Rulecheck.Synth.Align
       Rulecheck.Synth.Core
       Rulecheck.Synth.Decl
-      Rulecheck.Synth.DepMap
       Rulecheck.Synth.Example
       Rulecheck.Synth.Search
       Rulecheck.Synth.UnionFind
