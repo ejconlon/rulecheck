@@ -53,7 +53,7 @@ type TyUnify = TyF TyUniq TyUniq
 data TyVert =
     TyVertMeta !TyVar
   | TyVertSkolem !TyVar
-  | TyVertGround !TyUnify
+  | TyVertNode !TyUnify
   deriving stock (Eq, Ord, Show)
 
 data AlignErr =
@@ -79,10 +79,10 @@ alignVertsM vl vr = do
     (_, TyVertMeta _) -> pure vl
     (TyVertSkolem tv, _) -> throwError (AlignErrSkol tv)
     (_, TyVertSkolem tv) -> throwError (AlignErrSkol tv)
-    (TyVertGround tl, TyVertGround tr) -> do
+    (TyVertNode tl, TyVertNode tr) -> do
       case alignTys tl tr of
         Left err -> throwError (AlignErrEmbed err)
-        Right tw -> fmap TyVertGround (bitraverseTyF (uncurry alignUniqM) tw)
+        Right tw -> fmap TyVertNode (bitraverseTyF (uncurry alignUniqM) tw)
 
 alignUniqM :: TyUniq -> TyUniq -> AlignM TyUniq
 alignUniqM ul ur = do

@@ -2,6 +2,7 @@
 
 module Rulecheck.Synth.Example where
 
+import Control.Exception (throwIO)
 import Data.Map.Strict (Map)
 import Data.Sequence (Seq (..))
 import Rulecheck.Synth.Core (Index (..), Scheme (..), Tm (..), TmName, Ty (..))
@@ -24,4 +25,4 @@ exampleSearch :: Int -> IO [Tm Index]
 exampleSearch n = do
   let scheme = Scheme mempty (TyCon "Int" mempty)
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
-  runSearchN (SearchConfig decls scheme 5) n
+  either throwIO pure (runSearchN (SearchConfig decls scheme 5) n)
