@@ -58,11 +58,11 @@ data Ty a =
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 -- | Term with a hole for variables (can later be filled in with indices)
-data Tm a =
+data Tm b a =
     TmFree !a
   | TmKnown !TmName
-  | TmApp (Tm a) (Tm a)
-  | TmLam !TmVar (Tm a)
+  | TmApp (Tm b a) (Tm b a)
+  | TmLam !b (Tm b a)
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 -- The TH here punches a hole in the recursive parts too, so we get simple folds for types and terms
@@ -73,9 +73,9 @@ deriving instance (Ord a, Ord r) => Ord (TyF a r)
 deriving instance (Show a, Show r) => Show (TyF a r)
 
 makeBaseFunctor ''Tm
-deriving instance (Eq a, Eq r) => Eq (TmF a r)
-deriving instance (Ord a, Ord r) => Ord (TmF a r)
-deriving instance (Show a, Show r) => Show (TmF a r)
+deriving instance (Eq a, Eq b, Eq r) => Eq (TmF a b r)
+deriving instance (Ord a, Ord b, Ord r) => Ord (TmF a b r)
+deriving instance (Show a, Show b, Show r) => Show (TmF a b r)
 
 -- saves me from deriving bitraverse?
 bitraverseTyF :: Applicative m => (w -> m v) -> TyF w w -> m (TyF v v)

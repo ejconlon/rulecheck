@@ -19,7 +19,7 @@ import Rulecheck.Synth.Core (Index (..), Scheme (..), Tm (..), TmF (..), TmName,
 data Decl = Decl
   { declName :: !TmName
   , declScheme :: !(Scheme Index)
-  , declBody :: !(Maybe (Tm Index))
+  , declBody :: !(Maybe (Tm TmVar Index))
   } deriving stock (Eq, Ord, Show)
 
 data DeclErr =
@@ -30,7 +30,7 @@ data DeclErr =
 
 instance Exception DeclErr
 
-mkDecl :: TmName -> Scheme TyVar -> Maybe (Tm TmVar) -> Either DeclErr Decl
+mkDecl :: TmName -> Scheme TyVar -> Maybe (Tm TmVar TmVar) -> Either DeclErr Decl
 mkDecl n s mt = do
   s' <- namelessTy s
   mt' <- case mt of
@@ -42,7 +42,7 @@ mkDecl n s mt = do
 runReaderExceptM :: r -> ReaderT r (Except e) a -> Either e a
 runReaderExceptM r m = runExcept (runReaderT m r)
 
-namelessTm :: Tm TmVar -> Either DeclErr (Tm Index)
+namelessTm :: Tm TmVar TmVar -> Either DeclErr (Tm TmVar Index)
 namelessTm = runReaderExceptM Seq.empty . cata go where
   go = \case
     TmFreeF a -> fmap TmFree (bind a)
@@ -64,7 +64,7 @@ namelessTy (Scheme tvs ty) = fmap (Scheme tvs) (traverse bind ty) where
       Nothing -> Left (DeclErrTy a)
       Just lvl -> Right (Index (nvs - lvl - 1))
 
-mkDecls :: [(TmName, Scheme TyVar, Maybe (Tm TmVar))] -> Either (TmName, DeclErr) (Map TmName Decl)
+mkDecls :: [(TmName, Scheme TyVar, Maybe (Tm TmVar TmVar))] -> Either (TmName, DeclErr) (Map TmName Decl)
 mkDecls = foldM go Map.empty where
   go m (n, s, mt) =
     case mkDecl n s mt of
