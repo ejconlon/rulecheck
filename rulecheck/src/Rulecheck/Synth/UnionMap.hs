@@ -1,3 +1,5 @@
+-- | A map of equivalence class to some class value.
+-- The map keys will only contain equivalence class roots.
 module Rulecheck.Synth.UnionMap
   ( UnionMap
   , unionFind

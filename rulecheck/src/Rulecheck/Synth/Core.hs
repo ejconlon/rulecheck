@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | Core definitions for types and terms
 module Rulecheck.Synth.Core
   ( Index (..)
   , TyVar (..)

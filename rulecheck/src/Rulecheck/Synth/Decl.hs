@@ -1,3 +1,4 @@
+-- | Declarations of terms in our universe
 module Rulecheck.Synth.Decl
   ( Partial (..)
   , Decl (..)

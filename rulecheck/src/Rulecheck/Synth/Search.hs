@@ -252,6 +252,11 @@ funElimFits = do
             -- It unifies. Now we know that if we can find args we can satsify the goal.
             argTms <- traverse (\k -> local (\env -> env { envGoalKey = k, envDepthLim = depthLim - 1 }) search) addlCtx
             pure (mkApp name argTms)
+            -- TODO Technically we don't have to find a term for each arg independently,
+            -- or even left to right. However, we need to tame the explosion of cases somehow.
+            -- Here we just find them independently nest them in an application. We could have
+            -- introduced lets with a bound application at then end (in ANF).
+            -- Maybe it is worth trying all possibilities but guarding with logict's 'once'.
 
 -- | Search a term matching the current goal type using a number of interleaved strategies.
 search :: SearchM TmFound
