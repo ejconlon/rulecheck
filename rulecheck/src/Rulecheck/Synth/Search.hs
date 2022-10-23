@@ -261,6 +261,11 @@ funElimFits = do
 -- | Search a term matching the current goal type using a number of interleaved strategies.
 search :: SearchM TmFound
 search = res where
+  -- TODO add the following search strategies:
+  -- * Given function in context, see if the result of the function helps you solve the goal.
+  --   If so, search for the arg of the function and return the application. (coq apply?)
+  -- * Case split on all constructors of a datatype. (coq destruct?)
+  -- Really, just look up the standard coq tactics and do what they do.
   fits = [ctxFits, exactDeclFits, funIntroFits, funElimFits]
   res = interleaveAll fits
 
