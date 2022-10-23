@@ -1,5 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | An example of program synthesis through search.
+-- Note that it may be useful to pop into ghci with `make ghci`
+-- and run something like:
+--
+--     import Text.Pretty.Simple (pPrint)
+--     x <- exampleSearch 3
+--     pPrint x
+--
 module Rulecheck.Synth.Example where
 
 import Control.Exception (throwIO)
@@ -9,16 +17,18 @@ import Rulecheck.Synth.Core (Scheme (..), TmName, Ty (..))
 import Rulecheck.Synth.Decl (Decl, DeclErr, mkDecls)
 import Rulecheck.Synth.Search (SearchConfig (..), TmFound, runSearchN)
 
+-- | Some declarations - here just some "Int" constants and addition.
 exampleDecls :: Either (TmName, DeclErr) (Map TmName Decl)
 exampleDecls = res where
   tyInt = TyCon "Int" Empty
   tyIntFun2 = TyFun tyInt (TyFun tyInt tyInt)
   res = mkDecls
-    [ ("myZero", Scheme Empty tyInt)
-    , ("myOne", Scheme Empty tyInt)
-    , ("myPlus", Scheme Empty tyIntFun2)
+    [ ("0", Scheme Empty tyInt)
+    , ("1", Scheme Empty tyInt)
+    , ("+", Scheme Empty tyIntFun2)
     ]
 
+-- | Search for N terms matching the "Int" type.
 exampleSearch :: Int -> IO [TmFound]
 exampleSearch n = do
   let scheme = Scheme mempty (TyCon "Int" mempty)
