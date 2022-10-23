@@ -10,12 +10,10 @@ module Rulecheck.Synth.UnionMap
   , find
   , stateFind
   , MergeFun
-  , merge
   , stateMerge
   ) where
 
-import Control.Monad.State.Strict (MonadState (..), State, StateT, modify', state)
-import Control.Monad.Trans (lift)
+import Control.Monad.State.Strict (MonadState (..), State, modify', state)
 import Data.Coerce (Coercible)
 import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
@@ -55,21 +53,31 @@ stateFind k = state (find k)
 -- Must be symmetric, reflexive, etc
 type MergeFun m v = v -> v -> m v
 
-merge :: (Ord k, Coercible k Int, Applicative m) => MergeFun m v -> k -> k -> UnionMap k v -> m (MergeRes k, UnionMap k v)
-merge f a b (UnionMap uf m) =
-  let (res, uf') = UF.merge a b uf
-  in case res of
-    MergeResChanged knew kold -> do
-      let vnew = ILM.partialLookup knew m
-          vold = ILM.partialLookup kold m
-      flip fmap (f vnew vold) $ \vmerge ->
-        let m' = ILM.insert knew vmerge (ILM.delete kold m)
-        in (res, UnionMap uf' m')
-    _ -> pure (res, UnionMap uf' m)
-
-stateMerge :: (Ord k, Coercible k Int, Monad m) => MergeFun m v -> k -> k -> StateT (UnionMap k v) m (MergeRes k)
+-- Note: this is written carefully to allow the merge function to update the union map state so recursive
+-- merges can be applied. Be very careful: it's not going to yield the correct results if recursive calls
+-- merge keys that are already waiting for their values to be merged... Essentially, this means that your
+-- graph should not have cycles.
+stateMerge :: (Ord k, Coercible k Int, MonadState (UnionMap k v) m) => MergeFun m v -> k -> k -> m (MergeRes k)
 stateMerge f a b = do
-  um <- get
-  (res, um') <- lift (merge f a b um)
-  put um'
+  -- Merge classes in the union find
+  -- and write the result immediately
+  (res, mz) <- state $ \(UnionMap uf m) ->
+    let (res, uf') = UF.merge a b uf
+        mz = case res of
+          MergeResChanged knew kold ->
+            let vnew = ILM.partialLookup knew m
+                vold = ILM.partialLookup kold m
+            in Just (knew, vnew, kold, vold)
+          _ -> Nothing
+    in ((res, mz), UnionMap uf' m)
+  -- If it was indeed a new merge, combine their values
+  case mz of
+    Just (knew, vnew, kold, vold) -> do
+      -- Perform the merge effect (Which may write the UM)
+      vmerge <- f vnew vold
+      -- Lookup the UM to finish the merge
+      modify' $ \(UnionMap uf m') ->
+        let m'' = ILM.insert knew vmerge (ILM.delete kold m')
+        in UnionMap uf m''
+    _ -> pure ()
   pure res
