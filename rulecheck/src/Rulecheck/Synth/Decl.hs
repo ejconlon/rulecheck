@@ -1,5 +1,6 @@
 module Rulecheck.Synth.Decl
-  ( Decl (..)
+  ( Partial (..)
+  , Decl (..)
   , DeclErr
   , mkDecl
   , mkDecls
@@ -7,54 +8,49 @@ module Rulecheck.Synth.Decl
 
 import Control.Exception (Exception)
 import Control.Monad (foldM)
-import Control.Monad.Except (Except, MonadError (..), runExcept)
-import Control.Monad.Reader (MonadReader (..), ReaderT (..))
-import Data.Functor.Foldable (cata)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Synth.Core (Index (..), Scheme (..), Tm (..), TmF (..), TmName, TmVar, TyVar)
+import Rulecheck.Synth.Core (Index (..), Scheme (..), TmName, Ty (..), TyVar)
 
+-- | The type of a partial function application
+data Partial = Partial
+  { partialArgs :: !(Seq (Ty Index))
+  , partialRet :: !(Ty Index)
+  } deriving stock (Eq, Ord, Show)
+
+-- | A declared term (essentially name and type scheme)
 data Decl = Decl
   { declName :: !TmName
+  -- ^ The name of the declared term (will be used in 'TmKnown' constructors)
   , declScheme :: !(Scheme Index)
-  , declBody :: !(Maybe (Tm TmVar Index))
+  -- ^ The type scheme of the term
+  , declPartials :: !(Seq Partial)
+  -- ^ If this is a function declaration, types of partial applications
   } deriving stock (Eq, Ord, Show)
 
 data DeclErr =
     DeclErrTy !TyVar
-  | DeclErrTm !TmVar
   | DeclErrDupe
   deriving stock (Eq, Ord, Show)
 
 instance Exception DeclErr
 
-mkDecl :: TmName -> Scheme TyVar -> Maybe (Tm TmVar TmVar) -> Either DeclErr Decl
-mkDecl n s mt = do
+mkDecl :: TmName -> Scheme TyVar -> Either DeclErr Decl
+mkDecl n s = do
   s' <- namelessTy s
-  mt' <- case mt of
-    Nothing -> pure Nothing
-    Just t -> fmap Just (namelessTm t)
-  pure (Decl n s' mt')
+  let ps = matchPartials (schemeBody s')
+  pure (Decl n s' ps)
 
--- helper for the cata
-runReaderExceptM :: r -> ReaderT r (Except e) a -> Either e a
-runReaderExceptM r m = runExcept (runReaderT m r)
-
-namelessTm :: Tm TmVar TmVar -> Either DeclErr (Tm TmVar Index)
-namelessTm = runReaderExceptM Seq.empty . cata go where
-  go = \case
-    TmFreeF a -> fmap TmFree (bind a)
-    TmKnownF k -> pure (TmKnown k)
-    TmAppF x y -> TmApp <$> x <*> y
-    TmLamF v x -> local (:|> v) x
-  bind a = do
-    tvs <- ask
-    let nvs = Seq.length tvs
-    case Seq.findIndexR (== a) tvs of
-      Nothing -> throwError (DeclErrTm a)
-      Just lvl -> pure (Index (nvs - lvl - 1))
+matchPartials :: Ty Index -> Seq Partial
+matchPartials = onOuter where
+  onOuter = \case
+    TyFun x y -> onInner (Seq.singleton x) y
+    _ -> Empty
+  onInner as t = Partial as t :<| case t of
+    TyFun x y -> onInner (as :|> x) y
+    _ -> Empty
 
 namelessTy :: Scheme TyVar -> Either DeclErr (Scheme Index)
 namelessTy (Scheme tvs ty) = fmap (Scheme tvs) (traverse bind ty) where
@@ -64,10 +60,10 @@ namelessTy (Scheme tvs ty) = fmap (Scheme tvs) (traverse bind ty) where
       Nothing -> Left (DeclErrTy a)
       Just lvl -> Right (Index (nvs - lvl - 1))
 
-mkDecls :: [(TmName, Scheme TyVar, Maybe (Tm TmVar TmVar))] -> Either (TmName, DeclErr) (Map TmName Decl)
+mkDecls :: [(TmName, Scheme TyVar)] -> Either (TmName, DeclErr) (Map TmName Decl)
 mkDecls = foldM go Map.empty where
-  go m (n, s, mt) =
-    case mkDecl n s mt of
+  go m (n, s) =
+    case mkDecl n s of
       Left e -> Left (n, e)
       Right d ->
         case Map.lookup n m of

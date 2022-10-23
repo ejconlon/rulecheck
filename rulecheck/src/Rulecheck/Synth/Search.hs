@@ -22,8 +22,8 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
-import Rulecheck.Synth.Core (Index (..), Scheme (..), Tm (..), TmName, TyF (..), TyVar (..))
-import Rulecheck.Synth.Decl (Decl (..))
+import Rulecheck.Synth.Core (Index (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
+import Rulecheck.Synth.Decl (Decl (..), Partial (..))
 import Rulecheck.Synth.UnionMap (UnionMap)
 import qualified Rulecheck.Synth.UnionMap as UM
 
@@ -95,11 +95,20 @@ lookupCtx i = do
     Nothing -> throwError (SearchErrMissingIndex i)
     Just x -> pure x
 
-insertTy :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> Scheme Index -> m (TyUniq, TyUnify)
-insertTy onVar (Scheme tvs ty) = res where
+insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> Scheme Index -> m (TyUniq, TyUnify)
+insertScheme onVar (Scheme tvs ty) = res where
+  insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
+  acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
+  res = do
+    stStart <- get
+    let (stMid, ctx) = foldl' acc (stStart, Seq.empty) tvs
+    put stMid
+    insertTy ctx ty
+
+insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
+insertTy ctx ty = res where
   insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
   insert v = fmap (,v) (state (insertRaw (TyVertNode v)))
-  acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   onTy = \case
     TyFreeF i -> do
       u <- lookupCtx i
@@ -112,17 +121,19 @@ insertTy onVar (Scheme tvs ty) = res where
       bu <- fmap fst bm
       insert (TyFunF au bu)
   res = do
-    stStart <- get
-    let (stMid, ctx) = foldl' acc (stStart, Seq.empty) tvs
-        ea = runReaderStateT ctx stMid (cata onTy ty)
+    stMid <- get
+    let ea = runReaderStateT ctx stMid (cata onTy ty)
     case ea of
       Left err -> throwError err
       Right ((k, v), stEnd) -> do
         put stEnd
         pure (k, v)
 
-insertMetaTy :: Scheme Index -> SearchM (TyUniq, TyUnify)
-insertMetaTy = insertTy TyVertMeta
+insertMetaScheme :: Scheme Index -> SearchM (TyUniq, TyUnify)
+insertMetaScheme = insertScheme TyVertMeta
+
+freshTmBinder :: SearchM TmUniq
+freshTmBinder = state (\st -> let s = stTmSrc st in (s, st { stTmSrc = s + 1 }))
 
 tryAlignTy :: TyUniq -> SearchM TyUniq
 tryAlignTy candKey = do
@@ -160,29 +171,58 @@ exactDeclFits :: SearchM TmFound
 exactDeclFits = do
   decls <- asks envDecls
   (_, goalVal) <- lookupGoal
-  choose (Map.toList decls) $ \(_name, decl) -> do
+  choose (Map.toList decls) $ \(name, decl) -> do
     -- Do a cheap check on the outside to see if it might align
     let candVal = project (schemeBody (declScheme decl))
     whenAlt (mightAlign goalVal candVal) $ do
       -- It might align. Add the type to the local search env and really align
-      (candKey, _) <- insertMetaTy (declScheme decl)
+      (candKey, _) <- insertMetaScheme (declScheme decl)
       _ <- tryAlignTy candKey
-      pure (TmKnown (declName decl))
+      pure (TmKnown name)
 
 -- | Find solutions to functions by adding to context and finding result
 funIntroFits :: SearchM TmFound
 funIntroFits = do
-  (_, goalVal) <- lookupGoal
-  case matchFunction goalVal of
-    Nothing -> empty
-    Just (argKey, retKey) -> do
-      retTm <- local (\env -> env { envCtx = envCtx env :|> argKey, envGoalKey = retKey }) search
-      b <- state (\st -> let s = stTmSrc st in (s, st { stTmSrc = s + 1 }))
-      pure (TmLam b retTm)
+  depthLim <- asks envDepthLim
+  if depthLim <= 0
+    then empty
+    else do
+      (_, goalVal) <- lookupGoal
+      case matchFunction goalVal of
+        Nothing -> empty
+        Just (argKey, retKey) -> do
+          retTm <- local (\env -> env { envCtx = envCtx env :|> argKey, envGoalKey = retKey, envDepthLim = depthLim - 1 }) search
+          b <- state (\st -> let s = stTmSrc st in (s, st { stTmSrc = s + 1 }))
+          pure (TmLam b retTm)
+
+mkApp :: TmName -> Seq TmFound -> TmFound
+mkApp n = go (TmKnown n) where
+  go !t = \case
+    Empty -> t
+    s :<| ss -> go (TmApp t s) ss
 
 -- | Find solutions by instantiating decl functions with matching return type
 funElimFits :: SearchM TmFound
-funElimFits = empty  -- TODO
+funElimFits = do
+  depthLim <- asks envDepthLim
+  if depthLim <= 0
+    then empty
+    else do
+      decls <- asks envDecls
+      (_, goalVal) <- lookupGoal
+      choose (Map.toList decls) $ \(name, decl) -> do
+        choose (declPartials decl) $ \(Partial args retTy) -> do
+          let candVal = project retTy
+          whenAlt (mightAlign goalVal candVal) $ do
+            oldCtx <- asks envCtx
+            addlCtx <- traverse (fmap fst . insertTy oldCtx) args
+            let newCtx = oldCtx <> addlCtx
+            (candKey, _) <- insertTy newCtx retTy
+            _ <- tryAlignTy candKey
+            -- now we know that if we can find args we can satsify the goal
+            -- TODO technically later fns have previous vars in scope
+            argTms <- traverse (\k -> local (\env -> env { envGoalKey = k, envDepthLim = depthLim - 1}) search) addlCtx
+            pure (mkApp name argTms)
 
 search :: SearchM TmFound
 search = res where
@@ -198,7 +238,7 @@ data SearchConfig = SearchConfig
 initEnvSt :: MonadError SearchErr m => SearchConfig -> m (Env, St)
 initEnvSt (SearchConfig decls scheme depthLim) = do
   let stStart = St 0 UM.empty 0
-  ((key, _), stEnd) <- runStateT (insertTy TyVertSkolem scheme) stStart
+  ((key, _), stEnd) <- runStateT (insertScheme TyVertSkolem scheme) stStart
   let env = Env decls Seq.empty key depthLim
   pure (env, stEnd)
 
