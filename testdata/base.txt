@@ -1,0 +1,166 @@
+-- A reasonable Prelude for experimenting with synthesis
+-- Some things have been changed for easier parsing (just to bootstrap)
+-- (a, b) -> Tuple a b, [a] -> List a
+-- Constructors are marked as such (for destruct tactics)
+-- Parens are necessary for constraints
+-- Everything exists in one namespace
+
+-- Tuple
+data Tuple a b
+constructor MkTuple :: a -> b -> Tuple a b
+instance (Eq a, Eq b) => Eq (Tuple a b)
+instance (Ord a, Ord b) => Ord (Tuple a b)
+instance (Show a, Show b) => Show (Tuple a b)
+function fst :: Tuple a b -> a
+function snd :: Tuple a b -> b
+function curry :: (Tuple a b -> c) -> a -> b -> c
+function uncurry :: (a -> b -> c) -> Tuple a b -> c
+function swap :: Tuple a b -> Tuple b a
+
+-- Bool
+data Bool
+constructor False :: Bool
+constructor True :: Bool
+instance Eq Bool
+instance Ord Bool
+instance Show Bool
+function (&&) :: Bool -> Bool -> Bool
+function (||) :: Bool -> Bool -> Bool
+function not :: Bool -> Bool
+function bool :: a -> a -> Bool -> a
+
+-- Eq
+class Eq a
+method (==) :: (Eq a) => a -> a -> Bool
+method (/=) :: (Eq a) => a -> a -> Bool
+
+-- Maybe
+data Maybe a
+constructor Nothing :: Maybe a
+constructor Just :: a -> Maybe a
+instance (Eq a) => Eq (Maybe a)
+instance (Ord a) => Ord (Maybe a)
+instance (Show a) => Show (Maybe a)
+function maybe :: b -> (a -> b) -> Maybe a -> b
+function isJust :: Maybe a -> Bool
+function isNothing :: Maybe a -> Bool
+function fromJust :: Maybe a -> a
+function fromMaybe :: a -> Maybe a -> a
+function listToMaybe :: List a -> Maybe a
+function maybeToList :: Maybe a -> List a
+function catMaybes :: List (Maybe a) -> List a
+function mapMaybe :: (a -> Maybe b) -> List a -> List b
+
+-- List
+data List a
+constructor Nil :: List a
+constructor Cons :: a -> List a -> List a
+instance (Eq a) => Eq (List a)
+instance (Ord a) => Ord (List a)
+instance (Show a) => Show (List a)
+function map :: (a -> b) -> List a -> List b
+function (++) :: List a -> List a -> List a
+function filter :: (a -> Bool) -> List a -> List a
+function concat :: List (List a) -> List a
+function head :: List a -> a
+function last :: List a -> a
+function tail :: List a -> List a
+function init :: List a -> List a
+function uncons :: List a -> Maybe (a, List a)
+function null :: List a -> Bool
+function length :: List a -> Int
+function (!!) :: List a -> Int -> a
+function foldl :: forall a b. (b -> a -> b) -> b -> List a -> b
+function scanl :: (b -> a -> b) -> b -> List a -> List b
+function foldr :: (a -> b -> b) -> b -> List a -> b
+function scanr :: (a -> b -> b) -> b -> List a -> List b
+function iterate :: (a -> a) -> a -> List a
+function repeat :: a -> List a
+function replicate :: Int -> a -> List a
+function cycle :: List a -> List a
+function take :: Int -> List a -> List a
+function drop :: Int -> List a -> List a
+function sum :: (Num a) => List a -> Int
+function product :: (Num a) => List a -> Int
+function maximum :: (Ord a) => List a -> a
+function minimum :: (Ord a) => List a -> a
+function splitAt :: Int -> List a -> (List a, List a)
+function takeWhile :: (a -> Bool) -> List a -> List a
+function dropWhile :: (a -> Bool) -> List a -> List a
+function span :: (a -> Bool) -> List a -> (List a, List a)
+function break :: (a -> Bool) -> List a -> (List a, List a)
+function reverse :: List a -> List a
+function and :: List Bool -> Bool
+function or :: List Bool -> Bool
+function any :: (a -> Bool) -> List a -> Bool
+function all :: (a -> Bool) -> List a -> Bool
+function elem :: (Eq a) => a -> List a -> Bool
+function notElem :: (Eq a) => a -> List a -> Bool
+function lookup :: (Eq a) => a -> List (Tuple a b) -> Maybe b
+function concatMap :: (a -> List b) -> List a -> List b
+function zip :: List a -> List b -> List (Tuple a b)
+function zipWith :: (a -> b -> c) -> List a -> List b -> List c
+function unzip :: List (Tuple a b) -> (List a, List b)
+
+-- Either
+data Either a b
+constructor Left :: a -> Either a b
+constructor Right :: b -> Either a b
+instance (Eq a, Eq b) => Eq (Either a b)
+instance (Ord a, Ord b) => Ord (Either a b)
+instance (Show a, Show b) => Show (Either a b)
+function either :: (a -> c) -> (b -> c) -> Either a b -> c
+function lefts :: List (Either a b) -> List a
+function rights :: List (Either a b) -> List b
+function isLeft :: Either a b -> Bool
+function isRight :: Either a b -> Bool
+function fromLeft :: a -> Either a b -> a
+function fromRight :: b -> Either a b -> b
+function partitionEithers :: List (Either a b) -> (List a, List b)
+
+-- Num
+class Num a
+method (+) :: (Num a) => a -> a -> a
+method (-) :: (Num a) => a -> a -> a
+method (*) :: (Num a) => a -> a -> a
+method negate :: (Num a) => a -> a
+method abs :: (Num a) => a -> a
+method signum :: (Num a) => a -> a
+
+-- Int
+data Int
+native Int
+instance Eq Int
+instance Ord Int
+instance Show Int
+instance Num Int
+
+-- Ordering
+data Ordering
+constructor LT :: Ordering
+constructor EQ :: Ordering
+constructor GT :: Ordering
+instance Eq Ordering
+instance Ord Ordering
+instance Show Ordering
+
+-- Ord
+class (Eq a) => Ord a
+method compare :: (Ord a) => a -> a -> Ordering
+method (<) :: (Ord a) => a -> a -> Bool
+method (<=) :: (Ord a) => a -> a -> Bool
+method (>) :: (Ord a) => a -> a -> Bool
+method (>=) :: (Ord a) => a -> a -> Bool
+method max :: (Ord a) => a -> a -> Bool
+method min :: (Ord a) => a -> a -> Bool
+
+-- Show
+class Show a
+method show :: (Show a) => a -> String
+
+-- String
+data String
+native String
+instance Eq String
+instance Ord String
+instance Show String
