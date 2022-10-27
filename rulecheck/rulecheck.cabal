@@ -11,13 +11,15 @@ build-type:     Simple
 library
   exposed-modules:
       Rulecheck
+      Rulecheck.Interface.Core
+      Rulecheck.Interface.Decl
+      Rulecheck.Interface.Parser
+      Rulecheck.Interface.Types
       Rulecheck.Monad
       Rulecheck.Parsing
       Rulecheck.Rendering
       Rulecheck.Rule
       Rulecheck.Synth.Align
-      Rulecheck.Synth.Core
-      Rulecheck.Synth.Decl
       Rulecheck.Synth.Example
       Rulecheck.Synth.Search
       Rulecheck.Synth.UnionFind
@@ -70,6 +72,7 @@ library
     , little-logger
     , little-rio
     , logict
+    , megaparsec
     , mtl
     , pretty-simple
     , recursion-schemes
@@ -129,6 +132,7 @@ executable rulecheck-exe
     , little-logger
     , little-rio
     , logict
+    , megaparsec
     , mtl
     , pretty-simple
     , recursion-schemes
@@ -192,6 +196,7 @@ test-suite rulecheck-test
     , little-logger
     , little-rio
     , logict
+    , megaparsec
     , mtl
     , pretty-simple
     , recursion-schemes

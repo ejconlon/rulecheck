@@ -5,162 +5,166 @@
 -- Parens are necessary for constraints
 -- Everything exists in one namespace
 
--- Tuple
+module Tuple
 data Tuple a b
-constructor MkTuple :: a -> b -> Tuple a b
+MkTuple :: a -> b -> Tuple a b
+constructors Tuple MkTuple
 instance (Eq a, Eq b) => Eq (Tuple a b)
 instance (Ord a, Ord b) => Ord (Tuple a b)
 instance (Show a, Show b) => Show (Tuple a b)
-function fst :: Tuple a b -> a
-function snd :: Tuple a b -> b
-function curry :: (Tuple a b -> c) -> a -> b -> c
-function uncurry :: (a -> b -> c) -> Tuple a b -> c
-function swap :: Tuple a b -> Tuple b a
+fst :: Tuple a b -> a
+snd :: Tuple a b -> b
+curry :: (Tuple a b -> c) -> a -> b -> c
+uncurry :: (a -> b -> c) -> Tuple a b -> c
+swap :: Tuple a b -> Tuple b a
 
--- Bool
+module Bool
 data Bool
-constructor False :: Bool
-constructor True :: Bool
+False :: Bool
+True :: Bool
+constructors Bool False True
 instance Eq Bool
 instance Ord Bool
 instance Show Bool
-function (&&) :: Bool -> Bool -> Bool
-function (||) :: Bool -> Bool -> Bool
-function not :: Bool -> Bool
-function bool :: a -> a -> Bool -> a
+(&&) :: Bool -> Bool -> Bool
+(||) :: Bool -> Bool -> Bool
+not :: Bool -> Bool
+bool :: a -> a -> Bool -> a
 
--- Eq
+module Eq
 class Eq a
-method (==) :: (Eq a) => a -> a -> Bool
-method (/=) :: (Eq a) => a -> a -> Bool
+(==) :: (Eq a) => a -> a -> Bool
+(/=) :: (Eq a) => a -> a -> Bool
 
--- Maybe
+module Maybe
 data Maybe a
-constructor Nothing :: Maybe a
-constructor Just :: a -> Maybe a
+Nothing :: Maybe a
+Just :: a -> Maybe a
+constructors Maybe Nothing Just
 instance (Eq a) => Eq (Maybe a)
 instance (Ord a) => Ord (Maybe a)
 instance (Show a) => Show (Maybe a)
-function maybe :: b -> (a -> b) -> Maybe a -> b
-function isJust :: Maybe a -> Bool
-function isNothing :: Maybe a -> Bool
-function fromJust :: Maybe a -> a
-function fromMaybe :: a -> Maybe a -> a
-function listToMaybe :: List a -> Maybe a
-function maybeToList :: Maybe a -> List a
-function catMaybes :: List (Maybe a) -> List a
-function mapMaybe :: (a -> Maybe b) -> List a -> List b
+maybe :: b -> (a -> b) -> Maybe a -> b
+isJust :: Maybe a -> Bool
+isNothing :: Maybe a -> Bool
+fromJust :: Maybe a -> a
+fromMaybe :: a -> Maybe a -> a
+listToMaybe :: List a -> Maybe a
+maybeToList :: Maybe a -> List a
+catMaybes :: List (Maybe a) -> List a
+mapMaybe :: (a -> Maybe b) -> List a -> List b
 
--- List
+module List
 data List a
-constructor Nil :: List a
-constructor Cons :: a -> List a -> List a
+Nil :: List a
+Cons :: a -> List a -> List a
+constructors List Nil Cons
 instance (Eq a) => Eq (List a)
 instance (Ord a) => Ord (List a)
 instance (Show a) => Show (List a)
-function map :: (a -> b) -> List a -> List b
-function (++) :: List a -> List a -> List a
-function filter :: (a -> Bool) -> List a -> List a
-function concat :: List (List a) -> List a
-function head :: List a -> a
-function last :: List a -> a
-function tail :: List a -> List a
-function init :: List a -> List a
-function uncons :: List a -> Maybe (a, List a)
-function null :: List a -> Bool
-function length :: List a -> Int
-function (!!) :: List a -> Int -> a
-function foldl :: forall a b. (b -> a -> b) -> b -> List a -> b
-function scanl :: (b -> a -> b) -> b -> List a -> List b
-function foldr :: (a -> b -> b) -> b -> List a -> b
-function scanr :: (a -> b -> b) -> b -> List a -> List b
-function iterate :: (a -> a) -> a -> List a
-function repeat :: a -> List a
-function replicate :: Int -> a -> List a
-function cycle :: List a -> List a
-function take :: Int -> List a -> List a
-function drop :: Int -> List a -> List a
-function sum :: (Num a) => List a -> Int
-function product :: (Num a) => List a -> Int
-function maximum :: (Ord a) => List a -> a
-function minimum :: (Ord a) => List a -> a
-function splitAt :: Int -> List a -> (List a, List a)
-function takeWhile :: (a -> Bool) -> List a -> List a
-function dropWhile :: (a -> Bool) -> List a -> List a
-function span :: (a -> Bool) -> List a -> (List a, List a)
-function break :: (a -> Bool) -> List a -> (List a, List a)
-function reverse :: List a -> List a
-function and :: List Bool -> Bool
-function or :: List Bool -> Bool
-function any :: (a -> Bool) -> List a -> Bool
-function all :: (a -> Bool) -> List a -> Bool
-function elem :: (Eq a) => a -> List a -> Bool
-function notElem :: (Eq a) => a -> List a -> Bool
-function lookup :: (Eq a) => a -> List (Tuple a b) -> Maybe b
-function concatMap :: (a -> List b) -> List a -> List b
-function zip :: List a -> List b -> List (Tuple a b)
-function zipWith :: (a -> b -> c) -> List a -> List b -> List c
-function unzip :: List (Tuple a b) -> (List a, List b)
+map :: (a -> b) -> List a -> List b
+(++) :: List a -> List a -> List a
+filter :: (a -> Bool) -> List a -> List a
+concat :: List (List a) -> List a
+head :: List a -> a
+last :: List a -> a
+tail :: List a -> List a
+init :: List a -> List a
+uncons :: List a -> Maybe (a, List a)
+null :: List a -> Bool
+length :: List a -> Int
+(!!) :: List a -> Int -> a
+foldl :: (b -> a -> b) -> b -> List a -> b
+scanl :: (b -> a -> b) -> b -> List a -> List b
+foldr :: (a -> b -> b) -> b -> List a -> b
+scanr :: (a -> b -> b) -> b -> List a -> List b
+iterate :: (a -> a) -> a -> List a
+repeat :: a -> List a
+replicate :: Int -> a -> List a
+cycle :: List a -> List a
+take :: Int -> List a -> List a
+drop :: Int -> List a -> List a
+sum :: (Num a) => List a -> Int
+product :: (Num a) => List a -> Int
+maximum :: (Ord a) => List a -> a
+minimum :: (Ord a) => List a -> a
+splitAt :: Int -> List a -> (List a, List a)
+takeWhile :: (a -> Bool) -> List a -> List a
+dropWhile :: (a -> Bool) -> List a -> List a
+span :: (a -> Bool) -> List a -> (List a, List a)
+break :: (a -> Bool) -> List a -> (List a, List a)
+reverse :: List a -> List a
+and :: List Bool -> Bool
+or :: List Bool -> Bool
+any :: (a -> Bool) -> List a -> Bool
+all :: (a -> Bool) -> List a -> Bool
+elem :: (Eq a) => a -> List a -> Bool
+notElem :: (Eq a) => a -> List a -> Bool
+lookup :: (Eq a) => a -> List (Tuple a b) -> Maybe b
+concatMap :: (a -> List b) -> List a -> List b
+zip :: List a -> List b -> List (Tuple a b)
+zipWith :: (a -> b -> c) -> List a -> List b -> List c
+unzip :: List (Tuple a b) -> (List a, List b)
 
--- Either
+module Either
 data Either a b
-constructor Left :: a -> Either a b
-constructor Right :: b -> Either a b
+Left :: a -> Either a b
+Right :: b -> Either a b
+constructors Either Left Right
 instance (Eq a, Eq b) => Eq (Either a b)
 instance (Ord a, Ord b) => Ord (Either a b)
 instance (Show a, Show b) => Show (Either a b)
-function either :: (a -> c) -> (b -> c) -> Either a b -> c
-function lefts :: List (Either a b) -> List a
-function rights :: List (Either a b) -> List b
-function isLeft :: Either a b -> Bool
-function isRight :: Either a b -> Bool
-function fromLeft :: a -> Either a b -> a
-function fromRight :: b -> Either a b -> b
-function partitionEithers :: List (Either a b) -> (List a, List b)
+either :: (a -> c) -> (b -> c) -> Either a b -> c
+lefts :: List (Either a b) -> List a
+rights :: List (Either a b) -> List b
+isLeft :: Either a b -> Bool
+isRight :: Either a b -> Bool
+fromLeft :: a -> Either a b -> a
+fromRight :: b -> Either a b -> b
+partitionEithers :: List (Either a b) -> (List a, List b)
 
--- Num
+module Num
 class Num a
-method (+) :: (Num a) => a -> a -> a
-method (-) :: (Num a) => a -> a -> a
-method (*) :: (Num a) => a -> a -> a
-method negate :: (Num a) => a -> a
-method abs :: (Num a) => a -> a
-method signum :: (Num a) => a -> a
+(+) :: (Num a) => a -> a -> a
+(-) :: (Num a) => a -> a -> a
+(*) :: (Num a) => a -> a -> a
+negate :: (Num a) => a -> a
+abs :: (Num a) => a -> a
+signum :: (Num a) => a -> a
 
--- Int
+module Int
 data Int
-native Int
 instance Eq Int
 instance Ord Int
 instance Show Int
 instance Num Int
 
--- Ordering
+module Ordering
 data Ordering
-constructor LT :: Ordering
-constructor EQ :: Ordering
-constructor GT :: Ordering
+LT :: Ordering
+EQ :: Ordering
+GT :: Ordering
+constructors Ordering LT EQ GT
 instance Eq Ordering
 instance Ord Ordering
 instance Show Ordering
 
--- Ord
+module Ord
 class (Eq a) => Ord a
-method compare :: (Ord a) => a -> a -> Ordering
-method (<) :: (Ord a) => a -> a -> Bool
-method (<=) :: (Ord a) => a -> a -> Bool
-method (>) :: (Ord a) => a -> a -> Bool
-method (>=) :: (Ord a) => a -> a -> Bool
-method max :: (Ord a) => a -> a -> Bool
-method min :: (Ord a) => a -> a -> Bool
+compare :: (Ord a) => a -> a -> Ordering
+(<) :: (Ord a) => a -> a -> Bool
+(<=) :: (Ord a) => a -> a -> Bool
+(>) :: (Ord a) => a -> a -> Bool
+(>=) :: (Ord a) => a -> a -> Bool
+max :: (Ord a) => a -> a -> Bool
+min :: (Ord a) => a -> a -> Bool
 
--- Show
+module Show
 class Show a
-method show :: (Show a) => a -> String
+show :: (Show a) => a -> String
 
--- String
+module String
 data String
-native String
 instance Eq String
 instance Ord String
 instance Show String

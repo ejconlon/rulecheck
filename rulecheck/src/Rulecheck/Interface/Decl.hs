@@ -1,5 +1,5 @@
 -- | Declarations of terms in our universe
-module Rulecheck.Synth.Decl
+module Rulecheck.Interface.Decl
   ( Partial (..)
   , Decl (..)
   , DeclErr
@@ -13,7 +13,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Synth.Core (Index (..), Scheme (..), TmName, Ty (..), TyVar)
+import Rulecheck.Interface.Core (Index (..), Scheme (..), TmName, Ty (..), TyVar)
 
 -- | The type of a partial function application
 data Partial = Partial

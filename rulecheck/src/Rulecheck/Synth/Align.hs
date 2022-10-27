@@ -5,7 +5,7 @@ import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Synth.Core (TyF (..), TyName, TyVar, bitraverseTyF)
+import Rulecheck.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF)
 import Rulecheck.Synth.UnionFind (MergeRes (..))
 import Rulecheck.Synth.UnionMap (UnionMap)
 import qualified Rulecheck.Synth.UnionMap as UM

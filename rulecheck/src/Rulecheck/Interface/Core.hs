@@ -1,12 +1,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Core definitions for types and terms
-module Rulecheck.Synth.Core
+module Rulecheck.Interface.Core
   ( Index (..)
   , TyVar (..)
   , TmVar (..)
   , TyName (..)
   , TmName (..)
+  , ClsName (..)
+  , ModName (..)
+  , Cls (..)
+  , Inst (..)
   , Scheme (..)
   , Ty (..)
   , Tm (..)
@@ -45,9 +49,33 @@ newtype TmName = TmName { unTmName :: Text }
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString)
 
+-- | Known class name
+newtype ClsName = ClsName { unClsName :: Text }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, IsString)
+
+-- | Module name
+newtype ModName = ModName { unModName :: Text }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, IsString)
+
+-- | Class decl
+data Cls = Cls
+  { clsName :: !ClsName
+  , clsVars :: !(Seq TyVar)
+  } deriving stock (Eq, Ord, Show)
+
+-- | Instance/Constraint decl
+data Inst a = Inst
+  { instName :: !ClsName
+  , instVars :: !(Seq (Ty a))
+  } deriving stock (Eq, Ord, Show)
+
 -- | Type scheme
 data Scheme a = Scheme
   { schemeBinders :: !(Seq TyVar)
+  -- TODO add constraints to type scheme
+  -- , schemeConstraints :: !(Seq (Inst a))
   , schemeBody :: !(Ty a)
   } deriving stock (Eq, Ord, Show)
 

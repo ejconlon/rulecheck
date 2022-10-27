@@ -19,6 +19,7 @@ dependencies:
 - recursion-schemes
 - logict
 - transformers
+- megaparsec
 # For debugging
 - pretty-simple
 # These are for prototyping the test interface:
