@@ -10,7 +10,7 @@ import Data.Text (Text)
 import Data.Void (Void)
 import Control.Applicative (Alternative (..))
 import Rulecheck.Interface.Types (Line (..), ModLine (..), DataLine (..), ConsLine (..), InstLine (..), FuncLine (..), ClsLine (..))
-import Rulecheck.Interface.Core (TyName (..), TmName (..), TyVar (..), Ty, ClsName (..), ModName (..), Scheme (..), Cls, Inst)
+import Rulecheck.Interface.Core (TyName (..), TmName (..), TyVar (..), Ty (..), ClsName (..), ModName (..), Scheme (..), Cls (..), Inst (..))
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq (..))
 import qualified Data.Text.IO as TIO
@@ -40,6 +40,19 @@ openParenP = lexP (P (void (MPC.char '(')))
 
 closeParenP :: P ()
 closeParenP = lexP (P (void (MPC.char ')')))
+
+keywordP :: Text -> P ()
+keywordP = lexP . P . void . MPC.string
+
+inParensP :: P a -> P a
+inParensP p = do
+  openParenP
+  a <- p
+  closeParenP
+  pure a
+
+optParensP :: P a -> P a
+optParensP p = inParensP p <|> p
 
 satisfy :: (Char -> Bool) -> P Char
 satisfy f = P (MP.satisfy f)
@@ -74,8 +87,27 @@ tmNameP = lexP $ lower <|> sym where
 tyVarP :: P TyVar
 tyVarP = fmap TyVar lowerP
 
+tyConP :: P (Ty TyVar)
+tyConP = do
+  cn <- tyNameP
+  as <- many tyP
+  pure (TyCon cn (Seq.fromList as))
+
+innerTyP :: P (Ty TyVar)
+innerTyP = optParensP $ fmap TyFree tyVarP <|> tyConP
+
 tyP :: P (Ty TyVar)
-tyP = error "TODO"
+tyP = optParensP $ do
+  parts <- sepBy innerTyP (keywordP "->")
+  case parts of
+    [] -> empty
+    ty:tys -> pure (assocFn ty tys)
+
+assocFn :: Ty TyVar -> [Ty TyVar] -> Ty TyVar
+assocFn ty tys =
+  case tys of
+    [] -> ty
+    ty':tys' -> TyFun ty (assocFn ty' tys')
 
 schemeP :: P (Scheme TyVar)
 schemeP = do
@@ -92,9 +124,6 @@ clsNameP = fmap ClsName upperP
 modNameP :: P ModName
 modNameP = fmap ModName upperP
 
-keywordP :: Text -> P ()
-keywordP = lexP . P . void . MPC.string
-
 constraintsP :: P a -> P (Seq a)
 constraintsP p = lexP $ (single <|> multiple) <* keywordP "=>" where
   single = Seq.singleton <$> p
@@ -105,10 +134,16 @@ constraintsP p = lexP $ (single <|> multiple) <* keywordP "=>" where
     pure (Seq.fromList as)
 
 clsP :: P Cls
-clsP = error "TODO"
+clsP = do
+  cn <- clsNameP
+  as <- some tyVarP
+  pure (Cls cn (Seq.fromList as))
 
 instP :: P (Inst TyVar)
-instP = error "TODO"
+instP = do
+  cn <- clsNameP
+  as <- some tyP
+  pure (Inst cn (Seq.fromList as))
 
 lineP :: P Line
 lineP = lexP $ foldr1 (<|>)
