@@ -70,7 +70,7 @@ head :: List a -> a
 last :: List a -> a
 tail :: List a -> List a
 init :: List a -> List a
-uncons :: List a -> Maybe (a, List a)
+uncons :: List a -> Maybe (Tuple a (List a))
 null :: List a -> Bool
 length :: List a -> Int
 (!!) :: List a -> Int -> a
@@ -88,11 +88,11 @@ sum :: (Num a) => List a -> Int
 product :: (Num a) => List a -> Int
 maximum :: (Ord a) => List a -> a
 minimum :: (Ord a) => List a -> a
-splitAt :: Int -> List a -> (List a, List a)
+splitAt :: Int -> List a -> Tuple (List a) (List a)
 takeWhile :: (a -> Bool) -> List a -> List a
 dropWhile :: (a -> Bool) -> List a -> List a
-span :: (a -> Bool) -> List a -> (List a, List a)
-break :: (a -> Bool) -> List a -> (List a, List a)
+span :: (a -> Bool) -> List a -> Tuple (List a) (List a)
+break :: (a -> Bool) -> List a -> Tuple (List a) (List a)
 reverse :: List a -> List a
 and :: List Bool -> Bool
 or :: List Bool -> Bool
@@ -104,7 +104,7 @@ lookup :: (Eq a) => a -> List (Tuple a b) -> Maybe b
 concatMap :: (a -> List b) -> List a -> List b
 zip :: List a -> List b -> List (Tuple a b)
 zipWith :: (a -> b -> c) -> List a -> List b -> List c
-unzip :: List (Tuple a b) -> (List a, List b)
+unzip :: List (Tuple a b) -> Tuple (List a) (List b)
 
 module Either
 data Either a b
@@ -121,7 +121,7 @@ isLeft :: Either a b -> Bool
 isRight :: Either a b -> Bool
 fromLeft :: a -> Either a b -> a
 fromRight :: b -> Either a b -> b
-partitionEithers :: List (Either a b) -> (List a, List b)
+partitionEithers :: List (Either a b) -> Tuple (List a) (List b)
 
 module Num
 class Num a

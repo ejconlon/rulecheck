@@ -4,7 +4,7 @@ clean:
 
 .PHONY: ghci
 ghci:
-	stack ghci --ghci-options "-ghci-script .ghci-manual" rulecheck:lib
+	stack ghci --ghci-options "-ghci-script ../.ghci-manual" rulecheck:lib
 
 .PHONY: docs
 docs:
