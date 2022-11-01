@@ -2,8 +2,7 @@
 -- Some things have been changed for easier parsing (just to bootstrap)
 -- (a, b) -> Tuple a b, [a] -> List a
 -- Constructors are marked as such (for destruct tactics)
--- Parens are necessary for constraints
--- Everything exists in one namespace
+-- Everything exists in one namespace, so names should be fully qualified
 
 module Tuple
 data Tuple a b
@@ -33,17 +32,17 @@ bool :: a -> a -> Bool -> a
 
 module Eq
 class Eq a
-(==) :: (Eq a) => a -> a -> Bool
-(/=) :: (Eq a) => a -> a -> Bool
+(==) :: Eq a => a -> a -> Bool
+(/=) :: Eq a => a -> a -> Bool
 
 module Maybe
 data Maybe a
 Nothing :: Maybe a
 Just :: a -> Maybe a
 constructors Maybe Nothing Just
-instance (Eq a) => Eq (Maybe a)
-instance (Ord a) => Ord (Maybe a)
-instance (Show a) => Show (Maybe a)
+instance Eq a => Eq (Maybe a)
+instance Ord a => Ord (Maybe a)
+instance Show a => Show (Maybe a)
 maybe :: b -> (a -> b) -> Maybe a -> b
 isJust :: Maybe a -> Bool
 isNothing :: Maybe a -> Bool
@@ -59,9 +58,9 @@ data List a
 Nil :: List a
 Cons :: a -> List a -> List a
 constructors List Nil Cons
-instance (Eq a) => Eq (List a)
-instance (Ord a) => Ord (List a)
-instance (Show a) => Show (List a)
+instance Eq a => Eq (List a)
+instance Ord a => Ord (List a)
+instance Show a => Show (List a)
 map :: (a -> b) -> List a -> List b
 (++) :: List a -> List a -> List a
 filter :: (a -> Bool) -> List a -> List a
@@ -84,10 +83,10 @@ replicate :: Int -> a -> List a
 cycle :: List a -> List a
 take :: Int -> List a -> List a
 drop :: Int -> List a -> List a
-sum :: (Num a) => List a -> Int
-product :: (Num a) => List a -> Int
-maximum :: (Ord a) => List a -> a
-minimum :: (Ord a) => List a -> a
+sum :: Num a => List a -> Int
+product :: Num a => List a -> Int
+maximum :: Ord a => List a -> a
+minimum :: Ord a => List a -> a
 splitAt :: Int -> List a -> Tuple (List a) (List a)
 takeWhile :: (a -> Bool) -> List a -> List a
 dropWhile :: (a -> Bool) -> List a -> List a
@@ -98,9 +97,9 @@ and :: List Bool -> Bool
 or :: List Bool -> Bool
 any :: (a -> Bool) -> List a -> Bool
 all :: (a -> Bool) -> List a -> Bool
-elem :: (Eq a) => a -> List a -> Bool
-notElem :: (Eq a) => a -> List a -> Bool
-lookup :: (Eq a) => a -> List (Tuple a b) -> Maybe b
+elem :: Eq a => a -> List a -> Bool
+notElem :: Eq a => a -> List a -> Bool
+lookup :: Eq a => a -> List (Tuple a b) -> Maybe b
 concatMap :: (a -> List b) -> List a -> List b
 zip :: List a -> List b -> List (Tuple a b)
 zipWith :: (a -> b -> c) -> List a -> List b -> List c
@@ -125,12 +124,12 @@ partitionEithers :: List (Either a b) -> Tuple (List a) (List b)
 
 module Num
 class Num a
-(+) :: (Num a) => a -> a -> a
-(-) :: (Num a) => a -> a -> a
-(*) :: (Num a) => a -> a -> a
-negate :: (Num a) => a -> a
-abs :: (Num a) => a -> a
-signum :: (Num a) => a -> a
+(+) :: Num a => a -> a -> a
+(-) :: Num a => a -> a -> a
+(*) :: Num a => a -> a -> a
+negate :: Num a => a -> a
+abs :: Num a => a -> a
+signum :: Num a => a -> a
 
 module Int
 data Int
@@ -150,18 +149,18 @@ instance Ord Ordering
 instance Show Ordering
 
 module Ord
-class (Eq a) => Ord a
-compare :: (Ord a) => a -> a -> Ordering
-(<) :: (Ord a) => a -> a -> Bool
-(<=) :: (Ord a) => a -> a -> Bool
-(>) :: (Ord a) => a -> a -> Bool
-(>=) :: (Ord a) => a -> a -> Bool
-max :: (Ord a) => a -> a -> Bool
-min :: (Ord a) => a -> a -> Bool
+class Eq a => Ord a
+compare :: Ord a => a -> a -> Ordering
+(<) :: Ord a => a -> a -> Bool
+(<=) :: Ord a => a -> a -> Bool
+(>) :: Ord a => a -> a -> Bool
+(>=) :: Ord a => a -> a -> Bool
+max :: Ord a => a -> a -> Bool
+min :: Ord a => a -> a -> Bool
 
 module Show
 class Show a
-show :: (Show a) => a -> String
+show :: Show a => a -> String
 
 module String
 data String

@@ -1,1 +1,5 @@
+:set -XOverloadedStrings
 :set prompt "> "
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Text.Pretty.Simple (pPrint)

@@ -10,6 +10,7 @@ import Rulecheck.Parsing (fakeFilePath, getParsedRuleDecls, parseModule)
 import Rulecheck.Rendering (convertAndRender, outputString)
 import Rulecheck.Rule (Rule (..), RuleSide (..), ruleFromDecl, ruleSideDoc)
 import Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, getTypecheckedRuleDecls, typecheck)
+import Test.Rulecheck.Interface (testInterface)
 import Test.Rulecheck.Synth.UnionMap
 import Test.Tasty (DependencyType (..), TestTree, after, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
@@ -120,4 +121,5 @@ main :: IO ()
 main = defaultMain $ testGroup "Rulecheck"
   [ testEverything
   , testUnionMap
+  , testInterface
   ]

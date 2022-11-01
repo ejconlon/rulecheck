@@ -1,25 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Rulecheck.Interface.Parser where
+module Rulecheck.Interface.Parser
+  ( parseLines
+  , parseLinesIO
+  ) where
 
-import Text.Megaparsec (Parsec, ParseErrorBundle)
+import Control.Applicative (Alternative (..))
+import Control.Exception (throwIO)
+import Control.Monad (void)
+import Data.Char (isAlphaNum, isSpace)
+import Data.Foldable (toList)
+import Data.List (nub)
+import Data.Sequence (Seq (..))
+import qualified Data.Sequence as Seq
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Data.Void (Void)
+import Rulecheck.Interface.Core (Cls (..), ClsName (..), Inst (..), ModName (..), Scheme (..), TmName (..), Ty (..),
+                                 TyName (..), TyVar (..))
+import Rulecheck.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
+                                  ModLine (..))
+import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
-import Data.Text (Text)
-import Data.Void (Void)
-import Control.Applicative (Alternative (..))
-import Rulecheck.Interface.Types (Line (..), ModLine (..), DataLine (..), ConsLine (..), InstLine (..), FuncLine (..), ClsLine (..))
-import Rulecheck.Interface.Core (TyName (..), TmName (..), TyVar (..), Ty (..), ClsName (..), ModName (..), Scheme (..), Cls (..), Inst (..))
-import qualified Data.Sequence as Seq
-import Data.Sequence (Seq (..))
-import qualified Data.Text.IO as TIO
-import Control.Exception (throwIO)
-import qualified Data.Text as T
-import Data.Char (isAlphaNum, isSpace)
-import Control.Monad (void)
-import Data.Foldable (toList)
-import Data.List (nub)
 
 newtype P a = P { unP :: Parsec Void Text a }
   deriving newtype (Functor, Applicative, Monad, MonadFail)
@@ -142,10 +147,10 @@ assocFn ty tys =
 
 schemeP :: P (Scheme TyVar)
 schemeP = do
-  _ <- optP Empty (constraintsP instP)
+  pars <- optP Empty (constraintsP instP)
   ty <- tyP False False
   let tvs = Seq.fromList (nub (toList ty))
-  pure (Scheme tvs ty)
+  pure (Scheme tvs pars ty)
 
 clsNameP :: P ClsName
 clsNameP = fmap ClsName upperP

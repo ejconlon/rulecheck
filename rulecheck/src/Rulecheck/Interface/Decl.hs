@@ -13,7 +13,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (Index (..), Scheme (..), TmName, Ty (..), TyVar)
+import Rulecheck.Interface.Core (Index (..), Inst (..), Scheme (..), TmName, Ty (..), TyVar)
 
 -- | The type of a partial function application
 data Partial = Partial
@@ -54,12 +54,13 @@ matchPartials = onOuter where
     _ -> Empty
 
 namelessTy :: Scheme TyVar -> Either DeclErr (Scheme Index)
-namelessTy (Scheme tvs ty) = fmap (Scheme tvs) (traverse bind ty) where
+namelessTy (Scheme tvs pars ty) = Scheme tvs <$> traverse bindInst pars <*> traverse bind ty where
   nvs = Seq.length tvs
   bind a =
     case Seq.findIndexR (== a) tvs of
       Nothing -> Left (DeclErrTy a)
       Just lvl -> Right (Index (nvs - lvl - 1))
+  bindInst (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
 
 mkDecls :: [(TmName, Scheme TyVar)] -> Either (TmName, DeclErr) (Map TmName Decl)
 mkDecls = foldM go Map.empty where

@@ -13,7 +13,9 @@ library
       Rulecheck
       Rulecheck.Interface.Core
       Rulecheck.Interface.Decl
+      Rulecheck.Interface.ParenPretty
       Rulecheck.Interface.Parser
+      Rulecheck.Interface.Printer
       Rulecheck.Interface.Types
       Rulecheck.Monad
       Rulecheck.Parsing
@@ -75,6 +77,7 @@ library
     , megaparsec
     , mtl
     , pretty-simple
+    , prettyprinter
     , recursion-schemes
     , tasty
     , tasty-quickcheck
@@ -135,6 +138,7 @@ executable rulecheck-exe
     , megaparsec
     , mtl
     , pretty-simple
+    , prettyprinter
     , recursion-schemes
     , rulecheck
     , tasty
@@ -149,6 +153,7 @@ test-suite rulecheck-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Test.Rulecheck.Interface
       Test.Rulecheck.State
       Test.Rulecheck.Synth.UnionMap
       Paths_rulecheck
@@ -199,6 +204,7 @@ test-suite rulecheck-test
     , megaparsec
     , mtl
     , pretty-simple
+    , prettyprinter
     , recursion-schemes
     , rulecheck
     , tasty
