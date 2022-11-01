@@ -8,8 +8,10 @@ import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import Prettyprinter (Doc, Pretty (..), (<+>))
 import qualified Prettyprinter as P
-import Rulecheck.Interface.Core (Cls, Inst, ModName, Scheme, TmName, TyName, TyVar)
+import Rulecheck.Interface.Core (Cls, Inst, ModName, Scheme (..), TmName, TyName, TyVar)
 import Rulecheck.Interface.ParenPretty (ParenPretty (..), parenToDoc)
+import qualified Data.Sequence as Seq
+import Control.Monad (join)
 
 data DataLine = DataLine
   { dlName :: !TyName
@@ -46,11 +48,14 @@ instance Pretty InstLine where
 
 data FuncLine = FuncLine
   { flName :: !TmName
+  , flForall :: !Bool
   , flType :: !(Scheme TyVar)
   } deriving stock (Eq, Show)
 
 instance Pretty FuncLine where
-  pretty (FuncLine tn sc) = P.hsep [pretty tn, "::", pretty sc]
+  pretty (FuncLine tn fa sc) = P.hsep (join [[pretty tn], ["::"], faDoc, [pretty sc]]) where
+    binders = schemeBinders sc
+    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | fa && not (Seq.null binders)]
 
 data ClsLine = ClsLine
   { clSelf :: !Cls

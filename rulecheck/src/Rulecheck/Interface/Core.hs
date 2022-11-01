@@ -153,9 +153,7 @@ data Scheme a = Scheme
 instance Pretty a => Pretty (Scheme a) where
   pretty (Scheme _tvs pars ty) = fullDoc where
     endDoc = parenToDoc ty
-    restDoc = case toList pars of
+    fullDoc = case toList pars of
       [] -> endDoc
       [p] -> parenToDoc p <+> "=>" <+> endDoc
       ps -> "(" <> P.hsep (P.punctuate "," (fmap parenToDoc ps)) <> ")" <+> "=>" <+> endDoc
-    -- TODO emit explicit forall with tyvars here
-    fullDoc = restDoc

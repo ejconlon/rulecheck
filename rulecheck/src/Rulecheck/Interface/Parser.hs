@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Rulecheck.Interface.Parser
-  ( parseLines
-  , parseLinesIO
-  ) where
+module Rulecheck.Interface.Parser where
+  -- ( parseLines
+  -- , parseLinesIO
+  -- ) where
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (throwIO)
@@ -25,6 +25,7 @@ import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
+import Data.Maybe (fromMaybe)
 
 newtype P a = P { unP :: Parsec Void Text a }
   deriving newtype (Functor, Applicative, Monad, MonadFail)
@@ -47,6 +48,9 @@ moreLexP = P . MPCL.lexeme (unP moreSpaceP) . unP
 
 commaP :: P ()
 commaP = lexP (P (void (MPC.char ',')))
+
+periodP :: P ()
+periodP = lexP (P (void (MPC.char '.')))
 
 openParenP :: P ()
 openParenP = lexP (P (void (MPC.char '(')))
@@ -145,11 +149,11 @@ assocFn ty tys =
     [] -> ty
     ty':tys' -> TyFun ty (assocFn ty' tys')
 
-schemeP :: P (Scheme TyVar)
-schemeP = do
+schemeP :: Maybe (Seq TyVar) -> P (Scheme TyVar)
+schemeP mtvs = do
   pars <- optP Empty (constraintsP instP)
   ty <- tyP False False
-  let tvs = Seq.fromList (nub (toList ty))
+  let tvs = fromMaybe (Seq.fromList (nub (toList ty))) mtvs
   pure (Scheme tvs pars ty)
 
 clsNameP :: P ClsName
@@ -222,10 +226,18 @@ instLineP = do
   pure (InstLine self parents)
 
 funcLineP :: P FuncLine
-funcLineP = do
-  tn <- tmNameP
-  keywordP "::"
-  FuncLine tn <$> schemeP
+funcLineP = res where
+  res = do
+    tn <- tmNameP
+    keywordP "::"
+    withForall tn <|> withoutForall tn
+  withForall tn = do
+    keywordP "forall"
+    tvs <- some tyVarP
+    periodP
+    FuncLine tn True <$> schemeP (Just (Seq.fromList tvs))
+  withoutForall tn =
+    FuncLine tn False <$> schemeP Nothing
 
 clsLineP :: P ClsLine
 clsLineP = do
