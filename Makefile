@@ -32,3 +32,7 @@ build-all:
 .PHONY: test-all
 test-all:
 	stack build --fast --test
+
+.PHONY: test-rulecheck
+test-rulecheck:
+	stack build --fast --test rulecheck:test:rulecheck-test

@@ -155,8 +155,10 @@ test-suite rulecheck-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Test.Rulecheck
       Test.Rulecheck.Interface
       Test.Rulecheck.State
+      Test.Rulecheck.Synth.Search
       Test.Rulecheck.Synth.UnionMap
       Paths_rulecheck
   hs-source-dirs:

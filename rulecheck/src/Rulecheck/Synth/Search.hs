@@ -16,14 +16,15 @@ import Control.Monad.Logic (LogicT (..), MonadLogic (..), observeManyT)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
 import Data.Bifunctor (second)
-import Data.Foldable (foldl', toList)
+import Data.Foldable (foldl', for_, toList)
 import Data.Functor.Foldable (cata, project)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
+import Data.Traversable (for)
 import ListT (ListT (..))
 import qualified ListT
-import Rulecheck.Interface.Core (Index (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
+import Rulecheck.Interface.Core (ClsName, Index (..), Inst (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
 import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Rulecheck.Synth.UnionMap (UnionMap)
@@ -50,6 +51,12 @@ newtype TmUniq = TmUniq { unTmUniq :: Int }
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Num)
 
+-- | A typeclass instance for unification.
+data InstUniq = InstUniq
+  { iuCls :: !ClsName
+  , iuArgs :: !(Seq TyUniq)
+  } deriving stock (Eq, Ord, Show)
+
 -- | Search will yield closed terms with globally unique binders
 type TmFound = Tm TmUniq Index
 
@@ -59,8 +66,6 @@ data Env = Env
   -- ^ Top-level declarations usable in term search
   , envCtx :: !(Seq TyUniq)
   -- ^ Local type constraints
-  , envGoalKey :: !TyUniq
-  -- ^ The vertex id of the goal
   , envDepthLim :: !Int
   -- ^ Remaining depth for recursive search
   } deriving stock (Eq, Show)
@@ -111,16 +116,20 @@ lookupCtx i = do
 -- | Instantiate the type variables in the scheme with the given strategy, bind them in the local
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
--- TODO Make use of required instances
-insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> Scheme Index -> m (TyUniq, TyUnify)
-insertScheme onVar (Scheme tvs _ ty) = res where
+-- NOTE: The instances returned are not unified with derivable instances. You have to do that after calling this.
+insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> Scheme Index -> m (Seq InstUniq, TyUniq, TyUnify)
+insertScheme onVar (Scheme tvs insts ty) = res where
   insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = do
     stStart <- get
     let (stMid, ctx) = foldl' acc (stStart, Seq.empty) tvs
     put stMid
-    insertTy ctx ty
+    ius <- for insts $ \(Inst cn tys) -> do
+      us <- traverse (fmap fst . insertTy ctx) tys
+      pure (InstUniq cn us)
+    (u, v) <- insertTy ctx ty
+    pure (ius, u, v)
 
 -- | Used in 'insertScheme' to do the type insertion.
 insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
@@ -148,7 +157,7 @@ insertTy ctx ty = res where
         pure (k, v)
 
 -- | Instantiates the scheme with metavars
-insertMetaScheme :: Scheme Index -> SearchM (TyUniq, TyUnify)
+insertMetaScheme :: Scheme Index -> SearchM (Seq InstUniq, TyUniq, TyUnify)
 insertMetaScheme = insertScheme TyVertMeta
 
 -- | Allocate a fresh term binder
@@ -157,9 +166,8 @@ freshTmBinder = state (\st -> let s = stTmSrc st in (s, st { stTmSrc = s + 1 }))
 
 -- | Yield the merged vertex id if the given vertex aligns with the current goal,
 -- otherwise yield nothing.
-tryAlignTy :: TyUniq -> SearchM TyUniq
-tryAlignTy candKey = do
-  goalKey <- asks envGoalKey
+tryAlignTy :: TyUniq -> TyUniq -> SearchM TyUniq
+tryAlignTy goalKey candKey = do
   tyMap <- gets stTyMap
   case recAlignTys goalKey candKey tyMap of
     Left _ -> empty
@@ -168,19 +176,18 @@ tryAlignTy candKey = do
       pure u
 
 -- | Find solutions by looking in the context for vars that match exactly.
-ctxFits :: SearchM TmFound
-ctxFits = do
+ctxFits :: TyUniq -> SearchM TmFound
+ctxFits goalKey = do
   ctx <- asks envCtx
   choose (toListWithIndex ctx) $ \(candKey, idx) -> do
-    _ <- tryAlignTy candKey
+    _ <- tryAlignTy goalKey candKey
     pure (TmFree idx)
 
 -- | If the goal is a type vertex (not a meta/skolem vertex), yield it.
-lookupGoal :: SearchM (TyUniq, TyUnify)
-lookupGoal = do
-  key <- asks envGoalKey
+lookupGoal :: TyUniq -> SearchM (TyUniq, TyUnify)
+lookupGoal goalKey = do
   um <- gets stTyMap
-  let (mp, um') = UM.find key um
+  let (mp, um') = UM.find goalKey um
   case mp of
     Nothing -> empty
     Just (newKey, vert) -> do
@@ -190,32 +197,33 @@ lookupGoal = do
         _ -> empty
 
 -- | Find solutions by instantiating decls and matching the goal exactly.
-exactDeclFits :: SearchM TmFound
-exactDeclFits = do
+exactDeclFits :: TyUniq -> SearchM TmFound
+exactDeclFits goalKey = do
   decls <- asks envDecls
-  (_, goalVal) <- lookupGoal
+  (_, goalVal) <- lookupGoal goalKey
   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
     -- Do a cheap check on the outside to see if it might align
     let candVal = project (schemeBody (declScheme decl))
     whenAlt (mightAlign goalVal candVal) $ do
       -- Ok, it might align. Add the type to the local search env and see if it really does.
-      (candKey, _) <- insertMetaScheme (declScheme decl)
-      _ <- tryAlignTy candKey
+      (candInsts, candKey, _) <- insertMetaScheme (declScheme decl)
+      for_ candInsts tryUnifyInst
+      _ <- tryAlignTy goalKey candKey
       pure (TmKnown name)
 
 -- | Find solutions to function-type goals by adding args to context and searching with the result type.
-funIntroFits :: SearchM TmFound
-funIntroFits = do
+funIntroFits :: TyUniq -> SearchM TmFound
+funIntroFits goalKey = do
   -- Only try this if we haven't hit the recursion depth limit
   depthLim <- asks envDepthLim
   if depthLim <= 0
     then empty
     else do
-      (_, goalVal) <- lookupGoal
+      (_, goalVal) <- lookupGoal goalKey
       case goalVal of
         TyFunF argKey retKey -> do
           -- If the goal looks like a function, try adding the arg to the context and searching for a match.
-          retTm <- local (\env -> env { envCtx = envCtx env :|> argKey, envGoalKey = retKey, envDepthLim = depthLim - 1 }) search
+          retTm <- local (\env -> env { envCtx = envCtx env :|> argKey, envDepthLim = depthLim - 1 }) (searchUniq retKey)
           -- Success - allocate a fresh binder and return a lambda.
           b <- freshTmBinder
           pure (TmLam b retTm)
@@ -229,15 +237,15 @@ mkApp n = go (TmKnown n) where
     s :<| ss -> go (TmApp t s) ss
 
 -- | Find solutions by instantiating decl functions with matching return type
-funElimFits :: SearchM TmFound
-funElimFits = do
+funElimFits :: TyUniq -> SearchM TmFound
+funElimFits goalKey = do
   -- Only try this if we haven't hit the recursion depth limit
   depthLim <- asks envDepthLim
   if depthLim <= 0
     then empty
     else do
       decls <- asks envDecls
-      (_, goalVal) <- lookupGoal
+      (_, goalVal) <- lookupGoal goalKey
       choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
         -- Partials are defined for any curried lambda - args will be nonempty
         choose (declPartials decl) $ \(Partial args retTy) -> do
@@ -250,9 +258,9 @@ funElimFits = do
             addlCtx <- traverse (fmap fst . insertTy oldCtx) args
             let newCtx = oldCtx <> addlCtx
             (candKey, _) <- insertTy newCtx retTy
-            _ <- tryAlignTy candKey
+            _ <- tryAlignTy goalKey candKey
             -- It unifies. Now we know that if we can find args we can satsify the goal.
-            argTms <- traverse (\k -> local (\env -> env { envGoalKey = k, envDepthLim = depthLim - 1 }) search) addlCtx
+            argTms <- traverse (local (\env -> env { envDepthLim = depthLim - 1 }) . searchUniq) addlCtx
             pure (mkApp name argTms)
             -- TODO Technically we don't have to find a term for each arg independently,
             -- or even left to right. However, we need to tame the explosion of cases somehow.
@@ -260,16 +268,27 @@ funElimFits = do
             -- introduced lets with a bound application at then end (in ANF).
             -- Maybe it is worth trying all possibilities but guarding with logict's 'once'.
 
--- | Search a term matching the current goal type using a number of interleaved strategies.
-search :: SearchM TmFound
-search = res where
+-- | Search for a term matching the current goal type using a number of interleaved strategies.
+searchUniq :: TyUniq -> SearchM TmFound
+searchUniq goalKey = res where
   -- TODO add the following search strategies:
   -- * Given function in context, see if the result of the function helps you solve the goal.
   --   If so, search for the arg of the function and return the application. (coq apply?)
   -- * Case split on all constructors of a datatype. (coq destruct?)
   -- Really, just look up the standard coq tactics and do what they do.
-  fits = [ctxFits, exactDeclFits, funIntroFits, funElimFits]
+  fits = [ctxFits goalKey, exactDeclFits goalKey, funIntroFits goalKey, funElimFits goalKey]
   res = interleaveAll fits
+
+-- TODO implement this!
+tryUnifyInst :: InstUniq -> SearchM ()
+tryUnifyInst _iu = pure ()
+
+-- | Outermost search interface: Insert the given scheme and search for terms matching it.
+searchScheme :: Scheme Index -> SearchM TmFound
+searchScheme scheme = do
+  (goalInsts, goalKey, _) <- insertScheme TyVertSkolem scheme
+  for_ goalInsts tryUnifyInst
+  searchUniq goalKey
 
 -- | General search parameters
 data SearchConfig = SearchConfig
@@ -282,14 +301,11 @@ data SearchConfig = SearchConfig
   } deriving stock (Eq, Show)
 
 -- | Initialize the search environment
-initEnvSt :: MonadError SearchErr m => SearchConfig -> m (Env, St)
-initEnvSt (SearchConfig decls scheme depthLim) = do
-  let stStart = St 0 UM.empty 0
-  -- Insert the goal into the type map with skolem type vars (because they must
-  -- work with any external choice of type, they cannot unify willy-nilly like meta vars)
-  ((key, _), stEnd) <- runStateT (insertScheme TyVertSkolem scheme) stStart
-  let env = Env decls Seq.empty key depthLim
-  pure (env, stEnd)
+initEnvSt :: SearchConfig -> (Env, St)
+initEnvSt (SearchConfig decls _ depthLim) =
+  let env = Env decls Seq.empty depthLim
+      st = St 0 UM.empty 0
+  in (env, st)
 
 -- | A "suspended" search for incremental consumption
 data SearchSusp a = SearchSusp
@@ -311,14 +327,14 @@ mkStream (LogicT f) = enclose (f onCons onEmpty) where
   onEmpty = pure empty
 
 -- | Search for terms of the goal type with incremental consumption.
-runSearchSusp :: SearchConfig -> Either SearchErr (SearchSusp TmFound)
-runSearchSusp sc = do
-  (env, st) <- initEnvSt sc
-  let act = mkStream (unSearchM search)
-  pure (SearchSusp env st act)
+runSearchSusp :: SearchConfig -> SearchSusp TmFound
+runSearchSusp sc =
+  let (env, st) = initEnvSt sc
+      act = mkStream (unSearchM (searchScheme (scTarget sc)))
+  in SearchSusp env st act
 
 -- | Search for up to N terms of the goal type.
 runSearchN :: SearchConfig -> Int -> Either SearchErr [TmFound]
-runSearchN sc n = do
-  (env, st) <- initEnvSt sc
-  fmap fst (runInnerM (observeManyT n (unSearchM search)) env st)
+runSearchN sc n =
+  let (env, st) = initEnvSt sc
+  in fmap fst (runInnerM (observeManyT n (unSearchM (searchScheme (scTarget sc)))) env st)
