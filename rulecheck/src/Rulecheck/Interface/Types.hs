@@ -53,7 +53,7 @@ instance Pretty FuncLine where
   pretty (FuncLine tn sc) = P.hsep [pretty tn, "::", pretty sc]
 
 data ClsLine = ClsLine
-  { clSelf :: !Cls
+  { clSelf :: !(Cls TyVar)
   , clParents :: !(Seq (Inst TyVar))
   } deriving stock (Eq, Show)
 

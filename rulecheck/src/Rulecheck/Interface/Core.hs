@@ -16,9 +16,12 @@ module Rulecheck.Interface.Core
   , TyF (..)
   , TmF (..)
   , bitraverseTyF
+  , Forall (..)
   , Cls (..)
   , Inst (..)
+  , StraintTy (..)
   , Scheme (..)
+  , schemeBody
   , Rule (..)
   ) where
 
@@ -143,40 +146,55 @@ instance (Pretty b, Pretty a, ParenPretty r) => ParenPretty (TmF b a r) where
 instance (Pretty b, Pretty a) => ParenPretty (Tm b a) where
   parenPretty p = parenPretty p . project
 
--- | Class decl
-data Cls = Cls
-  { clsName :: !ClsName
-  , clsVars :: !(Seq TyVar)
-  } deriving stock (Eq, Ord, Show)
+data Forall b a = Forall
+  { faBinders :: !(Seq b)
+  , faBody :: a
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance ParenPretty Cls where
+instance (Pretty b, Pretty a) => Pretty (Forall b a) where
+  pretty (Forall binders body) = startDoc where
+    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
+    startDoc = P.hsep (join [faDoc, [pretty body]])
+
+-- | Class decl
+data Cls a = Cls
+  { clsName :: !ClsName
+  , clsVars :: !(Seq a)
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Pretty a => ParenPretty (Cls a) where
   parenPretty _ (Cls cn vs) = parenList False (parenAtom cn : fmap parenAtom (toList vs))
 
--- | Instance/Constraint decl
+-- | Instance/Constraint decl (The same datatype is used for both)
 data Inst a = Inst
   { instName :: !ClsName
   , instVars :: !(Seq (Ty a))
-  } deriving stock (Eq, Ord, Show)
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Pretty a => ParenPretty (Inst a) where
   parenPretty s (Inst cn tys) = parenList False (parenAtom cn : fmap (parenPretty (Just "app":s)) (toList tys))
 
--- | Type scheme
-data Scheme a = Scheme
-  { schemeBinders :: !(Seq TyVar)
-  , schemeConstraints :: !(Seq (Inst a))
-  , schemeBody :: !(Ty a)
-  } deriving stock (Eq, Ord, Show)
+-- | Type with constraints
+-- "Straint" is the best of some bad naming options. "Con" is constructor, etc...
+data StraintTy a = StraintTy
+  { stConstraints :: !(Seq (Inst a))
+  , stTy :: !(Ty a)
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Pretty a => Pretty (Scheme a) where
-  pretty (Scheme tvs pars ty) = startDoc where
+instance Pretty a => Pretty (StraintTy a) where
+  pretty (StraintTy cons ty) = startDoc where
     endDoc = parenToDoc ty
-    midDoc = case toList pars of
+    startDoc = case toList cons of
       [] -> endDoc
       [p] -> parenToDoc p <+> "=>" <+> endDoc
       ps -> "(" <> P.hsep (P.punctuate "," (fmap parenToDoc ps)) <> ")" <+> "=>" <+> endDoc
-    faDoc = ["forall " <> P.hsep (fmap pretty (toList tvs)) <> "." | not (Seq.null tvs)]
-    startDoc = P.hsep (join [faDoc, [midDoc]])
+
+newtype Scheme a = Scheme { unScheme :: Forall TyVar (StraintTy a) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
+
+schemeBody :: Scheme a -> Ty a
+schemeBody = stTy . faBody . unScheme
 
 data Rule tyf tmf = Rule
   { ruleName :: !Text

@@ -16,7 +16,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (Index (..), Inst (..), Scheme (..), TmName, Ty (..), TyVar)
+import Rulecheck.Interface.Core (Forall (..), Index (..), Inst (..), Scheme (..), StraintTy (..), TmName, Ty (..),
+                                 TyVar, schemeBody)
 import Rulecheck.Interface.Types (FuncLine (..), InstLine (..), Line (..))
 
 -- | The type of a partial function application
@@ -70,13 +71,14 @@ matchPartials = onOuter where
     _ -> Empty
 
 namelessScheme :: Scheme TyVar -> Either DeclErr (Scheme Index)
-namelessScheme (Scheme tvs pars ty) = Scheme tvs <$> traverse bindInst pars <*> traverse bind ty where
+namelessScheme (Scheme (Forall tvs ct)) = Scheme . Forall tvs <$> bindCt ct where
+  bindCt (StraintTy cons ty) = StraintTy <$> traverse bindCon cons <*> traverse bind ty
   nvs = Seq.length tvs
   bind a =
     case Seq.findIndexR (== a) tvs of
       Nothing -> Left (DeclErrTy a)
       Just lvl -> Right (Index (nvs - lvl - 1))
-  bindInst (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
+  bindCon (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
 
 type DeclM a = StateT DeclSet (Except DeclErr) a
 

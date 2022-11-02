@@ -24,7 +24,8 @@ import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import ListT (ListT (..))
 import qualified ListT
-import Rulecheck.Interface.Core (ClsName, Index (..), Inst (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
+import Rulecheck.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Scheme (..), StraintTy (..), Tm (..),
+                                 TmName, Ty, TyF (..), TyVar (..), schemeBody)
 import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Rulecheck.Synth.UnionMap (UnionMap)
@@ -51,10 +52,10 @@ newtype TmUniq = TmUniq { unTmUniq :: Int }
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Num)
 
--- | A typeclass instance for unification.
-data InstUniq = InstUniq
-  { iuCls :: !ClsName
-  , iuArgs :: !(Seq TyUniq)
+-- | A typeclass constraint for unification.
+data StraintUniq = StraintUniq
+  { suCls :: !ClsName
+  , suArgs :: !(Seq TyUniq)
   } deriving stock (Eq, Ord, Show)
 
 -- | Search will yield closed terms with globally unique binders
@@ -116,18 +117,18 @@ lookupCtx i = do
 -- | Instantiate the type variables in the scheme with the given strategy, bind them in the local
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
--- NOTE: The instances returned are not unified with derivable instances. You have to do that after calling this.
-insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> Scheme Index -> m (Seq InstUniq, TyUniq, TyUnify)
-insertScheme onVar (Scheme tvs insts ty) = res where
+-- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
+insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> Scheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
+insertScheme onVar (Scheme (Forall tvs (StraintTy cons ty))) = res where
   insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = do
     stStart <- get
     let (stMid, ctx) = foldl' acc (stStart, Seq.empty) tvs
     put stMid
-    ius <- for insts $ \(Inst cn tys) -> do
+    ius <- for cons $ \(Inst cn tys) -> do
       us <- traverse (fmap fst . insertTy ctx) tys
-      pure (InstUniq cn us)
+      pure (StraintUniq cn us)
     (u, v) <- insertTy ctx ty
     pure (ius, u, v)
 
@@ -157,7 +158,7 @@ insertTy ctx ty = res where
         pure (k, v)
 
 -- | Instantiates the scheme with metavars
-insertMetaScheme :: Scheme Index -> SearchM (Seq InstUniq, TyUniq, TyUnify)
+insertMetaScheme :: Scheme Index -> SearchM (Seq StraintUniq, TyUniq, TyUnify)
 insertMetaScheme = insertScheme TyVertMeta
 
 -- | Allocate a fresh term binder
@@ -206,8 +207,8 @@ exactDeclFits goalKey = do
     let candVal = project (schemeBody (declScheme decl))
     whenAlt (mightAlign goalVal candVal) $ do
       -- Ok, it might align. Add the type to the local search env and see if it really does.
-      (candInsts, candKey, _) <- insertMetaScheme (declScheme decl)
-      for_ candInsts tryUnifyInst
+      (candStraints, candKey, _) <- insertMetaScheme (declScheme decl)
+      for_ candStraints tryUnifyStraint
       _ <- tryAlignTy goalKey candKey
       pure (TmKnown name)
 
@@ -280,14 +281,14 @@ searchUniq goalKey = res where
   res = interleaveAll fits
 
 -- TODO implement this!
-tryUnifyInst :: InstUniq -> SearchM ()
-tryUnifyInst _iu = pure ()
+tryUnifyStraint :: StraintUniq -> SearchM ()
+tryUnifyStraint _su = pure ()
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
 searchScheme :: Scheme Index -> SearchM TmFound
 searchScheme scheme = do
-  (goalInsts, goalKey, _) <- insertScheme TyVertSkolem scheme
-  for_ goalInsts tryUnifyInst
+  (goalStraints, goalKey, _) <- insertScheme TyVertSkolem scheme
+  for_ goalStraints tryUnifyStraint
   searchUniq goalKey
 
 -- | General search parameters

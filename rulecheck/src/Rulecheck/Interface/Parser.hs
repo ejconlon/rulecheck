@@ -11,15 +11,14 @@ import Control.Monad (void)
 import Data.Char (isAlphaNum, isSpace)
 import Data.Foldable (toList)
 import Data.List (nub)
-import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Rulecheck.Interface.Core (Cls (..), ClsName (..), Inst (..), ModName (..), Rule (..), Scheme (..), Tm,
-                                 TmName (..), TmVar (..), Ty (..), TyName (..), TyVar (..))
+import Rulecheck.Interface.Core (Cls (..), ClsName (..), Forall (..), Inst (..), ModName (..), Rule (..), Scheme (..),
+                                 StraintTy (..), Tm, TmName (..), TmVar (..), Ty (..), TyName (..), TyVar (..))
 import Rulecheck.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
                                   ModLine (..), RuleLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
@@ -152,14 +151,26 @@ assocFn ty tys =
     [] -> ty
     ty':tys' -> TyFun ty (assocFn ty' tys')
 
-schemeP :: Maybe (Seq TyVar) -> P (Scheme TyVar)
-schemeP mtvs = do
-  pars <- optP Empty (constraintsP instP)
+straintTyP :: P (StraintTy TyVar)
+straintTyP = do
+  cons <- optP Empty (constraintsP instP)
   ty <- tyP False False
-  let seenTys = (toList pars >>= toList . instVars) ++ [ty]
-      seenVars = seenTys >>= toList
-      tvs = fromMaybe (Seq.fromList (nub seenVars)) mtvs
-  pure (Scheme tvs pars ty)
+  pure (StraintTy cons ty)
+
+forallP :: (Foldable f, Eq b) => P b -> P (f b) -> P (Forall b (f b))
+forallP binderP bodyP = withForall <|> withoutForall where
+  withForall = do
+    keywordP "forall"
+    bs <- some binderP
+    periodP
+    Forall (Seq.fromList bs) <$> bodyP
+  withoutForall = do
+    body <- bodyP
+    let bs = Seq.fromList (nub (toList body))
+    pure (Forall bs body)
+
+schemeP :: P (Scheme TyVar)
+schemeP = fmap Scheme (forallP tyVarP straintTyP)
 
 clsNameP :: P ClsName
 clsNameP = fmap ClsName upperP
@@ -179,7 +190,7 @@ constraintsP p = (single <|> multiple) <* keywordP "=>" where
     _ <- closeParenP
     pure (Seq.fromList as)
 
-clsP :: P Cls
+clsP :: P (Cls TyVar)
 clsP = do
   cn <- clsNameP
   as <- many tyVarP
@@ -231,20 +242,11 @@ instLineP = do
   self <- instP
   pure (InstLine self parents)
 
-forallSchemeP :: P (Scheme TyVar)
-forallSchemeP = withForall <|> withoutForall where
-  withForall = do
-    keywordP "forall"
-    tvs <- some tyVarP
-    periodP
-    schemeP (Just (Seq.fromList tvs))
-  withoutForall = schemeP Nothing
-
 funcLineP :: P FuncLine
 funcLineP = do
   tn <- tmNameP
   keywordP "::"
-  FuncLine tn <$> forallSchemeP
+  FuncLine tn <$> schemeP
 
 clsLineP :: P ClsLine
 clsLineP = do
@@ -270,7 +272,7 @@ ruleLineP = do
   keywordP "="
   rhs <- tmP
   keywordP "::"
-  RuleLine . Rule (T.pack n) (Seq.fromList vs) lhs rhs <$> forallSchemeP
+  RuleLine . Rule (T.pack n) (Seq.fromList vs) lhs rhs <$> schemeP
 
 consumeP :: P a -> P a
 consumeP p = do
@@ -294,7 +296,7 @@ parseLinesIO fp = do
   either throwIO pure (parseLines fp t)
 
 parseScheme :: Text -> Either ParseErr (Scheme TyVar)
-parseScheme = runP forallSchemeP "<interactive>"
+parseScheme = runP schemeP "<interactive>"
 
 parseTerm :: Text -> Either ParseErr (Tm TmVar TmVar)
 parseTerm = runP tmP "<interactive>"
