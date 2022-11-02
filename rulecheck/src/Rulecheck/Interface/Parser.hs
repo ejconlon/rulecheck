@@ -281,16 +281,24 @@ consumeP p = do
   end <- P MP.atEnd
   if end then pure a else empty
 
-runP :: P a -> FilePath -> Text -> Either (ParseErrorBundle Text Void) a
+type ParseErr = ParseErrorBundle Text Void
+
+runP :: P a -> FilePath -> Text -> Either ParseErr a
 runP p = MP.runParser (unP (consumeP p))
 
-parseLines :: FilePath -> Text -> Either (ParseErrorBundle Text Void) (Seq Line)
+parseLines :: FilePath -> Text -> Either ParseErr (Seq Line)
 parseLines = runP linesP
 
 parseLinesIO :: FilePath -> IO (Seq Line)
 parseLinesIO fp = do
   t <- TIO.readFile fp
   either throwIO pure (parseLines fp t)
+
+parseScheme :: Text -> Either ParseErr (Scheme TyVar)
+parseScheme = runP (fmap snd forallSchemeP) "<interactive>"
+
+parseTerm :: Text -> Either ParseErr (Tm TmVar TmVar)
+parseTerm = runP tmP "<interactive>"
 
 -- | Can't figure out why the parser's not working? Use this to debug
 parseDebug :: P a -> String -> Either (ParseErrorBundle Text Void) a
