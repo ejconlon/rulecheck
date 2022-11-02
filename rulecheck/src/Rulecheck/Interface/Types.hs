@@ -4,14 +4,14 @@
 -- parsing and printing with 'parseLinesIO' and 'printLines'.
 module Rulecheck.Interface.Types where
 
+import Control.Monad (join)
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Prettyprinter (Doc, Pretty (..), (<+>))
 import qualified Prettyprinter as P
 import Rulecheck.Interface.Core (Cls, Inst, ModName, Scheme (..), TmName, TyName, TyVar)
 import Rulecheck.Interface.ParenPretty (ParenPretty (..), parenToDoc)
-import qualified Data.Sequence as Seq
-import Control.Monad (join)
 
 data DataLine = DataLine
   { dlName :: !TyName

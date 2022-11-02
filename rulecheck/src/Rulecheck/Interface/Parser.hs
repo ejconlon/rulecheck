@@ -11,6 +11,7 @@ import Control.Monad (void)
 import Data.Char (isAlphaNum, isSpace)
 import Data.Foldable (toList)
 import Data.List (nub)
+import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
@@ -25,7 +26,6 @@ import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
-import Data.Maybe (fromMaybe)
 
 newtype P a = P { unP :: Parsec Void Text a }
   deriving newtype (Functor, Applicative, Monad, MonadFail)

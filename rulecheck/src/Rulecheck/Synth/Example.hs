@@ -13,7 +13,7 @@ module Rulecheck.Synth.Example where
 import Control.Exception (throwIO)
 import Data.Sequence (Seq (..))
 import Rulecheck.Interface.Core (Scheme (..), Ty (..))
-import Rulecheck.Interface.Decl (DeclErr, mkDecls, DeclSet)
+import Rulecheck.Interface.Decl (DeclErr, DeclSet, mkDecls)
 import Rulecheck.Synth.Search (SearchConfig (..), TmFound, runSearchN)
 
 -- | Some declarations - here just some "Int" constants and addition.

@@ -9,15 +9,15 @@ module Rulecheck.Interface.Decl
   ) where
 
 import Control.Exception (Exception)
+import Control.Monad.Except (Except, MonadError (..), runExcept)
+import Control.Monad.State.Strict (StateT (..), gets, modify')
+import Data.Foldable (traverse_)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Rulecheck.Interface.Core (Index (..), Inst (..), Scheme (..), TmName, Ty (..), TyVar)
-import Rulecheck.Interface.Types (Line (..), FuncLine (..))
-import Control.Monad.State.Strict (StateT (..), gets, modify')
-import Control.Monad.Except (MonadError (..), Except, runExcept)
-import Data.Foldable (traverse_)
+import Rulecheck.Interface.Types (FuncLine (..), Line (..))
 
 -- | The type of a partial function application
 data Partial = Partial

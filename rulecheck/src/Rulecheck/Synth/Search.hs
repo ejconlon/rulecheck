@@ -22,7 +22,7 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Rulecheck.Interface.Core (Index (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
-import Rulecheck.Interface.Decl (Decl (..), Partial (..), DeclSet (..))
+import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Rulecheck.Synth.UnionMap (UnionMap)
 import qualified Rulecheck.Synth.UnionMap as UM
