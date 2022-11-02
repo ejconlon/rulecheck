@@ -41,7 +41,7 @@ renderParen = \case
     in if selfParen && Seq.length children > 1 then P.parens doc else doc
 
 class ParenPretty a where
-  parenPretty :: [(String, Int)] -> a -> Paren ann
+  parenPretty :: [Maybe String] -> a -> Paren ann
 
 instance ParenPretty Void where
   parenPretty _ = absurd
@@ -50,13 +50,13 @@ instance ParenPretty () where
   parenPretty _ _ = ParenList False Empty
 
 instance (ParenPretty a, ParenPretty b) => ParenPretty (a, b) where
-  parenPretty s (a, b) = ParenList True (parenPretty (("tup", 0):s) a :<| parenPretty (("tup", 1):s) b :<| Empty)
+  parenPretty s (a, b) = ParenList True (parenPretty (Nothing:s) a :<| parenPretty (Nothing:s) b :<| Empty)
 
 instance ParenPretty a => ParenPretty [a] where
-  parenPretty s = ParenList True . Seq.fromList . fmap (\(i, a) -> parenPretty (("list", i):s) a) . zip [0..]
+  parenPretty s = ParenList True . Seq.fromList . fmap (parenPretty (Nothing:s))
 
 instance ParenPretty a => ParenPretty (Seq a) where
-  parenPretty s = ParenList True . Seq.mapWithIndex (\i a -> parenPretty (("seq", i):s) a)
+  parenPretty s = ParenList True . fmap (parenPretty (Nothing:s))
 
 parenAtom :: Pretty a => a -> Paren ann
 parenAtom = ParenAtom . pretty

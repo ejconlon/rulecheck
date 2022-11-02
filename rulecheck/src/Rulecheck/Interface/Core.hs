@@ -119,13 +119,13 @@ instance (Pretty a, ParenPretty r) => ParenPretty (TyF a r) where
   parenPretty s = res where
     res = \case
       TyFreeF w -> parenAtom w
-      TyConF tn ws -> parenList isSubCon (parenAtom tn : fmap (parenPretty (("con", -1): s)) (toList ws))
-      TyFunF wl wr -> parenList isLhsFun [parenPretty (("fun", 0):s) wl, "->", parenPretty (("fun", 1):s) wr]
+      TyConF tn ws -> parenList isSubCon (parenAtom tn : fmap (parenPretty (Just "app":s)) (toList ws))
+      TyFunF wl wr -> parenList isLhsFun [parenPretty (Just "funl":s) wl, "->", parenPretty (Just "funr":s) wr]
     isSubCon = case s of
-      ("con", _) : _ -> True
+      Just "app" : _ -> True
       _ -> False
     isLhsFun = case s of
-      ("fun", 0) : _ -> True
+      Just "funl" : _ -> True
       _ -> False
 
 instance Pretty a => ParenPretty (Ty a) where
@@ -157,7 +157,7 @@ data Inst a = Inst
   } deriving stock (Eq, Ord, Show)
 
 instance Pretty a => ParenPretty (Inst a) where
-  parenPretty s (Inst cn tys) = parenList False (parenAtom cn : fmap (parenPretty (("con", -1):s)) (toList tys))
+  parenPretty s (Inst cn tys) = parenList False (parenAtom cn : fmap (parenPretty (Just "app":s)) (toList tys))
 
 -- | Type scheme
 data Scheme a = Scheme
