@@ -12,35 +12,26 @@ module Rulecheck.Synth.Search
 import Control.Applicative (Alternative (..))
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
-import Control.Monad.Identity (Identity (..))
-import Control.Monad.Logic (LogicT, MonadLogic (..), observeManyT, fromLogicT)
+import Control.Monad.Logic (LogicT, MonadLogic (..), fromLogicT, observeManyT)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
-import Control.Monad.State.Strict (MonadState (..), State, StateT (..), gets, modify')
+import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
+import Data.Bifunctor (second)
 import Data.Foldable (foldl', toList)
 import Data.Functor.Foldable (cata, project)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
+import ListT (ListT)
+import qualified ListT
 import Rulecheck.Interface.Core (Index (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
 import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Rulecheck.Synth.UnionMap (UnionMap)
 import qualified Rulecheck.Synth.UnionMap as UM
-import Streaming.Prelude (Stream, Of)
-import qualified Streaming.Prelude as S
-import Data.Bifunctor (second)
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
 runReaderStateT r s m = runStateT (runReaderT m r) s
-
--- boilerplate
-runReaderStateExcept :: r -> s -> ReaderT r (StateT s (Except e)) a -> Either e (a, s)
-runReaderStateExcept r s m = runExcept (runReaderStateT r s m)
-
--- boilerplate
-runReaderState :: r -> s -> ReaderT r (State s) a -> (a, s)
-runReaderState r s m = runIdentity (runReaderStateT r s m)
 
 -- | If true, run the search, else yield nothing
 whenAlt :: Alternative m => Bool -> m a -> m a
@@ -93,6 +84,8 @@ newtype SearchErr =
 
 instance Exception SearchErr
 
+-- | The inner layer of the search monad. Though this is package-private, we have to newtype it
+-- so we can refer to it as we stream results.
 newtype InnerM a = InnerM { unInnerM :: ReaderT Env (StateT St (Except SearchErr)) a }
   deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr)
 
@@ -302,23 +295,20 @@ initEnvSt (SearchConfig decls scheme depthLim) = do
 data SearchSusp a = SearchSusp
   { ssEnv :: !Env
   , ssSt :: !St
-  , ssAct :: !(Stream (Of a) InnerM ())
+  , ssAct :: !(ListT InnerM a)
   }
 
 -- | Yield the next result from a suspended search
--- This is probably going to perform worse than just using 'runSearchN' -
--- 'msplit' is reportedly slow.
 nextSearchResult :: SearchSusp a -> Either SearchErr (Maybe (a, SearchSusp a))
 nextSearchResult (SearchSusp env st act) =
-  fmap (\(mx, st') -> fmap (second (SearchSusp env st')) mx) (runInnerM (S.uncons act) env st)
+  fmap (\(mx, st') -> fmap (second (SearchSusp env st')) mx) (runInnerM (ListT.uncons act) env st)
 
 -- | Search for terms of the goal type with incremental consumption.
 runSearchSusp :: SearchConfig -> Either SearchErr (SearchSusp TmFound)
 runSearchSusp sc = do
   (env, st) <- initEnvSt sc
-  -- let act = fromLogicT (unSearchM search)
-  -- pure (SearchSusp env st act)
-  error "TODO" -- figure out how to stream
+  let act = fromLogicT (unSearchM search)
+  pure (SearchSusp env st act)
 
 -- | Search for up to N terms of the goal type.
 runSearchN :: SearchConfig -> Int -> Either SearchErr [TmFound]

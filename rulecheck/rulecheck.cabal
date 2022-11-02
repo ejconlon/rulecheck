@@ -71,6 +71,7 @@ library
     , ghc-paths
     , hie-bios
     , int-like
+    , list-t
     , little-logger
     , little-rio
     , logict
@@ -79,7 +80,6 @@ library
     , pretty-simple
     , prettyprinter
     , recursion-schemes
-    , streaming
     , tasty
     , tasty-quickcheck
     , template-haskell
@@ -133,6 +133,7 @@ executable rulecheck-exe
     , ghc-paths
     , hie-bios
     , int-like
+    , list-t
     , little-logger
     , little-rio
     , logict
@@ -142,7 +143,6 @@ executable rulecheck-exe
     , prettyprinter
     , recursion-schemes
     , rulecheck
-    , streaming
     , tasty
     , tasty-quickcheck
     , template-haskell
@@ -200,6 +200,7 @@ test-suite rulecheck-test
     , ghc-paths
     , hie-bios
     , int-like
+    , list-t
     , little-logger
     , little-rio
     , logict
@@ -209,7 +210,6 @@ test-suite rulecheck-test
     , prettyprinter
     , recursion-schemes
     , rulecheck
-    , streaming
     , tasty
     , tasty-hunit
     , tasty-quickcheck
