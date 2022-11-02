@@ -1,12 +1,12 @@
 -- | Declarations of terms in our universe
-module Rulecheck.Interface.Decl
-  ( Partial (..)
-  , Decl (..)
-  , DeclErr
-  , DeclSet (..)
-  , mkDecl
-  , mkDecls
-  ) where
+module Rulecheck.Interface.Decl where
+  -- ( Partial (..)
+  -- , Decl (..)
+  -- , DeclErr
+  -- , DeclSet (..)
+  -- , mkDecl
+  -- , mkDecls
+  -- ) where
 
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
@@ -56,7 +56,7 @@ instance Exception DeclErr
 
 mkDecl :: TmName -> Scheme TyVar -> Either DeclErr Decl
 mkDecl n s = do
-  s' <- namelessTy s
+  s' <- namelessScheme s
   let ps = matchPartials (schemeBody s')
   pure (Decl n s' ps)
 
@@ -69,8 +69,8 @@ matchPartials = onOuter where
     TyFun x y -> onInner (as :|> x) y
     _ -> Empty
 
-namelessTy :: Scheme TyVar -> Either DeclErr (Scheme Index)
-namelessTy (Scheme tvs pars ty) = Scheme tvs <$> traverse bindInst pars <*> traverse bind ty where
+namelessScheme :: Scheme TyVar -> Either DeclErr (Scheme Index)
+namelessScheme (Scheme tvs pars ty) = Scheme tvs <$> traverse bindInst pars <*> traverse bind ty where
   nvs = Seq.length tvs
   bind a =
     case Seq.findIndexR (== a) tvs of
