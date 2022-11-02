@@ -18,10 +18,10 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Rulecheck.Interface.Core (Cls (..), ClsName (..), Inst (..), ModName (..), Scheme (..), TmName (..), Ty (..),
-                                 TyName (..), TyVar (..))
+import Rulecheck.Interface.Core (Cls (..), ClsName (..), Inst (..), ModName (..), Rule (..), Scheme (..), Tm,
+                                 TmName (..), TmVar (..), Ty (..), TyName (..), TyVar (..))
 import Rulecheck.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
-                                  ModLine (..))
+                                  ModLine (..), RuleLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
@@ -117,6 +117,9 @@ tmNameP = lexP $ lower <|> sym where
 tyVarP :: P TyVar
 tyVarP = fmap TyVar lowerP
 
+tmVarP :: P TmVar
+tmVarP = fmap TmVar lowerP
+
 tyConP :: P (Ty TyVar)
 tyConP = do
   cn <- tyNameP
@@ -194,6 +197,7 @@ lineP = moreLexP $ foldr1 (<|>)
   , LineFunc <$> funcLineP
   , LineCls <$> clsLineP
   , LineInst <$> instLineP
+  , LineRule <$> ruleLineP
   ]
 
 linesP :: P (Seq Line)
@@ -225,19 +229,22 @@ instLineP = do
   self <- instP
   pure (InstLine self parents)
 
-funcLineP :: P FuncLine
-funcLineP = res where
-  res = do
-    tn <- tmNameP
-    keywordP "::"
-    withForall tn <|> withoutForall tn
-  withForall tn = do
+forallSchemeP :: P (Bool, Scheme TyVar)
+forallSchemeP = withForall <|> withoutForall where
+  withForall = do
     keywordP "forall"
     tvs <- some tyVarP
     periodP
-    FuncLine tn True <$> schemeP (Just (Seq.fromList tvs))
-  withoutForall tn =
-    FuncLine tn False <$> schemeP Nothing
+    (True,) <$> schemeP (Just (Seq.fromList tvs))
+  withoutForall =
+    (False,) <$> schemeP Nothing
+
+funcLineP :: P FuncLine
+funcLineP = do
+  tn <- tmNameP
+  keywordP "::"
+  (fa, sc) <- forallSchemeP
+  pure (FuncLine tn fa sc)
 
 clsLineP :: P ClsLine
 clsLineP = do
@@ -245,6 +252,25 @@ clsLineP = do
   parents <- optP Empty (constraintsP instP)
   self <- clsP
   pure (ClsLine self parents)
+
+tmP :: P (Tm TmVar TmVar)
+tmP = error "TODO"
+
+ruleLineP :: P RuleLine
+ruleLineP = do
+  keywordP "rule"
+  _ <- P (void (MPC.char '"'))
+  n <- some (satisfy (/= '"'))
+  _ <- P (void (MPC.char '"'))
+  keywordP "forall"
+  vs <- some tmVarP
+  periodP
+  lhs <- tmP
+  keywordP "="
+  rhs <- tmP
+  keywordP "::"
+  (_, sc) <- forallSchemeP
+  pure (RuleLine (Rule (T.pack n) (Seq.fromList vs) lhs rhs sc))
 
 consumeP :: P a -> P a
 consumeP p = do

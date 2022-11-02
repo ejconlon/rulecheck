@@ -10,14 +10,16 @@ module Rulecheck.Interface.Core
   , TmName (..)
   , ClsName (..)
   , ModName (..)
-  , Cls (..)
-  , Inst (..)
-  , Scheme (..)
+  , RuleName (..)
   , Ty (..)
   , Tm (..)
   , TyF (..)
   , TmF (..)
   , bitraverseTyF
+  , Cls (..)
+  , Inst (..)
+  , Scheme (..)
+  , Rule (..)
   ) where
 
 import Data.Foldable (toList)
@@ -65,6 +67,11 @@ newtype ModName = ModName { unModName :: Text }
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString, Pretty)
 
+-- | Rule name
+newtype RuleName = RuleName { unRuleName :: Text }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, IsString, Pretty)
+
 -- | Type with a hole for variables (can later be filled in with indices)
 data Ty a =
     TyFree !a
@@ -72,12 +79,21 @@ data Ty a =
   | TyFun (Ty a) (Ty a)
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
+-- -- | Constructor pattern for term case statements
+-- data Pat b tm = Pat
+--   { patCon :: !TmName
+--   , patVars :: !(Seq b)
+--   , patBody :: !tm
+--   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+
 -- | Term with a hole for variables (can later be filled in with indices)
 data Tm b a =
     TmFree !a
   | TmKnown !TmName
   | TmApp (Tm b a) (Tm b a)
   | TmLam !b (Tm b a)
+  -- | TmLet !b (Tm b a) (Tm b a)
+  -- | TmCase (Tm b a) !(Seq (Pat b (Tm b a)))
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 -- The TH here punches a hole in the recursive parts too, so we get simple folds for types and terms
@@ -157,3 +173,15 @@ instance Pretty a => Pretty (Scheme a) where
       [] -> endDoc
       [p] -> parenToDoc p <+> "=>" <+> endDoc
       ps -> "(" <> P.hsep (P.punctuate "," (fmap parenToDoc ps)) <> ")" <+> "=>" <+> endDoc
+
+data Rule tyf tmf = Rule
+  { ruleName :: !Text
+  , ruleVars :: !(Seq TmVar)
+  , ruleLhs :: !(Tm TmVar tmf)
+  , ruleRhs :: !(Tm TmVar tmf)
+  , ruleScheme :: !(Scheme tyf)
+  } deriving stock (Eq, Ord, Show)
+
+instance (Pretty tyf, Pretty tmf) => Pretty (Rule tyf tmf) where
+  pretty (Rule n vs lhs rhs sc) = P.hsep ["\"", pretty n, "\"", faDoc, parenToDoc lhs, "=", parenToDoc rhs, "::", pretty sc] where
+    faDoc = "forall " <> P.hsep (fmap pretty (toList vs)) <> "."

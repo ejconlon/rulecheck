@@ -10,7 +10,7 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Prettyprinter (Doc, Pretty (..), (<+>))
 import qualified Prettyprinter as P
-import Rulecheck.Interface.Core (Cls, Inst, ModName, Scheme (..), TmName, TyName, TyVar)
+import Rulecheck.Interface.Core (Cls, Inst, ModName, Rule, Scheme (..), TmName, TmVar, TyName, TyVar)
 import Rulecheck.Interface.ParenPretty (ParenPretty (..), parenToDoc)
 
 data DataLine = DataLine
@@ -72,6 +72,13 @@ newtype ModLine = ModLine
 instance Pretty ModLine where
   pretty (ModLine mn) = P.hsep ["module", pretty mn]
 
+newtype RuleLine = RuleLine
+  { rlRule :: Rule TyVar TmVar
+  } deriving stock (Eq, Show)
+
+instance Pretty RuleLine where
+  pretty (RuleLine ru) = P.hsep ["rule", pretty ru]
+
 data Line =
     LineData !DataLine
   | LineCons !ConsLine
@@ -79,6 +86,7 @@ data Line =
   | LineFunc !FuncLine
   | LineCls !ClsLine
   | LineMod !ModLine
+  | LineRule !RuleLine
   deriving stock (Eq, Show)
 
 instance Pretty Line where
@@ -89,3 +97,4 @@ instance Pretty Line where
     LineFunc fl -> pretty fl
     LineCls cl -> pretty cl
     LineMod ml -> pretty ml
+    LineRule rl -> pretty rl
