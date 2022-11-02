@@ -18,12 +18,11 @@ import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), State, StateT (..), gets, modify')
 import Data.Foldable (foldl', toList)
 import Data.Functor.Foldable (cata, project)
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Rulecheck.Interface.Core (Index (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
-import Rulecheck.Interface.Decl (Decl (..), Partial (..))
+import Rulecheck.Interface.Decl (Decl (..), Partial (..), DeclSet (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Rulecheck.Synth.UnionMap (UnionMap)
 import qualified Rulecheck.Synth.UnionMap as UM
@@ -62,7 +61,7 @@ type TmFound = Tm TmUniq Index
 
 -- | Local environment for search (usable with 'MonadReader')
 data Env = Env
-  { envDecls :: !(Map TmName Decl)
+  { envDecls :: !DeclSet
   -- ^ Top-level declarations usable in term search
   , envCtx :: !(Seq TyUniq)
   -- ^ Local type constraints
@@ -193,7 +192,7 @@ exactDeclFits :: SearchM TmFound
 exactDeclFits = do
   decls <- asks envDecls
   (_, goalVal) <- lookupGoal
-  choose (Map.toList decls) $ \(name, decl) -> do
+  choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
     -- Do a cheap check on the outside to see if it might align
     let candVal = project (schemeBody (declScheme decl))
     whenAlt (mightAlign goalVal candVal) $ do
@@ -237,7 +236,7 @@ funElimFits = do
     else do
       decls <- asks envDecls
       (_, goalVal) <- lookupGoal
-      choose (Map.toList decls) $ \(name, decl) -> do
+      choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
         -- Partials are defined for any curried lambda - args will be nonempty
         choose (declPartials decl) $ \(Partial args retTy) -> do
           let candVal = project retTy
@@ -272,7 +271,7 @@ search = res where
 
 -- | General search parameters
 data SearchConfig = SearchConfig
-  { scDecls :: !(Map TmName Decl)
+  { scDecls :: !DeclSet
   -- ^ Top-level declarations
   , scTarget :: !(Scheme Index)
   -- ^ Search goal

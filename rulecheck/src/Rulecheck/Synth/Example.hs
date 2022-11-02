@@ -11,14 +11,13 @@
 module Rulecheck.Synth.Example where
 
 import Control.Exception (throwIO)
-import Data.Map.Strict (Map)
 import Data.Sequence (Seq (..))
-import Rulecheck.Interface.Core (Scheme (..), TmName, Ty (..))
-import Rulecheck.Interface.Decl (Decl, DeclErr, mkDecls)
+import Rulecheck.Interface.Core (Scheme (..), Ty (..))
+import Rulecheck.Interface.Decl (DeclErr, mkDecls, DeclSet)
 import Rulecheck.Synth.Search (SearchConfig (..), TmFound, runSearchN)
 
 -- | Some declarations - here just some "Int" constants and addition.
-exampleDecls :: Either (TmName, DeclErr) (Map TmName Decl)
+exampleDecls :: Either DeclErr DeclSet
 exampleDecls = res where
   tyInt = TyCon "Int" Empty
   tyIntFun2 = TyFun tyInt (TyFun tyInt tyInt)

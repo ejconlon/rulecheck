@@ -3,17 +3,21 @@ module Rulecheck.Interface.Decl
   ( Partial (..)
   , Decl (..)
   , DeclErr
+  , DeclSet (..)
   , mkDecl
   , mkDecls
   ) where
 
 import Control.Exception (Exception)
-import Control.Monad (foldM)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Rulecheck.Interface.Core (Index (..), Inst (..), Scheme (..), TmName, Ty (..), TyVar)
+import Rulecheck.Interface.Types (Line (..), FuncLine (..))
+import Control.Monad.State.Strict (StateT (..), gets, modify')
+import Control.Monad.Except (MonadError (..), Except, runExcept)
+import Data.Foldable (traverse_)
 
 -- | The type of a partial function application
 data Partial = Partial
@@ -31,9 +35,17 @@ data Decl = Decl
   -- ^ If this is a function declaration, types of partial applications
   } deriving stock (Eq, Ord, Show)
 
+newtype DeclSet = DeclSet
+  { dsMap :: Map TmName Decl
+  } deriving stock (Eq, Show)
+
+emptyDeclSet :: DeclSet
+emptyDeclSet = DeclSet Map.empty
+
 data DeclErr =
     DeclErrTy !TyVar
   | DeclErrDupe
+  | DeclErrNamed !TmName DeclErr
   deriving stock (Eq, Ord, Show)
 
 instance Exception DeclErr
@@ -62,12 +74,32 @@ namelessTy (Scheme tvs pars ty) = Scheme tvs <$> traverse bindInst pars <*> trav
       Just lvl -> Right (Index (nvs - lvl - 1))
   bindInst (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
 
-mkDecls :: [(TmName, Scheme TyVar)] -> Either (TmName, DeclErr) (Map TmName Decl)
-mkDecls = foldM go Map.empty where
-  go m (n, s) =
-    case mkDecl n s of
-      Left e -> Left (n, e)
-      Right d ->
-        case Map.lookup n m of
-          Just _ -> Left (n, DeclErrDupe)
-          Nothing -> Right (Map.insert n d m)
+type DeclM a = StateT DeclSet (Except DeclErr) a
+
+runDeclM :: DeclM a -> DeclSet -> Either DeclErr (a, DeclSet)
+runDeclM m = runExcept . runStateT m
+
+execDeclM :: DeclM () -> DeclSet -> Either DeclErr DeclSet
+execDeclM m = fmap snd . runDeclM m
+
+insertDeclM :: TmName -> Scheme TyVar -> DeclM ()
+insertDeclM n s =
+  case mkDecl n s of
+    Left e -> throwError (DeclErrNamed n e)
+    Right d -> do
+      m <- gets dsMap
+      case Map.lookup n m of
+        Just _ -> throwError (DeclErrNamed n DeclErrDupe)
+        Nothing -> modify' (\ds -> ds { dsMap = Map.insert n d m })
+
+insertLineM :: Line -> DeclM ()
+insertLineM = \case
+    -- TODO add more info to declset
+    LineFunc (FuncLine n _ s) -> insertDeclM n s
+    _ -> pure ()
+
+mkDecls :: [(TmName, Scheme TyVar)] -> Either DeclErr DeclSet
+mkDecls = flip execDeclM emptyDeclSet . traverse_ (uncurry insertDeclM)
+
+mkLineDecls :: [Line] -> Either DeclErr DeclSet
+mkLineDecls = flip execDeclM emptyDeclSet . traverse_ insertLineM
