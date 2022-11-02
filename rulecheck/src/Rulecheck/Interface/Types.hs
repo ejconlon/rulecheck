@@ -4,10 +4,8 @@
 -- parsing and printing with 'parseLinesIO' and 'printLines'.
 module Rulecheck.Interface.Types where
 
-import Control.Monad (join)
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
-import qualified Data.Sequence as Seq
 import Prettyprinter (Doc, Pretty (..), (<+>))
 import qualified Prettyprinter as P
 import Rulecheck.Interface.Core (Cls, Inst, ModName, Rule, Scheme (..), TmName, TmVar, TyName, TyVar)
@@ -48,14 +46,11 @@ instance Pretty InstLine where
 
 data FuncLine = FuncLine
   { flName :: !TmName
-  , flForall :: !Bool
   , flType :: !(Scheme TyVar)
   } deriving stock (Eq, Show)
 
 instance Pretty FuncLine where
-  pretty (FuncLine tn fa sc) = P.hsep (join [[pretty tn], ["::"], faDoc, [pretty sc]]) where
-    binders = schemeBinders sc
-    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | fa && not (Seq.null binders)]
+  pretty (FuncLine tn sc) = P.hsep [pretty tn, "::", pretty sc]
 
 data ClsLine = ClsLine
   { clSelf :: !Cls

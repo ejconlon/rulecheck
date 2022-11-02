@@ -1,13 +1,14 @@
-module Rulecheck.Interface.Printer
-  ( printLines
-  ) where
+module Rulecheck.Interface.Printer where
+  -- ( printLines
+  -- ) where
 
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import Data.Text (Text)
 import Prettyprinter (Doc, pretty)
 import qualified Prettyprinter as P
-import Rulecheck.Interface.ParenPretty (docToText)
+import Rulecheck.Interface.Core (Scheme, Tm, TmVar, TyVar)
+import Rulecheck.Interface.ParenPretty (docToText, parenToDoc)
 import Rulecheck.Interface.Types (Line)
 
 linesP :: Seq Line -> Doc ()
@@ -15,3 +16,9 @@ linesP = P.vcat . fmap pretty . toList
 
 printLines :: Seq Line -> Text
 printLines = docToText . linesP
+
+printScheme :: Scheme TyVar -> Text
+printScheme = docToText . pretty
+
+printTm :: Tm TmVar TmVar -> Text
+printTm = docToText . parenToDoc

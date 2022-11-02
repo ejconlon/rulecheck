@@ -105,7 +105,7 @@ insertInstM self pars = do
 
 insertLineM :: Line -> DeclM ()
 insertLineM = \case
-    LineFunc (FuncLine n _ s) -> insertTmDeclM n s
+    LineFunc (FuncLine n s) -> insertTmDeclM n s
     LineInst (InstLine self pars) -> insertInstM self pars
     -- Do we need to add anything else to the decl set for search?
     _ -> pure ()

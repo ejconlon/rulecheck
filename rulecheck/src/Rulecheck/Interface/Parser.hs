@@ -156,7 +156,9 @@ schemeP :: Maybe (Seq TyVar) -> P (Scheme TyVar)
 schemeP mtvs = do
   pars <- optP Empty (constraintsP instP)
   ty <- tyP False False
-  let tvs = fromMaybe (Seq.fromList (nub (toList ty))) mtvs
+  let seenTys = (toList pars >>= toList . instVars) ++ [ty]
+      seenVars = seenTys >>= toList
+      tvs = fromMaybe (Seq.fromList (nub seenVars)) mtvs
   pure (Scheme tvs pars ty)
 
 clsNameP :: P ClsName
@@ -229,22 +231,20 @@ instLineP = do
   self <- instP
   pure (InstLine self parents)
 
-forallSchemeP :: P (Bool, Scheme TyVar)
+forallSchemeP :: P (Scheme TyVar)
 forallSchemeP = withForall <|> withoutForall where
   withForall = do
     keywordP "forall"
     tvs <- some tyVarP
     periodP
-    (True,) <$> schemeP (Just (Seq.fromList tvs))
-  withoutForall =
-    (False,) <$> schemeP Nothing
+    schemeP (Just (Seq.fromList tvs))
+  withoutForall = schemeP Nothing
 
 funcLineP :: P FuncLine
 funcLineP = do
   tn <- tmNameP
   keywordP "::"
-  (fa, sc) <- forallSchemeP
-  pure (FuncLine tn fa sc)
+  FuncLine tn <$> forallSchemeP
 
 clsLineP :: P ClsLine
 clsLineP = do
@@ -270,8 +270,7 @@ ruleLineP = do
   keywordP "="
   rhs <- tmP
   keywordP "::"
-  (_, sc) <- forallSchemeP
-  pure (RuleLine (Rule (T.pack n) (Seq.fromList vs) lhs rhs sc))
+  RuleLine . Rule (T.pack n) (Seq.fromList vs) lhs rhs <$> forallSchemeP
 
 consumeP :: P a -> P a
 consumeP p = do
@@ -295,7 +294,7 @@ parseLinesIO fp = do
   either throwIO pure (parseLines fp t)
 
 parseScheme :: Text -> Either ParseErr (Scheme TyVar)
-parseScheme = runP (fmap snd forallSchemeP) "<interactive>"
+parseScheme = runP forallSchemeP "<interactive>"
 
 parseTerm :: Text -> Either ParseErr (Tm TmVar TmVar)
 parseTerm = runP tmP "<interactive>"

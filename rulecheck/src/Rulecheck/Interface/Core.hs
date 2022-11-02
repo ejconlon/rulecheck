@@ -22,10 +22,12 @@ module Rulecheck.Interface.Core
   , Rule (..)
   ) where
 
+import Control.Monad (join)
 import Data.Foldable (toList)
 import Data.Functor.Foldable (project)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
 import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Data.String (IsString)
 import Data.Text (Text)
 import Prettyprinter (Pretty (..), (<+>))
@@ -167,12 +169,14 @@ data Scheme a = Scheme
   } deriving stock (Eq, Ord, Show)
 
 instance Pretty a => Pretty (Scheme a) where
-  pretty (Scheme _tvs pars ty) = fullDoc where
+  pretty (Scheme tvs pars ty) = startDoc where
     endDoc = parenToDoc ty
-    fullDoc = case toList pars of
+    midDoc = case toList pars of
       [] -> endDoc
       [p] -> parenToDoc p <+> "=>" <+> endDoc
       ps -> "(" <> P.hsep (P.punctuate "," (fmap parenToDoc ps)) <> ")" <+> "=>" <+> endDoc
+    faDoc = ["forall " <> P.hsep (fmap pretty (toList tvs)) <> "." | not (Seq.null tvs)]
+    startDoc = P.hsep (join [faDoc, [midDoc]])
 
 data Rule tyf tmf = Rule
   { ruleName :: !Text
