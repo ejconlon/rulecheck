@@ -20,5 +20,5 @@ printLines = docToText . linesP
 printScheme :: Scheme TyVar -> Text
 printScheme = docToText . pretty
 
-printTm :: Tm TmVar TmVar -> Text
-printTm = docToText . parenToDoc
+printTerm :: Tm TmVar TmVar -> Text
+printTerm = docToText . parenToDoc
