@@ -17,7 +17,7 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Rulecheck.Interface.Core (Index (..), Inst (..), Scheme (..), TmName, Ty (..), TyVar)
-import Rulecheck.Interface.Types (FuncLine (..), Line (..))
+import Rulecheck.Interface.Types (FuncLine (..), InstLine (..), Line (..))
 
 -- | The type of a partial function application
 data Partial = Partial
@@ -35,17 +35,21 @@ data Decl = Decl
   -- ^ If this is a function declaration, types of partial applications
   } deriving stock (Eq, Ord, Show)
 
-newtype DeclSet = DeclSet
-  { dsMap :: Map TmName Decl
+data DeclSet = DeclSet
+  { dsMap :: !(Map TmName Decl)
+  -- ^ Map from term to its definition
+  , dsDeps :: !(Map (Inst TyVar) (Seq (Inst TyVar)))
+  -- ^ Map from class instance to its parents (dependencies)
   } deriving stock (Eq, Show)
 
 emptyDeclSet :: DeclSet
-emptyDeclSet = DeclSet Map.empty
+emptyDeclSet = DeclSet Map.empty Map.empty
 
 data DeclErr =
     DeclErrTy !TyVar
   | DeclErrDupe
   | DeclErrNamed !TmName DeclErr
+  | DeclErrInst !(Inst TyVar) DeclErr
   deriving stock (Eq, Ord, Show)
 
 instance Exception DeclErr
@@ -82,24 +86,32 @@ runDeclM m = runExcept . runStateT m
 execDeclM :: DeclM () -> DeclSet -> Either DeclErr DeclSet
 execDeclM m = fmap snd . runDeclM m
 
-insertDeclM :: TmName -> Scheme TyVar -> DeclM ()
-insertDeclM n s =
+insertTmDeclM :: TmName -> Scheme TyVar -> DeclM ()
+insertTmDeclM n s =
   case mkDecl n s of
     Left e -> throwError (DeclErrNamed n e)
     Right d -> do
       m <- gets dsMap
       case Map.lookup n m of
         Just _ -> throwError (DeclErrNamed n DeclErrDupe)
-        Nothing -> modify' (\ds -> ds { dsMap = Map.insert n d m })
+        Nothing -> modify' (\ds -> ds { dsMap = Map.insert n d (dsMap ds) })
+
+insertInstM :: Inst TyVar -> Seq (Inst TyVar) -> DeclM ()
+insertInstM self pars = do
+  d <- gets dsDeps
+  case Map.lookup self d of
+    Just _ -> throwError (DeclErrInst self DeclErrDupe)
+    Nothing -> modify' (\ds -> ds { dsDeps = Map.insert self pars (dsDeps ds) })
 
 insertLineM :: Line -> DeclM ()
 insertLineM = \case
-    -- TODO add more info to declset
-    LineFunc (FuncLine n _ s) -> insertDeclM n s
+    LineFunc (FuncLine n _ s) -> insertTmDeclM n s
+    LineInst (InstLine self pars) -> insertInstM self pars
+    -- Do we need to add anything else to the decl set for search?
     _ -> pure ()
 
 mkDecls :: [(TmName, Scheme TyVar)] -> Either DeclErr DeclSet
-mkDecls = flip execDeclM emptyDeclSet . traverse_ (uncurry insertDeclM)
+mkDecls = flip execDeclM emptyDeclSet . traverse_ (uncurry insertTmDeclM)
 
 mkLineDecls :: [Line] -> Either DeclErr DeclSet
 mkLineDecls = flip execDeclM emptyDeclSet . traverse_ insertLineM

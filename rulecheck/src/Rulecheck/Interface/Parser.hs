@@ -253,6 +253,7 @@ clsLineP = do
   self <- clsP
   pure (ClsLine self parents)
 
+-- TODO parse terms so we can parse rules
 tmP :: P (Tm TmVar TmVar)
 tmP = error "TODO"
 

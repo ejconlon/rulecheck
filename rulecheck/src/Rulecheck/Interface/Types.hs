@@ -30,7 +30,7 @@ instance Pretty ConsLine where
   pretty (ConsLine tn cs) = P.hsep ("constructors" : pretty tn : fmap pretty (toList cs))
 
 data InstLine = InstLine
-  { ilInst :: !(Inst TyVar)
+  { ilSelf :: !(Inst TyVar)
   , ilParents :: !(Seq (Inst TyVar))
   } deriving stock (Eq, Show)
 
