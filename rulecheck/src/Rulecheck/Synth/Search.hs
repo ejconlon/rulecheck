@@ -12,7 +12,7 @@ module Rulecheck.Synth.Search
 import Control.Applicative (Alternative (..))
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
-import Control.Monad.Logic (LogicT, MonadLogic (..), fromLogicT, observeManyT)
+import Control.Monad.Logic (LogicT (..), MonadLogic (..), observeManyT)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
 import Data.Bifunctor (second)
@@ -21,7 +21,7 @@ import Data.Functor.Foldable (cata, project)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import ListT (ListT)
+import ListT (ListT (..))
 import qualified ListT
 import Rulecheck.Interface.Core (Index (..), Scheme (..), Tm (..), TmName, Ty, TyF (..), TyVar (..))
 import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
@@ -303,11 +303,18 @@ nextSearchResult :: SearchSusp a -> Either SearchErr (Maybe (a, SearchSusp a))
 nextSearchResult (SearchSusp env st act) =
   fmap (\(mx, st') -> fmap (second (SearchSusp env st')) mx) (runInnerM (ListT.uncons act) env st)
 
+-- | Streams search results as an unconsable effectful list.
+mkStream :: LogicT InnerM a -> ListT InnerM a
+mkStream (LogicT f) = enclose (f onCons onEmpty) where
+  enclose = ListT . (>>= \(ListT x) -> x)
+  onCons = fmap . ListT.cons
+  onEmpty = pure empty
+
 -- | Search for terms of the goal type with incremental consumption.
 runSearchSusp :: SearchConfig -> Either SearchErr (SearchSusp TmFound)
 runSearchSusp sc = do
   (env, st) <- initEnvSt sc
-  let act = fromLogicT (unSearchM search)
+  let act = mkStream (unSearchM search)
   pure (SearchSusp env st act)
 
 -- | Search for up to N terms of the goal type.

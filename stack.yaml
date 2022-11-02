@@ -7,7 +7,6 @@ extra-deps:
 - little-logger-1.0.1
 - little-rio-1.0.1
 - int-like-0.1.1
-- logict-0.8.0.0
 
 packages:
 - rulecheck
