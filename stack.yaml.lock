@@ -25,6 +25,13 @@ packages:
       size: 556
   original:
     hackage: int-like-0.1.1
+- completed:
+    hackage: logict-0.8.0.0@sha256:3d5d87a1d892a4732351c9a0b022d2d07bbb14e60582967c3c703c6ed69de88a,1800
+    pantry-tree:
+      sha256: 771df0080ef76ef9cdeaf97f13bdccfe5c6080b869ea74cb93dda4d151c836c6
+      size: 504
+  original:
+    hackage: logict-0.8.0.0
 snapshots:
 - completed:
     sha256: 1ecad1f0bd2c27de88dbff6572446cfdf647c615d58a7e2e2085c6b7dfc04176

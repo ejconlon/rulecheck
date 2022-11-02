@@ -13,7 +13,7 @@ import Control.Applicative (Alternative (..))
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.Identity (Identity (..))
-import Control.Monad.Logic (LogicT, MonadLogic (..), observeManyT)
+import Control.Monad.Logic (LogicT, MonadLogic (..), observeManyT, fromLogicT)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), State, StateT (..), gets, modify')
 import Data.Foldable (foldl', toList)
@@ -26,6 +26,9 @@ import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Rulecheck.Synth.UnionMap (UnionMap)
 import qualified Rulecheck.Synth.UnionMap as UM
+import Streaming.Prelude (Stream, Of)
+import qualified Streaming.Prelude as S
+import Data.Bifunctor (second)
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -90,8 +93,14 @@ newtype SearchErr =
 
 instance Exception SearchErr
 
+newtype InnerM a = InnerM { unInnerM :: ReaderT Env (StateT St (Except SearchErr)) a }
+  deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr)
+
+runInnerM :: InnerM a -> Env -> St -> Either SearchErr (a, St)
+runInnerM m r s = runExcept (runStateT (runReaderT (unInnerM m) r) s)
+
 -- | The core search monad. 'LogicT' is a list transformer monad with support for fair interleavings.
-newtype SearchM a = SearchM { unSearchM :: LogicT (ReaderT Env (StateT St (Except SearchErr))) a }
+newtype SearchM a = SearchM { unSearchM :: LogicT InnerM a }
   deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Env, MonadState St, MonadLogic, MonadError SearchErr)
 
 toListWithIndex :: Seq a -> [(a, Index)]
@@ -293,7 +302,7 @@ initEnvSt (SearchConfig decls scheme depthLim) = do
 data SearchSusp a = SearchSusp
   { ssEnv :: !Env
   , ssSt :: !St
-  , ssAct :: !(SearchM a)
+  , ssAct :: !(Stream (Of a) InnerM ())
   }
 
 -- | Yield the next result from a suspended search
@@ -301,23 +310,18 @@ data SearchSusp a = SearchSusp
 -- 'msplit' is reportedly slow.
 nextSearchResult :: SearchSusp a -> Either SearchErr (Maybe (a, SearchSusp a))
 nextSearchResult (SearchSusp env st act) =
-  let ea = runExcept (runReaderStateT env st (observeManyT 1 (msplit (unSearchM act))))
-  in flip fmap ea $ \(xs, st') ->
-    case xs of
-      [] -> Nothing
-      x:_ ->
-        case x of
-          Nothing -> Nothing
-          Just (a, act') -> Just (a, SearchSusp env st' (SearchM act'))
+  fmap (\(mx, st') -> fmap (second (SearchSusp env st')) mx) (runInnerM (S.uncons act) env st)
 
 -- | Search for terms of the goal type with incremental consumption.
 runSearchSusp :: SearchConfig -> Either SearchErr (SearchSusp TmFound)
-runSearchSusp sc = runExcept $ do
+runSearchSusp sc = do
   (env, st) <- initEnvSt sc
-  pure (SearchSusp env st search)
+  -- let act = fromLogicT (unSearchM search)
+  -- pure (SearchSusp env st act)
+  error "TODO" -- figure out how to stream
 
 -- | Search for up to N terms of the goal type.
 runSearchN :: SearchConfig -> Int -> Either SearchErr [TmFound]
-runSearchN sc n = runExcept $ do
+runSearchN sc n = do
   (env, st) <- initEnvSt sc
-  fmap fst (runReaderStateT env st (observeManyT n (unSearchM search)))
+  fmap fst (runInnerM (observeManyT n (unSearchM search)) env st)

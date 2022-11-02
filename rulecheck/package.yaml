@@ -21,6 +21,7 @@ dependencies:
 - transformers
 - megaparsec
 - prettyprinter
+- streaming
 # For debugging
 - pretty-simple
 # These are for prototyping the test interface:

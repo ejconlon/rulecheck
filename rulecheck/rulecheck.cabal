@@ -79,6 +79,7 @@ library
     , pretty-simple
     , prettyprinter
     , recursion-schemes
+    , streaming
     , tasty
     , tasty-quickcheck
     , template-haskell
@@ -141,6 +142,7 @@ executable rulecheck-exe
     , prettyprinter
     , recursion-schemes
     , rulecheck
+    , streaming
     , tasty
     , tasty-quickcheck
     , template-haskell
@@ -207,6 +209,7 @@ test-suite rulecheck-test
     , prettyprinter
     , recursion-schemes
     , rulecheck
+    , streaming
     , tasty
     , tasty-hunit
     , tasty-quickcheck
