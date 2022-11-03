@@ -16,16 +16,10 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), Ty (..), TyScheme (..),
-                                 TyVar (..), instSchemeBody, tySchemeBody)
+import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), TyScheme (..),
+                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials)
 import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
 import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..))
-
--- | The type of a partial function application
-data Partial = Partial
-  { partialArgs :: !(Seq (Ty Index))
-  , partialRet :: !(Ty Index)
-  } deriving stock (Eq, Ord, Show)
 
 -- | A declared term (essentially name and type scheme)
 data Decl = Decl
@@ -33,7 +27,7 @@ data Decl = Decl
   -- ^ The name of the declared term (will be used in 'TmKnown' constructors)
   , declType :: !(TyScheme Index)
   -- ^ The type scheme of the term
-  , declPartials :: !(Seq Partial)
+  , declPartials :: !(Seq (Partial Index))
   -- ^ If this is a function declaration, types of partial applications
   } deriving stock (Eq, Ord, Show)
 
@@ -61,17 +55,8 @@ mkDecl n s = do
   case namelessType s of
     Left e -> Left (DeclErrNameless e)
     Right s' -> do
-      let ps = matchPartials (tySchemeBody s')
+      let ps = tyToPartials (tySchemeBody s')
       pure (Decl n s' ps)
-
-matchPartials :: Ty Index -> Seq Partial
-matchPartials = onOuter where
-  onOuter = \case
-    TyFun x y -> onInner (Seq.singleton x) y
-    _ -> Empty
-  onInner as t = Partial as t :<| case t of
-    TyFun x y -> onInner (as :|> x) y
-    _ -> Empty
 
 type DeclM a = StateT DeclSet (Except DeclErr) a
 

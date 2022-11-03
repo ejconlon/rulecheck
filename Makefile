@@ -39,4 +39,4 @@ test-searchterm:
 
 .PHONY: ghci-searchterm
 ghci-searchterm:
-	stack ghci --ghci-options "-ghci-script ../.ghci-manual" searchterm:lib
+	stack ghci --ghci-options "-ghci-script ../.ghci-manual" searchterm:test:searchterm-test

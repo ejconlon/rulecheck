@@ -24,11 +24,12 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), TmName, Ty,
-                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
-import Searchterm.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
+                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..))
+import Searchterm.Interface.Decl (Decl (..), DeclSet (..))
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
+import Data.Tuple (swap)
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -76,6 +77,8 @@ data St = St
   -- ^ Next available unique vertex id
   , stTyMap :: !(UnionMap TyUniq TyVert)
   -- ^ Map of vertex id to data
+  -- TODO May need to figure out how to NOT store this in global state...
+  -- There might be trouble with backtracking...
   , stTmSrc :: !TmUniq
   -- ^ Next available unique term var binder
   } deriving stock (Eq, Show)
@@ -122,9 +125,7 @@ insertScheme onVar (TyScheme (Forall tvs (Strained cons ty))) = res where
   insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = do
-    stStart <- get
-    let (stMid, ctx) = foldl' acc (stStart, Seq.empty) tvs
-    put stMid
+    ctx <- state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
     ius <- for cons $ \(Inst cn tys) -> do
       us <- traverse (fmap fst . insertTy ctx) tys
       pure (StraintUniq cn us)
@@ -244,6 +245,20 @@ fairTraverse f = go Empty where
     Empty -> pure acc
     a :<| as -> f a >>- \b -> go (acc :|> b) as
 
+-- | Inserts a partial application into the graph.
+-- Returns
+--   additional context for the function type
+--   the key for the function
+--   the type of the function
+insertPartial :: TyScheme Index -> Partial Index -> SearchM (Seq TyUniq, TyUniq, TyUnify)
+insertPartial _ty (Partial args retTy) = do
+  -- TODO allocate metavars, also return instances
+  oldCtx <- asks envCtx
+  addlCtx <- traverse (fmap fst . insertTy oldCtx) args
+  let newCtx = oldCtx <> addlCtx
+  (funcKey, funcVal) <- insertTy newCtx retTy
+  pure (addlCtx, funcKey, funcVal)
+
 -- | Find solutions by instantiating decl functions with matching return type
 funElimFits :: TyUniq -> SearchM TmFound
 funElimFits goalKey = do
@@ -256,16 +271,14 @@ funElimFits goalKey = do
       (_, goalVal) <- lookupGoal goalKey
       choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
         -- Partials are defined for any curried lambda - args will be nonempty
-        choose (declPartials decl) $ \(Partial args retTy) -> do
+        choose (declPartials decl) $ \part@(Partial _ retTy) -> do
           let candVal = project retTy
           -- Do a cheap check for possible alignment on the result type
           whenAlt (mightAlign goalVal candVal) $ do
             -- Now really check that the result type unifies:
-            -- Add args to the typing context, insert the return type and unify.
-            oldCtx <- asks envCtx
-            addlCtx <- traverse (fmap fst . insertTy oldCtx) args
-            let newCtx = oldCtx <> addlCtx
-            (candKey, _) <- insertTy newCtx retTy
+            -- Insert the partial to get vars for args and returned function
+            (addlCtx, candKey, _) <- insertPartial (declType decl) part
+            -- Unify the returned function with the goal
             _ <- tryAlignTy goalKey candKey
             -- It unifies. Now we know that if we can find args we can satsify the goal.
             argTms <- fairTraverse (local (\env -> env { envDepthLim = depthLim - 1 }) . searchUniq) addlCtx

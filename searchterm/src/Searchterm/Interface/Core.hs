@@ -29,13 +29,16 @@ module Searchterm.Interface.Core
   , Rw (..)
   , RwScheme (..)
   , Rule (..)
-  ) where
+  , Partial (..)
+  , partialToTy
+  , tyToPartials
+) where
 
 import Control.Monad (join)
 import Data.Foldable (toList)
 import Data.Functor.Foldable (project)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
-import Data.Sequence (Seq)
+import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString)
 import Data.Text (Text)
@@ -242,3 +245,27 @@ data Rule tyf tmf = Rule
 
 instance (Pretty tyf, Pretty tmf) => Pretty (Rule tyf tmf) where
   pretty (Rule n rw ty) = P.hsep ["\"", pretty n, "\"", pretty rw, "::", pretty ty]
+
+-- | The type of a partial function application
+data Partial a = Partial
+  { partialArgs :: !(Seq (Ty a))
+  , partialRet :: !(Ty a)
+  } deriving stock (Eq, Ord, Show)
+
+partialToTy :: Partial a -> Ty a
+partialToTy (Partial args0 ret) = go args0 where
+  go = \case
+    Empty -> ret
+    x :<| xs -> TyFun x (go xs)
+
+tyToPartials :: Ty a -> Seq (Partial a)
+tyToPartials = onOuter where
+  onOuter = \case
+    TyFun x y -> onInner (Seq.singleton x) y
+    _ -> Empty
+  onInner as t = Partial as t :<| case t of
+    TyFun x y -> onInner (as :|> x) y
+    _ -> Empty
+
+instance Pretty a => Pretty (Partial a) where
+  pretty = pretty . partialToTy

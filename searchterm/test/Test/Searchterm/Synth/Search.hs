@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Searchterm.Synth.Search (testSearch) where
+module Test.Searchterm.Synth.Search where -- (testSearch) where
 
 import Control.Exception (Exception, throwIO)
 import Control.Monad (unless)
@@ -103,5 +103,6 @@ testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "basic" basicDeclSrc "Int"
     ["zero", "one", "(plus zero one)", "(plus (plus one zero) zero)"]
-  -- , testFinds "strain" strainDeclSrc "Int" ["(quux foo bar)"]
+  -- , testFinds "strain" strainDeclSrc "Int"
+  --   ["(quux foo bar)"]
   ]
