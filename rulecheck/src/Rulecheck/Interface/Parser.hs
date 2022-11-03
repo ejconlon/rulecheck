@@ -17,8 +17,9 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Rulecheck.Interface.Core (Cls (..), ClsName (..), Forall (..), Inst (..), ModName (..), Rule (..), Scheme (..),
-                                 StraintTy (..), Tm, TmName (..), TmVar (..), Ty (..), TyName (..), TyVar (..))
+import Rulecheck.Interface.Core (Cls (..), ClsName (..), Forall (..), Inst (..), ModName (..), Rule (..), Rw (..),
+                                 RwScheme (..), StraintTy (..), Tm, TmName (..), TmVar (..), Ty (..), TyName (..),
+                                 TyScheme (..), TyVar (..))
 import Rulecheck.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
                                   ModLine (..), RuleLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
@@ -169,8 +170,8 @@ forallP binderP bodyP = withForall <|> withoutForall where
     let bs = Seq.fromList (nub (toList body))
     pure (Forall bs body)
 
-schemeP :: P (Scheme TyVar)
-schemeP = fmap Scheme (forallP tyVarP straintTyP)
+tySchemeP :: P (TyScheme TyVar)
+tySchemeP = fmap TyScheme (forallP tyVarP straintTyP)
 
 clsNameP :: P ClsName
 clsNameP = fmap ClsName upperP
@@ -196,11 +197,17 @@ clsP = do
   as <- many tyVarP
   pure (Cls cn (Seq.fromList as))
 
+forallClsP :: P (Forall TyVar (Cls TyVar))
+forallClsP = forallP tyVarP clsP
+
 instP :: P (Inst TyVar)
 instP = do
   cn <- clsNameP
   as <- many (tyP True True)
   pure (Inst cn (Seq.fromList as))
+
+forallInstP :: P (Forall TyVar (Inst TyVar))
+forallInstP = forallP tyVarP instP
 
 lineP :: P Line
 lineP = moreLexP $ foldr1 (<|>)
@@ -246,7 +253,7 @@ funcLineP :: P FuncLine
 funcLineP = do
   tn <- tmNameP
   keywordP "::"
-  FuncLine tn <$> schemeP
+  FuncLine tn <$> tySchemeP
 
 clsLineP :: P ClsLine
 clsLineP = do
@@ -259,20 +266,24 @@ clsLineP = do
 tmP :: P (Tm TmVar TmVar)
 tmP = error "TODO"
 
+rwP :: P (Rw TmVar)
+rwP = do
+  lhs <- tmP
+  keywordP "="
+  Rw lhs <$> tmP
+
+rwSchemeP :: P (RwScheme TmVar)
+rwSchemeP = fmap RwScheme (forallP tmVarP rwP)
+
 ruleLineP :: P RuleLine
 ruleLineP = do
   keywordP "rule"
   _ <- P (void (MPC.char '"'))
   n <- some (satisfy (/= '"'))
   _ <- P (void (MPC.char '"'))
-  keywordP "forall"
-  vs <- some tmVarP
-  periodP
-  lhs <- tmP
-  keywordP "="
-  rhs <- tmP
+  rw <- rwSchemeP
   keywordP "::"
-  RuleLine . Rule (T.pack n) (Seq.fromList vs) lhs rhs <$> schemeP
+  RuleLine . Rule (T.pack n) rw <$> tySchemeP
 
 consumeP :: P a -> P a
 consumeP p = do
@@ -295,8 +306,8 @@ parseLinesIO fp = do
   t <- TIO.readFile fp
   either throwIO pure (parseLines fp t)
 
-parseScheme :: Text -> Either ParseErr (Scheme TyVar)
-parseScheme = runP schemeP "<interactive>"
+parseType :: Text -> Either ParseErr (TyScheme TyVar)
+parseType = runP tySchemeP "<interactive>"
 
 parseTerm :: Text -> Either ParseErr (Tm TmVar TmVar)
 parseTerm = runP tmP "<interactive>"

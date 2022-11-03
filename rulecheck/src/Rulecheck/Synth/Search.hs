@@ -24,8 +24,8 @@ import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import ListT (ListT (..))
 import qualified ListT
-import Rulecheck.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Scheme (..), StraintTy (..), Tm (..),
-                                 TmName, Ty, TyF (..), TyVar (..), schemeBody)
+import Rulecheck.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), StraintTy (..), Tm (..), TmName, Ty,
+                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
 import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Rulecheck.Synth.UnionMap (UnionMap)
@@ -118,8 +118,8 @@ lookupCtx i = do
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
-insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> Scheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
-insertScheme onVar (Scheme (Forall tvs (StraintTy cons ty))) = res where
+insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
+insertScheme onVar (TyScheme (Forall tvs (StraintTy cons ty))) = res where
   insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = do
@@ -158,7 +158,7 @@ insertTy ctx ty = res where
         pure (k, v)
 
 -- | Instantiates the scheme with metavars
-insertMetaScheme :: Scheme Index -> SearchM (Seq StraintUniq, TyUniq, TyUnify)
+insertMetaScheme :: TyScheme Index -> SearchM (Seq StraintUniq, TyUniq, TyUnify)
 insertMetaScheme = insertScheme TyVertMeta
 
 -- | Allocate a fresh term binder
@@ -204,10 +204,10 @@ exactDeclFits goalKey = do
   (_, goalVal) <- lookupGoal goalKey
   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
     -- Do a cheap check on the outside to see if it might align
-    let candVal = project (schemeBody (declScheme decl))
+    let candVal = project (tySchemeBody (declType decl))
     whenAlt (mightAlign goalVal candVal) $ do
       -- Ok, it might align. Add the type to the local search env and see if it really does.
-      (candStraints, candKey, _) <- insertMetaScheme (declScheme decl)
+      (candStraints, candKey, _) <- insertMetaScheme (declType decl)
       for_ candStraints tryUnifyStraint
       _ <- tryAlignTy goalKey candKey
       pure (TmKnown name)
@@ -285,7 +285,7 @@ tryUnifyStraint :: StraintUniq -> SearchM ()
 tryUnifyStraint _su = pure ()
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
-searchScheme :: Scheme Index -> SearchM TmFound
+searchScheme :: TyScheme Index -> SearchM TmFound
 searchScheme scheme = do
   (goalStraints, goalKey, _) <- insertScheme TyVertSkolem scheme
   for_ goalStraints tryUnifyStraint
@@ -295,7 +295,7 @@ searchScheme scheme = do
 data SearchConfig = SearchConfig
   { scDecls :: !DeclSet
   -- ^ Top-level declarations
-  , scTarget :: !(Scheme Index)
+  , scTarget :: !(TyScheme Index)
   -- ^ Search goal
   , scDepthLim :: !Int
   -- ^ Recursion depth limit

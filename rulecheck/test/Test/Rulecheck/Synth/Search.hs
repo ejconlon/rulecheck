@@ -10,8 +10,8 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Rulecheck.Interface.Core (Tm, TmVar)
-import Rulecheck.Interface.Decl (DeclSet (..), mkLineDecls, namelessScheme)
-import Rulecheck.Interface.Parser (parseLines, parseLinesIO, parseScheme, parseTerm)
+import Rulecheck.Interface.Decl (DeclSet (..), mkLineDecls, namelessType)
+import Rulecheck.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Rulecheck.Interface.Printer (printTerm)
 import Rulecheck.Synth.Search (SearchConfig (..), SearchSusp, TmFound, nextSearchResult, runSearchSusp)
 import Test.Tasty (TestTree, testGroup)
@@ -52,12 +52,12 @@ findAll !tms !susp =
           -- in findAll tms' susp'
 
 testFinds :: TestName -> DeclSrc -> Text -> [Text] -> TestTree
-testFinds n src schemeStr tmStrs = testCase n $ do
+testFinds n src tyStr tmStrs = testCase n $ do
   ds <- loadDecls src
-  schemeNamed <- either throwIO pure (parseScheme schemeStr)
-  scheme <- either throwIO pure (namelessScheme schemeNamed)
+  tsNamed <- either throwIO pure (parseType tyStr)
+  ts <- either throwIO pure (namelessType tsNamed)
   tms <- traverse (either throwIO pure . parseTerm) tmStrs
-  let conf = SearchConfig ds scheme maxSearchDepth
+  let conf = SearchConfig ds ts maxSearchDepth
       susp = runSearchSusp conf
       tmSet = Set.fromList tms
   findAll tmSet susp

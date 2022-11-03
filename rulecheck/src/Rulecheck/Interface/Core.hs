@@ -20,8 +20,10 @@ module Rulecheck.Interface.Core
   , Cls (..)
   , Inst (..)
   , StraintTy (..)
-  , Scheme (..)
-  , schemeBody
+  , TyScheme (..)
+  , tySchemeBody
+  , Rw (..)
+  , RwScheme (..)
   , Rule (..)
   ) where
 
@@ -189,21 +191,30 @@ instance Pretty a => Pretty (StraintTy a) where
       [p] -> parenToDoc p <+> "=>" <+> endDoc
       ps -> "(" <> P.hsep (P.punctuate "," (fmap parenToDoc ps)) <> ")" <+> "=>" <+> endDoc
 
-newtype Scheme a = Scheme { unScheme :: Forall TyVar (StraintTy a) }
+newtype TyScheme a = TyScheme { unTyScheme :: Forall TyVar (StraintTy a) }
   deriving stock (Show)
   deriving newtype (Eq, Ord, Pretty)
 
-schemeBody :: Scheme a -> Ty a
-schemeBody = stTy . faBody . unScheme
+tySchemeBody :: TyScheme a -> Ty a
+tySchemeBody = stTy . faBody . unTyScheme
+
+data Rw tmf = Rw
+  { rwLhs :: !(Tm TmVar tmf)
+  , rwRhs :: !(Tm TmVar tmf)
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Pretty tmf => Pretty (Rw tmf) where
+  pretty (Rw lhs rhs) = P.hsep [parenToDoc lhs, "=", parenToDoc rhs]
+
+newtype RwScheme tmf = RwScheme { unRwScheme :: Forall TmVar (Rw tmf) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
 
 data Rule tyf tmf = Rule
   { ruleName :: !Text
-  , ruleVars :: !(Seq TmVar)
-  , ruleLhs :: !(Tm TmVar tmf)
-  , ruleRhs :: !(Tm TmVar tmf)
-  , ruleScheme :: !(Scheme tyf)
+  , ruleRw :: !(RwScheme tmf)
+  , ruleTy :: !(TyScheme tyf)
   } deriving stock (Eq, Ord, Show)
 
 instance (Pretty tyf, Pretty tmf) => Pretty (Rule tyf tmf) where
-  pretty (Rule n vs lhs rhs sc) = P.hsep ["\"", pretty n, "\"", faDoc, parenToDoc lhs, "=", parenToDoc rhs, "::", pretty sc] where
-    faDoc = "forall " <> P.hsep (fmap pretty (toList vs)) <> "."
+  pretty (Rule n rw ty) = P.hsep ["\"", pretty n, "\"", pretty rw, "::", pretty ty]

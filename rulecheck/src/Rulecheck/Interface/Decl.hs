@@ -16,8 +16,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (Forall (..), Index (..), Inst (..), Scheme (..), StraintTy (..), TmName, Ty (..),
-                                 TyVar, schemeBody)
+import Rulecheck.Interface.Core (Forall (..), Index (..), Inst (..), StraintTy (..), TmName, Ty (..), TyScheme (..),
+                                 TyVar, tySchemeBody)
 import Rulecheck.Interface.Types (FuncLine (..), InstLine (..), Line (..))
 
 -- | The type of a partial function application
@@ -30,7 +30,7 @@ data Partial = Partial
 data Decl = Decl
   { declName :: !TmName
   -- ^ The name of the declared term (will be used in 'TmKnown' constructors)
-  , declScheme :: !(Scheme Index)
+  , declType :: !(TyScheme Index)
   -- ^ The type scheme of the term
   , declPartials :: !(Seq Partial)
   -- ^ If this is a function declaration, types of partial applications
@@ -55,10 +55,10 @@ data DeclErr =
 
 instance Exception DeclErr
 
-mkDecl :: TmName -> Scheme TyVar -> Either DeclErr Decl
+mkDecl :: TmName -> TyScheme TyVar -> Either DeclErr Decl
 mkDecl n s = do
-  s' <- namelessScheme s
-  let ps = matchPartials (schemeBody s')
+  s' <- namelessType s
+  let ps = matchPartials (tySchemeBody s')
   pure (Decl n s' ps)
 
 matchPartials :: Ty Index -> Seq Partial
@@ -70,8 +70,8 @@ matchPartials = onOuter where
     TyFun x y -> onInner (as :|> x) y
     _ -> Empty
 
-namelessScheme :: Scheme TyVar -> Either DeclErr (Scheme Index)
-namelessScheme (Scheme (Forall tvs ct)) = Scheme . Forall tvs <$> bindCt ct where
+namelessType :: TyScheme TyVar -> Either DeclErr (TyScheme Index)
+namelessType (TyScheme (Forall tvs ct)) = TyScheme . Forall tvs <$> bindCt ct where
   bindCt (StraintTy cons ty) = StraintTy <$> traverse bindCon cons <*> traverse bind ty
   nvs = Seq.length tvs
   bind a =
@@ -88,7 +88,7 @@ runDeclM m = runExcept . runStateT m
 execDeclM :: DeclM () -> DeclSet -> Either DeclErr DeclSet
 execDeclM m = fmap snd . runDeclM m
 
-insertTmDeclM :: TmName -> Scheme TyVar -> DeclM ()
+insertTmDeclM :: TmName -> TyScheme TyVar -> DeclM ()
 insertTmDeclM n s =
   case mkDecl n s of
     Left e -> throwError (DeclErrNamed n e)
@@ -112,7 +112,7 @@ insertLineM = \case
     -- Do we need to add anything else to the decl set for search?
     _ -> pure ()
 
-mkDecls :: [(TmName, Scheme TyVar)] -> Either DeclErr DeclSet
+mkDecls :: [(TmName, TyScheme TyVar)] -> Either DeclErr DeclSet
 mkDecls = flip execDeclM emptyDeclSet . traverse_ (uncurry insertTmDeclM)
 
 mkLineDecls :: [Line] -> Either DeclErr DeclSet
