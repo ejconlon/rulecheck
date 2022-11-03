@@ -20,3 +20,9 @@ cradle:
 
     - path: "rulecheck/test"
       component: "rulecheck:test:rulecheck-test"
+
+    - path: "searchterm/src"
+      component: "searchterm:lib"
+
+    - path: "searchterm/test"
+      component: "searchterm:test:searchterm-test"
