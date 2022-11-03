@@ -18,7 +18,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
 import Rulecheck.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), Forall (..), Inst (..), InstScheme (..),
-                                 ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm, TmName (..),
+                                 ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..),
                                  TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars)
 import Rulecheck.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
                                   ModLine (..), RuleLine (..))
@@ -105,8 +105,8 @@ tyNameP :: P TyName
 tyNameP = fmap TyName upperP
 
 tmNameP :: P TmName
-tmNameP = lexP $ lower <|> sym where
-  lower = fmap TmName identP
+tmNameP = lexP $ ident <|> sym where
+  ident = fmap TmName identP
   sym = do
     -- Don't lex parens here because no space allowed
     _ <- P (MPC.char '(')
@@ -260,9 +260,21 @@ clsLineP = do
   keywordP "class"
   ClsLine <$> clsSchemeP
 
--- TODO parse terms so we can parse rules
-tmP :: P (Tm TmVar TmVar)
-tmP = error "TODO"
+tmP, tmLamP, tmAppP, tmFreeP :: P (Tm TmVar TmVar)
+tmP = foldr1 (<|>)
+  [ tmLamP
+  , tmAppP
+  , tmFreeP
+  ]
+tmLamP = optParensP $ do
+  _ <- keywordP "\\"
+  x <- tmVarP
+  keywordP "->"
+  TmLam x <$> tmP
+-- Need parens here because of recursive descent parsing!
+tmAppP = inParensP (TmApp <$> tmP <*> tmP)
+-- We can only parse vars as free until we resolve them later
+tmFreeP = fmap (TmFree . TmVar . unTmName) tmNameP
 
 rwP :: P (Rw TmVar)
 rwP = do
