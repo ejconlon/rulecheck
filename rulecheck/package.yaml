@@ -21,7 +21,6 @@ dependencies:
 - transformers
 - megaparsec
 - prettyprinter
-- list-t
 # For debugging
 - pretty-simple
 # These are for prototyping the test interface:

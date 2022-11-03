@@ -14,7 +14,7 @@ import Control.Exception (throwIO)
 import Data.Sequence (Seq (..))
 import Rulecheck.Interface.Core (Forall (..), Strained (..), Ty (..), TyScheme (..))
 import Rulecheck.Interface.Decl (DeclErr, DeclSet, mkDecls)
-import Rulecheck.Synth.Search (SearchConfig (..), TmFound, runSearchN)
+import Rulecheck.Synth.Search (SearchConfig (..), SearchErr, TmFound, runSearchN, runSearchSusp, takeSearchResults)
 
 -- | Some declarations - here just some "Int" constants and addition.
 exampleDecls :: Either DeclErr DeclSet
@@ -34,12 +34,11 @@ exampleSearch n = do
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
   either throwIO pure (runSearchN (SearchConfig decls scheme 5) n)
 
--- TODO resurrect this when incremental searching works
--- -- | Search for N terms matching the "Int" type (with incremental searching)
--- exampleSearchSusp :: Int -> IO ([TmFound], Maybe SearchErr)
--- exampleSearchSusp n = do
---   let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
---   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
---   let susp = runSearchSusp (SearchConfig decls scheme 5)
---       (tms, ea) = takeSearchResults susp n
---   pure (tms, either Just (const Nothing) ea)
+-- | Search for N terms matching the "Int" type (with incremental searching)
+exampleSearchSusp :: Int -> IO ([TmFound], Maybe SearchErr)
+exampleSearchSusp n = do
+  let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
+  decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
+  let susp = runSearchSusp (SearchConfig decls scheme 5)
+      (tms, ea) = takeSearchResults susp n
+  pure (tms, either Just (const Nothing) ea)

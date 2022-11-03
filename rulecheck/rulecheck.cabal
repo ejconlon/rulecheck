@@ -72,7 +72,6 @@ library
     , ghc-paths
     , hie-bios
     , int-like
-    , list-t
     , little-logger
     , little-rio
     , logict
@@ -134,7 +133,6 @@ executable rulecheck-exe
     , ghc-paths
     , hie-bios
     , int-like
-    , list-t
     , little-logger
     , little-rio
     , logict
@@ -203,7 +201,6 @@ test-suite rulecheck-test
     , ghc-paths
     , hie-bios
     , int-like
-    , list-t
     , little-logger
     , little-rio
     , logict

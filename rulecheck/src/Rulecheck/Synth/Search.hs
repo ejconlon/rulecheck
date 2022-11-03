@@ -4,10 +4,10 @@ module Rulecheck.Synth.Search
   , TmFound
   , SearchErr (..)
   , SearchConfig (..)
-  -- , SearchSusp
-  -- , nextSearchResult
-  -- , takeSearchResults
-  -- , runSearchSusp
+  , SearchSusp
+  , nextSearchResult
+  , takeSearchResults
+  , runSearchSusp
   , runSearchN
   ) where
 
@@ -17,15 +17,12 @@ import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.Logic (LogicT (..), MonadLogic (..), observeManyT)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
-import Data.Bifunctor (second)
 import Data.Foldable (foldl', for_, toList)
 import Data.Functor.Foldable (cata, project)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
-import ListT (ListT (..))
-import qualified ListT
 import Rulecheck.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), TmName, Ty,
                                  TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
 import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
@@ -322,13 +319,22 @@ initEnvSt (SearchConfig decls _ depthLim) =
 data SearchSusp a = SearchSusp
   { ssEnv :: !Env
   , ssSt :: !St
-  , ssAct :: !(ListT InnerM a)
+  , ssAct :: !(SearchM a)
   }
 
 -- | Yield the next result from a suspended search
+-- This is probably going to perform worse than just using 'runSearchN' -
+-- 'msplit' is reportedly slow.
 nextSearchResult :: SearchSusp a -> Either SearchErr (Maybe (a, SearchSusp a))
 nextSearchResult (SearchSusp env st act) =
-  fmap (\(mx, st') -> fmap (second (SearchSusp env st')) mx) (runInnerM (ListT.uncons act) env st)
+  let ea = runInnerM (observeManyT 1 (msplit (unSearchM act))) env st
+  in flip fmap ea $ \(xs, st') ->
+    case xs of
+      [] -> Nothing
+      x:_ ->
+        case x of
+          Nothing -> Nothing
+          Just (a, act') -> Just (a, SearchSusp env st' (SearchM act'))
 
 -- | Take a given number of search results
 takeSearchResults :: SearchSusp a -> Int -> ([a], Either SearchErr (Maybe (SearchSusp a)))
@@ -342,19 +348,11 @@ takeSearchResults = go [] where
             Nothing -> (reverse xs, Right Nothing)
             Just (a, susp') -> go (a:xs) susp' (i - 1)
 
--- | Streams search results as an unconsable effectful list.
-mkStream :: LogicT InnerM a -> ListT InnerM a
-mkStream (LogicT f) = enclose (f onCons onEmpty) where
-  enclose = ListT . (>>= \(ListT x) -> x)
-  onCons = fmap . ListT.cons
-  onEmpty = pure empty
-
 -- | Search for terms of the goal type with incremental consumption.
 runSearchSusp :: SearchConfig -> SearchSusp TmFound
 runSearchSusp sc =
   let (env, st) = initEnvSt sc
-      act = mkStream (unSearchM (searchScheme (scTarget sc)))
-  in SearchSusp env st act
+  in SearchSusp env st (searchScheme (scTarget sc))
 
 -- | Search for up to N terms of the goal type.
 runSearchN :: SearchConfig -> Int -> Either SearchErr [TmFound]
