@@ -16,8 +16,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (Forall (..), Index (..), Inst (..), Strained (..), TmName, Ty (..), TyScheme (..),
-                                 TyVar, tySchemeBody)
+import Rulecheck.Interface.Core (ClsName, Forall (..), Index (..), Inst (..), InstScheme (..), Strained (..), TmName,
+                                 Ty (..), TyScheme (..), TyVar, instSchemeBody, tySchemeBody)
 import Rulecheck.Interface.Types (FuncLine (..), InstLine (..), Line (..))
 
 -- | The type of a partial function application
@@ -39,8 +39,8 @@ data Decl = Decl
 data DeclSet = DeclSet
   { dsMap :: !(Map TmName Decl)
   -- ^ Map from term to its definition
-  , dsDeps :: !(Map (Inst TyVar) (Seq (Inst TyVar)))
-  -- ^ Map from class instance to its parents (dependencies)
+  , dsDeps :: !(Map ClsName (Seq (InstScheme Index)))
+  -- ^ Map from class name to instance schemes
   } deriving stock (Eq, Show)
 
 emptyDeclSet :: DeclSet
@@ -70,15 +70,21 @@ matchPartials = onOuter where
     TyFun x y -> onInner (as :|> x) y
     _ -> Empty
 
-namelessType :: TyScheme TyVar -> Either DeclErr (TyScheme Index)
-namelessType (TyScheme (Forall tvs ct)) = TyScheme . Forall tvs <$> bindStr ct where
-  bindStr (Strained cons ty) = Strained <$> traverse bindCon cons <*> traverse bind ty
+namelessStrained :: Traversable f => Forall TyVar (Strained TyVar (f TyVar)) -> Either DeclErr (Forall TyVar (Strained Index (f Index)))
+namelessStrained (Forall tvs x) = Forall tvs <$> bindStr x where
+  bindStr (Strained cons fy) = Strained <$> traverse bindCon cons <*> traverse bind fy
   nvs = Seq.length tvs
   bind a =
     case Seq.findIndexR (== a) tvs of
       Nothing -> Left (DeclErrTy a)
       Just lvl -> Right (Index (nvs - lvl - 1))
   bindCon (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
+
+namelessType :: TyScheme TyVar -> Either DeclErr (TyScheme Index)
+namelessType = fmap TyScheme . namelessStrained . unTyScheme
+
+namelessInst :: InstScheme TyVar -> Either DeclErr (InstScheme Index)
+namelessInst = fmap InstScheme . namelessStrained . unInstScheme
 
 type DeclM a = StateT DeclSet (Except DeclErr) a
 
@@ -98,17 +104,18 @@ insertTmDeclM n s =
         Just _ -> throwError (DeclErrNamed n DeclErrDupe)
         Nothing -> modify' (\ds -> ds { dsMap = Map.insert n d (dsMap ds) })
 
-insertInstM :: Inst TyVar -> Seq (Inst TyVar) -> DeclM ()
-insertInstM self pars = do
-  d <- gets dsDeps
-  case Map.lookup self d of
-    Just _ -> throwError (DeclErrInst self DeclErrDupe)
-    Nothing -> modify' (\ds -> ds { dsDeps = Map.insert self pars (dsDeps ds) })
+insertInstM :: InstScheme TyVar -> DeclM ()
+insertInstM is = do
+  case namelessInst is of
+    Left e -> throwError (DeclErrInst (instSchemeBody is) e)
+    Right is' -> do
+      let cn = instName (instSchemeBody is')
+      modify' (\ds -> ds { dsDeps = Map.alter (Just . maybe (Seq.singleton is') (:|> is')) cn (dsDeps ds) })
 
 insertLineM :: Line -> DeclM ()
 insertLineM = \case
-    LineFunc (FuncLine n s) -> insertTmDeclM n s
-    LineInst (InstLine self pars) -> insertInstM self pars
+    LineFunc (FuncLine n ts) -> insertTmDeclM n ts
+    LineInst (InstLine is) -> insertInstM is
     -- Do we need to add anything else to the decl set for search?
     _ -> pure ()
 

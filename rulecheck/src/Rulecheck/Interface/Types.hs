@@ -6,9 +6,9 @@ module Rulecheck.Interface.Types where
 
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
-import Prettyprinter (Doc, Pretty (..), (<+>))
+import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
-import Rulecheck.Interface.Core (Cls, Inst, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar)
+import Rulecheck.Interface.Core (ClsScheme, InstScheme, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar)
 
 data DataLine = DataLine
   { dlName :: !TyName
@@ -26,22 +26,12 @@ data ConsLine = ConsLine
 instance Pretty ConsLine where
   pretty (ConsLine tn cs) = P.hsep ("constructors" : pretty tn : fmap pretty (toList cs))
 
-data InstLine = InstLine
-  { ilSelf :: !(Inst TyVar)
-  , ilParents :: !(Seq (Inst TyVar))
+newtype InstLine = InstLine
+  { ilScheme :: InstScheme TyVar
   } deriving stock (Eq, Show)
 
-constraintsP :: (Pretty a, Pretty b) => Doc ann -> Seq a -> b -> Doc ann
-constraintsP txt pars end = fullDoc where
-  endDoc = pretty end
-  restDoc = case toList pars of
-    [] -> endDoc
-    [p] -> pretty p <+> "=>" <+> endDoc
-    ps -> "(" <> P.hsep (P.punctuate "," (fmap pretty ps)) <> ")" <+> "=>" <+> endDoc
-  fullDoc = txt <+> restDoc
-
 instance Pretty InstLine where
-  pretty (InstLine ins pars) = constraintsP "instance" pars ins
+  pretty (InstLine is) = P.hsep ["instance", pretty is]
 
 data FuncLine = FuncLine
   { flName :: !TmName
@@ -51,13 +41,12 @@ data FuncLine = FuncLine
 instance Pretty FuncLine where
   pretty (FuncLine tn sc) = P.hsep [pretty tn, "::", pretty sc]
 
-data ClsLine = ClsLine
-  { clSelf :: !(Cls TyVar)
-  , clParents :: !(Seq (Inst TyVar))
+newtype ClsLine = ClsLine
+  { clScheme :: ClsScheme TyVar
   } deriving stock (Eq, Show)
 
 instance Pretty ClsLine where
-  pretty (ClsLine cls pars) = constraintsP "class" pars cls
+  pretty (ClsLine cs) = P.hsep ["class", pretty cs]
 
 newtype ModLine = ModLine
   { mlName :: ModName

@@ -10,6 +10,7 @@ import Control.Exception (throwIO)
 import Control.Monad (void)
 import Data.Char (isAlphaNum, isSpace)
 import Data.Foldable (toList)
+import Data.List (nub)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
@@ -169,7 +170,7 @@ forallP xtract binderP bodyP = withForall <|> withoutForall where
     pure (Forall bs body)
 
 forallStrainedP :: Foldable f => P (f TyVar) -> P (Forall TyVar (Strained TyVar (f TyVar)))
-forallStrainedP = forallP strainedVars tyVarP . strainedP
+forallStrainedP = forallP (nub . strainedVars) tyVarP . strainedP
 
 tySchemeP :: P (TyScheme TyVar)
 tySchemeP = fmap TyScheme (forallStrainedP (tyP False False))
@@ -246,9 +247,7 @@ consLineP = do
 instLineP :: P InstLine
 instLineP = do
   keywordP "instance"
-  parents <- optP Empty (constraintsP instP)
-  self <- instP
-  pure (InstLine self parents)
+  InstLine <$> instSchemeP
 
 funcLineP :: P FuncLine
 funcLineP = do
@@ -259,9 +258,7 @@ funcLineP = do
 clsLineP :: P ClsLine
 clsLineP = do
   keywordP "class"
-  parents <- optP Empty (constraintsP instP)
-  self <- clsP
-  pure (ClsLine self parents)
+  ClsLine <$> clsSchemeP
 
 -- TODO parse terms so we can parse rules
 tmP :: P (Tm TmVar TmVar)
@@ -274,7 +271,7 @@ rwP = do
   Rw lhs <$> tmP
 
 rwSchemeP :: P (RwScheme TmVar)
-rwSchemeP = fmap RwScheme (forallP toList tmVarP rwP)
+rwSchemeP = fmap RwScheme (forallP (nub . toList) tmVarP rwP)
 
 ruleLineP :: P RuleLine
 ruleLineP = do

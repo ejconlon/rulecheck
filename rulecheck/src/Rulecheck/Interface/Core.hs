@@ -23,6 +23,7 @@ module Rulecheck.Interface.Core
   , strainedVars
   , ClsScheme (..)
   , InstScheme (..)
+  , instSchemeBody
   , TyScheme (..)
   , tySchemeBody
   , Rw (..)
@@ -210,6 +211,9 @@ newtype ClsScheme a = ClsScheme { unClsScheme :: Forall TyVar (Strained a (Cls a
 newtype InstScheme a = InstScheme { unInstScheme :: Forall TyVar (Strained a (Inst a)) }
   deriving stock (Show)
   deriving newtype (Eq, Ord, Pretty)
+
+instSchemeBody :: InstScheme a -> Inst a
+instSchemeBody = strainedIn . faBody . unInstScheme
 
 newtype TyScheme a = TyScheme { unTyScheme :: Forall TyVar (Strained a (Ty a)) }
   deriving stock (Show)
