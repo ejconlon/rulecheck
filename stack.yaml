@@ -9,6 +9,7 @@ extra-deps:
 - int-like-0.1.1
 
 packages:
+- searchterm
 - rulecheck
 - demo-domain
 - demo-test

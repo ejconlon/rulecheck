@@ -1,5 +1,5 @@
 -- | Declarations of terms in our universe
-module Rulecheck.Interface.Decl where
+module Searchterm.Interface.Decl where
   -- ( Partial (..)
   -- , Decl (..)
   -- , DeclErr
@@ -16,10 +16,10 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), Ty (..), TyScheme (..),
+import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), Ty (..), TyScheme (..),
                                  TyVar (..), instSchemeBody, tySchemeBody)
-import Rulecheck.Interface.Names (NamelessErr, namelessInst, namelessType)
-import Rulecheck.Interface.Types (FuncLine (..), InstLine (..), Line (..))
+import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
+import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..))
 
 -- | The type of a partial function application
 data Partial = Partial

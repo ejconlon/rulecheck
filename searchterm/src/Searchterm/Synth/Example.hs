@@ -8,13 +8,13 @@
 --     x <- exampleSearch 3
 --     pPrint x
 --
-module Rulecheck.Synth.Example where
+module Searchterm.Synth.Example where
 
 import Control.Exception (throwIO)
 import Data.Sequence (Seq (..))
-import Rulecheck.Interface.Core (Forall (..), Strained (..), Ty (..), TyScheme (..))
-import Rulecheck.Interface.Decl (DeclErr, DeclSet, mkDecls)
-import Rulecheck.Synth.Search (SearchConfig (..), SearchErr, TmFound, runSearchN, runSearchSusp, takeSearchResults)
+import Searchterm.Interface.Core (Forall (..), Strained (..), Ty (..), TyScheme (..))
+import Searchterm.Interface.Decl (DeclErr, DeclSet, mkDecls)
+import Searchterm.Synth.Search (SearchConfig (..), SearchErr, TmFound, runSearchN, runSearchSusp, takeSearchResults)
 
 -- | Some declarations - here just some "Int" constants and addition.
 exampleDecls :: Either DeclErr DeclSet

@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Core definitions for types and terms
-module Rulecheck.Interface.Core
+module Searchterm.Interface.Core
   ( Index (..)
   , TyVar (..)
   , TmVar (..)
@@ -41,7 +41,7 @@ import Data.String (IsString)
 import Data.Text (Text)
 import Prettyprinter (Pretty (..), (<+>))
 import qualified Prettyprinter as P
-import Rulecheck.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
+import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
 
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }

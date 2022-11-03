@@ -1,4 +1,4 @@
-module Rulecheck.Interface.Names
+module Searchterm.Interface.Names
   ( NamelessErr (..)
   , namelessType
   , namelessInst
@@ -16,7 +16,7 @@ import Data.Functor.Foldable (cata)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Typeable (Typeable)
-import Rulecheck.Interface.Core (Forall (..), Index (..), Inst (..), InstScheme (..), Strained (..), Tm (..), TmF (..),
+import Searchterm.Interface.Core (Forall (..), Index (..), Inst (..), InstScheme (..), Strained (..), Tm (..), TmF (..),
                                  TmName (..), TyScheme (..), TyVar)
 
 indexSeqWith :: (b -> a -> Bool) -> Seq a -> b -> Maybe Index

@@ -1,10 +1,10 @@
-module Test.Rulecheck.Interface (testInterface) where
+module Test.Searchterm.Interface (testInterface) where
 
 import Control.Exception (throwIO)
 import Data.Foldable (for_)
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Parser (parseLines, parseLinesIO)
-import Rulecheck.Interface.Printer (printLines)
+import Searchterm.Interface.Parser (parseLines, parseLinesIO)
+import Searchterm.Interface.Printer (printLines)
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase, (@?=))
 

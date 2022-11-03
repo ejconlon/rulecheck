@@ -1,5 +1,5 @@
 -- | Methods to enumerate terms of a given type
-module Rulecheck.Synth.Search
+module Searchterm.Synth.Search
   ( TmUniq (..)
   , TmFound
   , SearchErr (..)
@@ -23,12 +23,12 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
-import Rulecheck.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), TmName, Ty,
+import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), TmName, Ty,
                                  TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
-import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
-import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
-import Rulecheck.Synth.UnionMap (UnionMap)
-import qualified Rulecheck.Synth.UnionMap as UM
+import Searchterm.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
+import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
+import Searchterm.Synth.UnionMap (UnionMap)
+import qualified Searchterm.Synth.UnionMap as UM
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)

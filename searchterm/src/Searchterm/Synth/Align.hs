@@ -1,14 +1,14 @@
 -- | "Alignment" is one layer of unification.
-module Rulecheck.Synth.Align where
+module Searchterm.Synth.Align where
 
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF)
-import Rulecheck.Synth.UnionFind (MergeRes (..))
-import Rulecheck.Synth.UnionMap (UnionMap)
-import qualified Rulecheck.Synth.UnionMap as UM
+import Searchterm.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF)
+import Searchterm.Synth.UnionFind (MergeRes (..))
+import Searchterm.Synth.UnionMap (UnionMap)
+import qualified Searchterm.Synth.UnionMap as UM
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =

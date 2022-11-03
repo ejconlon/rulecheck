@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Rulecheck.Synth.Search (testSearch) where
+module Test.Searchterm.Synth.Search (testSearch) where
 
 import Control.Exception (Exception, throwIO)
 import Control.Monad (unless)
@@ -11,12 +11,12 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Rulecheck.Interface.Core (Index (..), TmName (..), TmVar (..))
-import Rulecheck.Interface.Decl (DeclSet (..), mkLineDecls)
-import Rulecheck.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType)
-import Rulecheck.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
-import Rulecheck.Interface.Printer (printTerm)
-import Rulecheck.Synth.Search (SearchConfig (..), SearchSusp, TmFound, nextSearchResult, runSearchSusp)
+import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..))
+import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
+import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType)
+import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
+import Searchterm.Interface.Printer (printTerm)
+import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, TmFound, nextSearchResult, runSearchSusp)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.Tasty.Providers (TestName)

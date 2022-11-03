@@ -3,7 +3,7 @@ include Makefile.base
 # Because generated code may be in a bad state, we separate normal and generated targets
 # Run normal ones without a suffix: build test, generateed ones as: build-gen test-gen
 # and everything with: build-all test-all
-TARGETS = demo-domain:test:demo-domain-test rulecheck:test:rulecheck-test
+TARGETS = demo-domain:test:demo-domain-test rulecheck:test:rulecheck-test searchterm:test:searchterm-test
 
 .PHONY: exe
 exe:
@@ -33,6 +33,6 @@ build-all:
 test-all:
 	stack build --fast --test
 
-.PHONY: test-rulecheck
-test-rulecheck:
-	stack build --fast --test rulecheck:test:rulecheck-test
+.PHONY: test-searchterm
+test-searchterm:
+	stack build --fast --test searchterm:test:searchterm-test

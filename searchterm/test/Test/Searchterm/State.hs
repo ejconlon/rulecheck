@@ -1,4 +1,4 @@
-module Test.Rulecheck.State
+module Test.Searchterm.State
   ( StateT (..)
   , State
   , MonadState (..)

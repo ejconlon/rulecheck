@@ -1,4 +1,4 @@
-module Rulecheck.Interface.Printer where
+module Searchterm.Interface.Printer where
   -- ( printLines
   -- ) where
 
@@ -7,9 +7,9 @@ import Data.Sequence (Seq)
 import Data.Text (Text)
 import Prettyprinter (Doc, Pretty, pretty)
 import qualified Prettyprinter as P
-import Rulecheck.Interface.Core (Tm, TyScheme)
-import Rulecheck.Interface.ParenPretty (docToText)
-import Rulecheck.Interface.Types (Line)
+import Searchterm.Interface.Core (Tm, TyScheme)
+import Searchterm.Interface.ParenPretty (docToText)
+import Searchterm.Interface.Types (Line)
 
 linesP :: Seq Line -> Doc ()
 linesP = P.vcat . fmap pretty . toList

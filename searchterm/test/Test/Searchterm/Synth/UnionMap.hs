@@ -1,4 +1,4 @@
-module Test.Rulecheck.Synth.UnionMap
+module Test.Searchterm.Synth.UnionMap
   ( testUnionMap
   ) where
 
@@ -10,11 +10,11 @@ import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
 import IntLike.Set (IntLikeSet)
 import qualified IntLike.Set as ILS
-import Rulecheck.Synth.UnionFind (MergeRes (..))
-import qualified Rulecheck.Synth.UnionFind as UF
-import Rulecheck.Synth.UnionMap (MergeFun, UnionMap)
-import qualified Rulecheck.Synth.UnionMap as UM
-import Test.Rulecheck.State (applyS, applyTestS, applyTestST, runS, testS)
+import Searchterm.Synth.UnionFind (MergeRes (..))
+import qualified Searchterm.Synth.UnionFind as UF
+import Searchterm.Synth.UnionMap (MergeFun, UnionMap)
+import qualified Searchterm.Synth.UnionMap as UM
+import Test.Searchterm.State (applyS, applyTestS, applyTestST, runS, testS)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 

@@ -2,13 +2,13 @@
 
 -- | These are definitions for the interface files. You will generally be
 -- parsing and printing with 'parseLinesIO' and 'printLines'.
-module Rulecheck.Interface.Types where
+module Searchterm.Interface.Types where
 
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
-import Rulecheck.Interface.Core (ClsScheme, InstScheme, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar)
+import Searchterm.Interface.Core (ClsScheme, InstScheme, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar)
 
 data DataLine = DataLine
   { dlName :: !TyName

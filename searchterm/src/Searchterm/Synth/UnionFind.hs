@@ -2,7 +2,7 @@
 -- Implemented as a map from a node to a parent node.
 -- (If a node is its own parent, then it is the root of the class.)
 -- Uses path compression to update pointers as demanded.
-module Rulecheck.Synth.UnionFind
+module Searchterm.Synth.UnionFind
   ( UnionFind
   , fromSet
   , empty

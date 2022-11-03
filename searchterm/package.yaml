@@ -1,24 +1,20 @@
-name:                rulecheck
-version:             0.1.0
+name: searchterm
+version: 0.1.0
 
 dependencies:
 - base >= 4.12 && < 5
-- ghc == 9.0.2
 - containers
 - exceptions
-- little-rio
-- little-logger
 - text
-- generic-lens
-- unliftio-core
 - mtl
-- ghc-paths
-- hie-bios
-- template-haskell
-# These are for prototyping the test interface:
-- QuickCheck
-- tasty
-- tasty-quickcheck
+- int-like
+- recursion-schemes
+- logict
+- transformers
+- megaparsec
+- prettyprinter
+# For debugging
+- pretty-simple
 
 default-extensions:
 - BangPatterns
@@ -64,19 +60,8 @@ ghc-options:
 library:
   source-dirs: src
 
-executables:
-  rulecheck-exe:
-    main:                Main.hs
-    source-dirs:         exe
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - rulecheck
-
 tests:
-  rulecheck-test:
+  searchterm-test:
     main:                Main.hs
     source-dirs:         test
     ghc-options:
@@ -84,6 +69,6 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - rulecheck
+    - searchterm
     - tasty
     - tasty-hunit

@@ -1,6 +1,6 @@
 -- | A map of equivalence class to some class value.
 -- The map keys will only contain equivalence class roots.
-module Rulecheck.Synth.UnionMap
+module Searchterm.Synth.UnionMap
   ( UnionMap
   , unionFind
   , valueMap
@@ -19,8 +19,8 @@ import Control.Monad.State.Strict (MonadState (..), State, modify', state)
 import Data.Coerce (Coercible)
 import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
-import Rulecheck.Synth.UnionFind (MergeRes (..), UnionFind)
-import qualified Rulecheck.Synth.UnionFind as UF
+import Searchterm.Synth.UnionFind (MergeRes (..), UnionFind)
+import qualified Searchterm.Synth.UnionFind as UF
 
 data UnionMap k v = UnionMap
   { unionFind :: !(UnionFind k)

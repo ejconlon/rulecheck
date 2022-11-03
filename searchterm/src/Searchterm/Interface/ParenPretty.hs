@@ -1,6 +1,6 @@
 -- | This exists so we can detect when parentheses are and aren't necessary
 -- when pretty-printing! Sad, right?
-module Rulecheck.Interface.ParenPretty
+module Searchterm.Interface.ParenPretty
   ( docToText
   , parenToDoc
   , Paren
