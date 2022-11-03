@@ -16,7 +16,7 @@ import Rulecheck.Interface.Decl (DeclSet (..), mkLineDecls)
 import Rulecheck.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType)
 import Rulecheck.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Rulecheck.Interface.Printer (printTerm)
-import Rulecheck.Synth.Search (SearchConfig (..), TmFound, runSearchN)
+import Rulecheck.Synth.Search (SearchConfig (..), SearchSusp, TmFound, nextSearchResult, runSearchSusp)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.Tasty.Providers (TestName)
@@ -52,26 +52,19 @@ reportMissing tms =
     for_ (toList tms) (TIO.putStrLn . printAlphaTm)
     fail ("Missing " ++ show (Set.size tms) ++ " terms")
 
-findAll :: Int -> Set AlphaTm -> [TmFound] -> IO ()
-findAll !lim !tms !res =
+findAll :: Int -> Set AlphaTm -> SearchSusp TmFound -> IO ()
+findAll !lim !tms !susp =
   if lim <= 0 || Set.null tms
     then reportMissing tms
     else do
-      case res of
-        [] -> reportMissing tms
-        tm:res' -> do
+      mx <- rethrow (nextSearchResult susp)
+      case mx of
+        Nothing -> reportMissing tms
+        Just (tm, susp') -> do
           let tm' = mapAlphaTm tm
           -- TIO.putStrLn (printAlphaTm tm')
           let tms' = Set.delete tm' tms
-          findAll (lim - 1) tms' res'
-      -- TODO use incremental search when it works
-      -- mx <- rethrow (nextSearchResult susp)
-      -- case mx of
-      --   Nothing -> reportMissing tms
-      --   Just (tm, susp') -> do
-      --     let tm' = mapAlphaTm tm
-      --     let tms' = Set.delete tm' tms
-      --     findAll (lim - 1) tms' susp'
+          findAll (lim - 1) tms' susp'
 
 testFinds :: TestName -> DeclSrc -> Text -> [Text] -> TestTree
 testFinds n src tyStr tmStrs = testCase n $ do
@@ -83,8 +76,8 @@ testFinds n src tyStr tmStrs = testCase n $ do
   ctms <- traverse (rethrow . closeAlphaTm isKnown) tms
   let tmSet = Set.fromList ctms
   let conf = SearchConfig ds ts maxSearchDepth
-  res <- rethrow (runSearchN conf maxSearchResults)
-  findAll maxSearchResults tmSet res
+      susp = runSearchSusp conf
+  findAll maxSearchResults tmSet susp
 
 basicDeclSrc :: DeclSrc
 basicDeclSrc = DeclSrcList
