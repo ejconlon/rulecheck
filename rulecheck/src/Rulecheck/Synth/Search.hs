@@ -24,7 +24,7 @@ import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import ListT (ListT (..))
 import qualified ListT
-import Rulecheck.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), StraintTy (..), Tm (..), TmName, Ty,
+import Rulecheck.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), TmName, Ty,
                                  TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
 import Rulecheck.Interface.Decl (Decl (..), DeclSet (..), Partial (..))
 import Rulecheck.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
@@ -119,7 +119,7 @@ lookupCtx i = do
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
 insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
-insertScheme onVar (TyScheme (Forall tvs (StraintTy cons ty))) = res where
+insertScheme onVar (TyScheme (Forall tvs (Strained cons ty))) = res where
   insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = do

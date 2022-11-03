@@ -16,7 +16,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (Forall (..), Index (..), Inst (..), StraintTy (..), TmName, Ty (..), TyScheme (..),
+import Rulecheck.Interface.Core (Forall (..), Index (..), Inst (..), Strained (..), TmName, Ty (..), TyScheme (..),
                                  TyVar, tySchemeBody)
 import Rulecheck.Interface.Types (FuncLine (..), InstLine (..), Line (..))
 
@@ -71,8 +71,8 @@ matchPartials = onOuter where
     _ -> Empty
 
 namelessType :: TyScheme TyVar -> Either DeclErr (TyScheme Index)
-namelessType (TyScheme (Forall tvs ct)) = TyScheme . Forall tvs <$> bindCt ct where
-  bindCt (StraintTy cons ty) = StraintTy <$> traverse bindCon cons <*> traverse bind ty
+namelessType (TyScheme (Forall tvs ct)) = TyScheme . Forall tvs <$> bindStr ct where
+  bindStr (Strained cons ty) = Strained <$> traverse bindCon cons <*> traverse bind ty
   nvs = Seq.length tvs
   bind a =
     case Seq.findIndexR (== a) tvs of

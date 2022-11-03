@@ -10,16 +10,15 @@ import Control.Exception (throwIO)
 import Control.Monad (void)
 import Data.Char (isAlphaNum, isSpace)
 import Data.Foldable (toList)
-import Data.List (nub)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Rulecheck.Interface.Core (Cls (..), ClsName (..), Forall (..), Inst (..), ModName (..), Rule (..), Rw (..),
-                                 RwScheme (..), StraintTy (..), Tm, TmName (..), TmVar (..), Ty (..), TyName (..),
-                                 TyScheme (..), TyVar (..))
+import Rulecheck.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), Forall (..), Inst (..), InstScheme (..),
+                                 ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm, TmName (..),
+                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars)
 import Rulecheck.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
                                   ModLine (..), RuleLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
@@ -152,14 +151,13 @@ assocFn ty tys =
     [] -> ty
     ty':tys' -> TyFun ty (assocFn ty' tys')
 
-straintTyP :: P (StraintTy TyVar)
-straintTyP = do
+strainedP :: P a -> P (Strained TyVar a)
+strainedP bodyP = do
   cons <- optP Empty (constraintsP instP)
-  ty <- tyP False False
-  pure (StraintTy cons ty)
+  Strained cons <$> bodyP
 
-forallP :: (Foldable f, Eq b) => P b -> P (f b) -> P (Forall b (f b))
-forallP binderP bodyP = withForall <|> withoutForall where
+forallP :: (a -> [b]) -> P b -> P a -> P (Forall b a)
+forallP xtract binderP bodyP = withForall <|> withoutForall where
   withForall = do
     keywordP "forall"
     bs <- some binderP
@@ -167,11 +165,14 @@ forallP binderP bodyP = withForall <|> withoutForall where
     Forall (Seq.fromList bs) <$> bodyP
   withoutForall = do
     body <- bodyP
-    let bs = Seq.fromList (nub (toList body))
+    let bs = Seq.fromList (xtract body)
     pure (Forall bs body)
 
+forallStrainedP :: Foldable f => P (f TyVar) -> P (Forall TyVar (Strained TyVar (f TyVar)))
+forallStrainedP = forallP strainedVars tyVarP . strainedP
+
 tySchemeP :: P (TyScheme TyVar)
-tySchemeP = fmap TyScheme (forallP tyVarP straintTyP)
+tySchemeP = fmap TyScheme (forallStrainedP (tyP False False))
 
 clsNameP :: P ClsName
 clsNameP = fmap ClsName upperP
@@ -197,8 +198,8 @@ clsP = do
   as <- many tyVarP
   pure (Cls cn (Seq.fromList as))
 
-forallClsP :: P (Forall TyVar (Cls TyVar))
-forallClsP = forallP tyVarP clsP
+clsSchemeP :: P (ClsScheme TyVar)
+clsSchemeP = fmap ClsScheme (forallStrainedP clsP)
 
 instP :: P (Inst TyVar)
 instP = do
@@ -206,8 +207,8 @@ instP = do
   as <- many (tyP True True)
   pure (Inst cn (Seq.fromList as))
 
-forallInstP :: P (Forall TyVar (Inst TyVar))
-forallInstP = forallP tyVarP instP
+instSchemeP :: P (InstScheme TyVar)
+instSchemeP = fmap InstScheme (forallStrainedP instP)
 
 lineP :: P Line
 lineP = moreLexP $ foldr1 (<|>)
@@ -273,7 +274,7 @@ rwP = do
   Rw lhs <$> tmP
 
 rwSchemeP :: P (RwScheme TmVar)
-rwSchemeP = fmap RwScheme (forallP tmVarP rwP)
+rwSchemeP = fmap RwScheme (forallP toList tmVarP rwP)
 
 ruleLineP :: P RuleLine
 ruleLineP = do

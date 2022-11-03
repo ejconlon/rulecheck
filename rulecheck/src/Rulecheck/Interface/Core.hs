@@ -17,11 +17,12 @@ module Rulecheck.Interface.Core
   , TmF (..)
   , bitraverseTyF
   , Forall (..)
-  , Cls (..)
-  , ClsScheme (..)
   , Inst (..)
+  , Cls (..)
+  , Strained (..)
+  , strainedVars
+  , ClsScheme (..)
   , InstScheme (..)
-  , StraintTy (..)
   , TyScheme (..)
   , tySchemeBody
   , Rw (..)
@@ -166,19 +167,6 @@ instance (Pretty b, Pretty a) => Pretty (Forall b a) where
     faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
     startDoc = P.hsep (join [faDoc, [pretty body]])
 
--- | Class decl
-data Cls a = Cls
-  { clsName :: !ClsName
-  , clsVars :: !(Seq a)
-  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
-
-instance Pretty a => Pretty (Cls a) where
-  pretty (Cls cn vs) = P.hsep (pretty cn : fmap pretty (toList vs))
-
-newtype ClsScheme a = ClsScheme { unClsScheme :: Forall TyVar (Cls a) }
-  deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
-
 -- | Instance/Constraint decl (The same datatype is used for both)
 data Inst a = Inst
   { instName :: !ClsName
@@ -188,31 +176,47 @@ data Inst a = Inst
 instance Pretty a => Pretty (Inst a) where
   pretty (Inst cn tys) = parenToDoc (parenList False (parenAtom cn : fmap (parenPretty [Just "app"]) (toList tys)))
 
-newtype InstScheme a = InstScheme { unInstScheme :: Forall TyVar (Inst a) }
-  deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
-
--- | Type with constraints
--- "Straint" is the best of some bad naming options. "Con" is constructor, etc...
-data StraintTy a = StraintTy
-  { stConstraints :: !(Seq (Inst a))
-  , stTy :: !(Ty a)
+-- | Class decl
+data Cls a = Cls
+  { clsName :: !ClsName
+  , clsVars :: !(Seq a)
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Pretty a => Pretty (StraintTy a) where
-  pretty (StraintTy cons ty) = startDoc where
-    endDoc = pretty ty
-    startDoc = case toList cons of
+instance Pretty a => Pretty (Cls a) where
+  pretty (Cls cn vs) = P.hsep (pretty cn : fmap pretty (toList vs))
+
+-- | Something conSTRAINed by typeclasses.
+-- "Strain" is the best of some bad naming options. "Con" is constructor, etc...
+data Strained b a = Strained
+  { strainedBy :: !(Seq (Inst b))
+  , strainedIn :: !a
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance (Pretty b, Pretty a) => Pretty (Strained b a) where
+  pretty (Strained x y) = startDoc where
+    endDoc = pretty y
+    startDoc = case toList x of
       [] -> endDoc
       [p] -> pretty p <+> "=>" <+> endDoc
       ps -> "(" <> P.hsep (P.punctuate "," (fmap pretty ps)) <> ")" <+> "=>" <+> endDoc
 
-newtype TyScheme a = TyScheme { unTyScheme :: Forall TyVar (StraintTy a) }
+strainedVars :: Foldable f => Strained b (f b) -> [b]
+strainedVars (Strained x y) = (toList x >>= toList) ++ toList y
+
+newtype ClsScheme a = ClsScheme { unClsScheme :: Forall TyVar (Strained a (Cls a)) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
+
+newtype InstScheme a = InstScheme { unInstScheme :: Forall TyVar (Strained a (Inst a)) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
+
+newtype TyScheme a = TyScheme { unTyScheme :: Forall TyVar (Strained a (Ty a)) }
   deriving stock (Show)
   deriving newtype (Eq, Ord, Pretty)
 
 tySchemeBody :: TyScheme a -> Ty a
-tySchemeBody = stTy . faBody . unTyScheme
+tySchemeBody = strainedIn . faBody . unTyScheme
 
 data Rw tmf = Rw
   { rwLhs :: !(Tm TmVar tmf)

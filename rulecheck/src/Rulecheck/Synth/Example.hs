@@ -12,7 +12,7 @@ module Rulecheck.Synth.Example where
 
 import Control.Exception (throwIO)
 import Data.Sequence (Seq (..))
-import Rulecheck.Interface.Core (Forall (..), StraintTy (..), Ty (..), TyScheme (..))
+import Rulecheck.Interface.Core (Forall (..), Strained (..), Ty (..), TyScheme (..))
 import Rulecheck.Interface.Decl (DeclErr, DeclSet, mkDecls)
 import Rulecheck.Synth.Search (SearchConfig (..), TmFound, runSearchN)
 
@@ -22,14 +22,14 @@ exampleDecls = res where
   tyInt = TyCon "Int" Empty
   tyIntFun2 = TyFun tyInt (TyFun tyInt tyInt)
   res = mkDecls
-    [ ("0", TyScheme (Forall Empty (StraintTy Empty tyInt)))
-    , ("1", TyScheme (Forall Empty (StraintTy Empty tyInt)))
-    , ("+", TyScheme (Forall Empty (StraintTy Empty tyIntFun2)))
+    [ ("0", TyScheme (Forall Empty (Strained Empty tyInt)))
+    , ("1", TyScheme (Forall Empty (Strained Empty tyInt)))
+    , ("+", TyScheme (Forall Empty (Strained Empty tyIntFun2)))
     ]
 
 -- | Search for N terms matching the "Int" type.
 exampleSearch :: Int -> IO [TmFound]
 exampleSearch n = do
-  let scheme = TyScheme (Forall Empty (StraintTy Empty (TyCon "Int" mempty)))
+  let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
   either throwIO pure (runSearchN (SearchConfig decls scheme 5) n)
