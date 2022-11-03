@@ -2,10 +2,12 @@
 module Rulecheck.Synth.Search
   ( TmUniq (..)
   , TmFound
+  , SearchErr (..)
   , SearchConfig (..)
-  , SearchSusp
-  , nextSearchResult
-  , runSearchSusp
+  -- , SearchSusp
+  -- , nextSearchResult
+  -- , takeSearchResults
+  -- , runSearchSusp
   , runSearchN
   ) where
 
@@ -237,6 +239,14 @@ mkApp n = go (TmKnown n) where
     Empty -> t
     s :<| ss -> go (TmApp t s) ss
 
+-- | We need to make sure that traverse doesn't draw from the first element indefinitely, etc.
+-- This uses fair bind (>>-) to re-implement traverse (slower but more fair).
+fairTraverse :: (a -> SearchM b) -> Seq a -> SearchM (Seq b)
+fairTraverse f = go Empty where
+  go !acc = \case
+    Empty -> pure acc
+    a :<| as -> f a >>- \b -> go (acc :|> b) as
+
 -- | Find solutions by instantiating decl functions with matching return type
 funElimFits :: TyUniq -> SearchM TmFound
 funElimFits goalKey = do
@@ -261,7 +271,7 @@ funElimFits goalKey = do
             (candKey, _) <- insertTy newCtx retTy
             _ <- tryAlignTy goalKey candKey
             -- It unifies. Now we know that if we can find args we can satsify the goal.
-            argTms <- traverse (local (\env -> env { envDepthLim = depthLim - 1 }) . searchUniq) addlCtx
+            argTms <- fairTraverse (local (\env -> env { envDepthLim = depthLim - 1 }) . searchUniq) addlCtx
             pure (mkApp name argTms)
             -- TODO Technically we don't have to find a term for each arg independently,
             -- or even left to right. However, we need to tame the explosion of cases somehow.
@@ -319,6 +329,18 @@ data SearchSusp a = SearchSusp
 nextSearchResult :: SearchSusp a -> Either SearchErr (Maybe (a, SearchSusp a))
 nextSearchResult (SearchSusp env st act) =
   fmap (\(mx, st') -> fmap (second (SearchSusp env st')) mx) (runInnerM (ListT.uncons act) env st)
+
+-- | Take a given number of search results
+takeSearchResults :: SearchSusp a -> Int -> ([a], Either SearchErr (Maybe (SearchSusp a)))
+takeSearchResults = go [] where
+  go !xs !susp !i =
+    if i == 0
+      then (reverse xs, Right (Just susp))
+      else case nextSearchResult susp of
+          Left err -> (reverse xs, Left err)
+          Right mp -> case mp of
+            Nothing -> (reverse xs, Right Nothing)
+            Just (a, susp') -> go (a:xs) susp' (i - 1)
 
 -- | Streams search results as an unconsable effectful list.
 mkStream :: LogicT InnerM a -> ListT InnerM a

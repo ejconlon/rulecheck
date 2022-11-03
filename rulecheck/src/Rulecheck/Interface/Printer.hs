@@ -5,9 +5,9 @@ module Rulecheck.Interface.Printer where
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import Data.Text (Text)
-import Prettyprinter (Doc, pretty)
+import Prettyprinter (Doc, Pretty, pretty)
 import qualified Prettyprinter as P
-import Rulecheck.Interface.Core (Tm, TmVar, TyScheme, TyVar)
+import Rulecheck.Interface.Core (Tm, TyScheme)
 import Rulecheck.Interface.ParenPretty (docToText)
 import Rulecheck.Interface.Types (Line)
 
@@ -17,8 +17,8 @@ linesP = P.vcat . fmap pretty . toList
 printLines :: Seq Line -> Text
 printLines = docToText . linesP
 
-printType :: TyScheme TyVar -> Text
+printType :: Pretty a => TyScheme a -> Text
 printType = docToText . pretty
 
-printTerm :: Tm TmVar TmVar -> Text
+printTerm :: (Pretty b, Pretty a) => Tm b a -> Text
 printTerm = docToText . pretty

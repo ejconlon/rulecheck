@@ -16,8 +16,9 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Rulecheck.Interface.Core (ClsName, Forall (..), Index (..), Inst (..), InstScheme (..), Strained (..), TmName,
-                                 Ty (..), TyScheme (..), TyVar, instSchemeBody, tySchemeBody)
+import Rulecheck.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), Ty (..), TyScheme (..),
+                                 TyVar (..), instSchemeBody, tySchemeBody)
+import Rulecheck.Interface.Names (NamelessErr, namelessInst, namelessType)
 import Rulecheck.Interface.Types (FuncLine (..), InstLine (..), Line (..))
 
 -- | The type of a partial function application
@@ -47,7 +48,7 @@ emptyDeclSet :: DeclSet
 emptyDeclSet = DeclSet Map.empty Map.empty
 
 data DeclErr =
-    DeclErrTy !TyVar
+    DeclErrNameless !(NamelessErr TyVar)
   | DeclErrDupe
   | DeclErrNamed !TmName DeclErr
   | DeclErrInst !(Inst TyVar) DeclErr
@@ -57,9 +58,11 @@ instance Exception DeclErr
 
 mkDecl :: TmName -> TyScheme TyVar -> Either DeclErr Decl
 mkDecl n s = do
-  s' <- namelessType s
-  let ps = matchPartials (tySchemeBody s')
-  pure (Decl n s' ps)
+  case namelessType s of
+    Left e -> Left (DeclErrNameless e)
+    Right s' -> do
+      let ps = matchPartials (tySchemeBody s')
+      pure (Decl n s' ps)
 
 matchPartials :: Ty Index -> Seq Partial
 matchPartials = onOuter where
@@ -69,22 +72,6 @@ matchPartials = onOuter where
   onInner as t = Partial as t :<| case t of
     TyFun x y -> onInner (as :|> x) y
     _ -> Empty
-
-namelessStrained :: Traversable f => Forall TyVar (Strained TyVar (f TyVar)) -> Either DeclErr (Forall TyVar (Strained Index (f Index)))
-namelessStrained (Forall tvs x) = Forall tvs <$> bindStr x where
-  bindStr (Strained cons fy) = Strained <$> traverse bindCon cons <*> traverse bind fy
-  nvs = Seq.length tvs
-  bind a =
-    case Seq.findIndexR (== a) tvs of
-      Nothing -> Left (DeclErrTy a)
-      Just lvl -> Right (Index (nvs - lvl - 1))
-  bindCon (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
-
-namelessType :: TyScheme TyVar -> Either DeclErr (TyScheme Index)
-namelessType = fmap TyScheme . namelessStrained . unTyScheme
-
-namelessInst :: InstScheme TyVar -> Either DeclErr (InstScheme Index)
-namelessInst = fmap InstScheme . namelessStrained . unInstScheme
 
 type DeclM a = StateT DeclSet (Except DeclErr) a
 
@@ -107,7 +94,7 @@ insertTmDeclM n s =
 insertInstM :: InstScheme TyVar -> DeclM ()
 insertInstM is = do
   case namelessInst is of
-    Left e -> throwError (DeclErrInst (instSchemeBody is) e)
+    Left e -> throwError (DeclErrInst (instSchemeBody is) (DeclErrNameless e))
     Right is' -> do
       let cn = instName (instSchemeBody is')
       modify' (\ds -> ds { dsDeps = Map.alter (Just . maybe (Seq.singleton is') (:|> is')) cn (dsDeps ds) })

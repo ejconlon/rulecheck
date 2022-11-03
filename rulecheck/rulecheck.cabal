@@ -13,6 +13,7 @@ library
       Rulecheck
       Rulecheck.Interface.Core
       Rulecheck.Interface.Decl
+      Rulecheck.Interface.Names
       Rulecheck.Interface.ParenPretty
       Rulecheck.Interface.Parser
       Rulecheck.Interface.Printer
