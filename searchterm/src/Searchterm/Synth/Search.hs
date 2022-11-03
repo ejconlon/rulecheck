@@ -77,8 +77,8 @@ data St = St
   -- ^ Next available unique vertex id
   , stTyMap :: !(UnionMap TyUniq TyVert)
   -- ^ Map of vertex id to data
-  -- TODO May need to figure out how to NOT store this in global state...
-  -- There might be trouble with backtracking...
+  -- This is in state because we're mutating as we search different branches (e.g. args + ret).
+  -- This is backtracked in the Alternative instance of SearchM.
   , stTmSrc :: !TmUniq
   -- ^ Next available unique term var binder
   } deriving stock (Eq, Show)
@@ -102,7 +102,29 @@ runInnerM m r s = runExcept (runStateT (runReaderT (unInnerM m) r) s)
 
 -- | The core search monad. 'LogicT' is a list transformer monad with support for fair interleavings.
 newtype SearchM a = SearchM { unSearchM :: LogicT InnerM a }
-  deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Env, MonadState St, MonadLogic, MonadError SearchErr)
+  deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr)
+
+-- | Custom implementation that backtracks type map state
+instance Alternative SearchM where
+  empty = SearchM empty
+  a <|> b = do
+    -- The only thing we need to backtrack is type map state.
+    -- Other state components are increment-only.
+    saved <- gets stTyMap
+    let a' = unSearchM (modify' (\st -> st { stTyMap = saved }) *> a)
+        b' = unSearchM (modify' (\st -> st { stTyMap = saved }) *> b)
+    SearchM (a' <|> b')
+
+-- | Custom implementation that backtracks type map state
+instance MonadLogic SearchM where
+  msplit a = do
+    saved <- gets stTyMap
+    mp <- SearchM (msplit (unSearchM a))
+    pure $ case mp of
+      Nothing -> Nothing
+      Just (val, rest) ->
+        let rest' = modify' (\st -> st { stTyMap = saved }) *> SearchM rest
+        in Just (val, rest')
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss = zip (toList ss) (fmap Index [Seq.length ss - 1 .. 0])
@@ -116,16 +138,21 @@ lookupCtx i = do
     Nothing -> throwError (SearchErrMissingIndex i)
     Just x -> pure x
 
+-- | Instantiate the type variables and return their ids.
+insertTyVars :: MonadState St m => (TyVar -> TyVert) -> Seq TyVar -> m (Seq TyUniq)
+insertTyVars onVar tvs = res where
+  insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
+  acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
+  res = state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
+
 -- | Instantiate the type variables in the scheme with the given strategy, bind them in the local
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
 insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
 insertScheme onVar (TyScheme (Forall tvs (Strained cons ty))) = res where
-  insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
-  acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = do
-    ctx <- state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
+    ctx <- insertTyVars onVar tvs
     ius <- for cons $ \(Inst cn tys) -> do
       us <- traverse (fmap fst . insertTy ctx) tys
       pure (StraintUniq cn us)
@@ -340,14 +367,14 @@ data SearchSusp a = SearchSusp
 -- 'msplit' is reportedly slow.
 nextSearchResult :: SearchSusp a -> Either SearchErr (Maybe (a, SearchSusp a))
 nextSearchResult (SearchSusp env st act) =
-  let ea = runInnerM (observeManyT 1 (msplit (unSearchM act))) env st
+  let ea = runInnerM (observeManyT 1 (unSearchM (msplit act))) env st
   in flip fmap ea $ \(xs, st') ->
     case xs of
       [] -> Nothing
       x:_ ->
         case x of
           Nothing -> Nothing
-          Just (a, act') -> Just (a, SearchSusp env st' (SearchM act'))
+          Just (a, act') -> Just (a, SearchSusp env st' act')
 
 -- | Take a given number of search results
 takeSearchResults :: SearchSusp a -> Int -> ([a], Either SearchErr (Maybe (SearchSusp a)))
