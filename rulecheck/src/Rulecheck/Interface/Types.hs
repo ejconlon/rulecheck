@@ -9,7 +9,6 @@ import Data.Sequence (Seq)
 import Prettyprinter (Doc, Pretty (..), (<+>))
 import qualified Prettyprinter as P
 import Rulecheck.Interface.Core (Cls, Inst, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar)
-import Rulecheck.Interface.ParenPretty (ParenPretty (..), parenToDoc)
 
 data DataLine = DataLine
   { dlName :: !TyName
@@ -32,13 +31,13 @@ data InstLine = InstLine
   , ilParents :: !(Seq (Inst TyVar))
   } deriving stock (Eq, Show)
 
-constraintsP :: (ParenPretty a, ParenPretty b) => Doc ann -> Seq a -> b -> Doc ann
+constraintsP :: (Pretty a, Pretty b) => Doc ann -> Seq a -> b -> Doc ann
 constraintsP txt pars end = fullDoc where
-  endDoc = parenToDoc end
+  endDoc = pretty end
   restDoc = case toList pars of
     [] -> endDoc
-    [p] -> parenToDoc p <+> "=>" <+> endDoc
-    ps -> "(" <> P.hsep (P.punctuate "," (fmap parenToDoc ps)) <> ")" <+> "=>" <+> endDoc
+    [p] -> pretty p <+> "=>" <+> endDoc
+    ps -> "(" <> P.hsep (P.punctuate "," (fmap pretty ps)) <> ")" <+> "=>" <+> endDoc
   fullDoc = txt <+> restDoc
 
 instance Pretty InstLine where

@@ -8,7 +8,7 @@ import Data.Text (Text)
 import Prettyprinter (Doc, pretty)
 import qualified Prettyprinter as P
 import Rulecheck.Interface.Core (Tm, TmVar, TyScheme, TyVar)
-import Rulecheck.Interface.ParenPretty (docToText, parenToDoc)
+import Rulecheck.Interface.ParenPretty (docToText)
 import Rulecheck.Interface.Types (Line)
 
 linesP :: Seq Line -> Doc ()
@@ -21,4 +21,4 @@ printType :: TyScheme TyVar -> Text
 printType = docToText . pretty
 
 printTerm :: Tm TmVar TmVar -> Text
-printTerm = docToText . parenToDoc
+printTerm = docToText . pretty

@@ -2,13 +2,13 @@
 -- when pretty-printing! Sad, right?
 module Rulecheck.Interface.ParenPretty
   ( docToText
+  , parenToDoc
   , Paren
   , ParenPretty (..)
   , parenAtom
   , parenDoc
   , parenList
-  , parenToDoc
-  , parenToText
+  , parenPrettyToDoc
   , ViaPrettyAtom (..)
   ) where
 
@@ -33,11 +33,11 @@ data Paren ann =
 instance IsString (Paren ann) where
   fromString = ParenAtom . pretty
 
-renderParen :: Paren ann -> Doc ann
-renderParen = \case
+parenToDoc :: Paren ann -> Doc ann
+parenToDoc = \case
   ParenAtom doc -> doc
   ParenList selfParen children ->
-    let doc = P.hsep (fmap renderParen (toList children))
+    let doc = P.hsep (fmap parenToDoc (toList children))
     in if selfParen && Seq.length children > 1 then P.parens doc else doc
 
 class ParenPretty a where
@@ -67,11 +67,8 @@ parenDoc = ParenAtom
 parenList :: Foldable f => Bool -> f (Paren ann) -> Paren ann
 parenList b = ParenList b . Seq.fromList . toList
 
-parenToDoc :: ParenPretty a => a -> Doc ann
-parenToDoc = renderParen . parenPretty []
-
-parenToText :: ParenPretty a => a -> Text
-parenToText = docToText . parenToDoc
+parenPrettyToDoc :: ParenPretty a => a -> Doc ann
+parenPrettyToDoc = parenToDoc . parenPretty []
 
 newtype ViaPrettyAtom a = ViaPrettyAtom { unViaPrettyAtom :: a }
 

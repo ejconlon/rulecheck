@@ -18,7 +18,9 @@ module Rulecheck.Interface.Core
   , bitraverseTyF
   , Forall (..)
   , Cls (..)
+  , ClsScheme (..)
   , Inst (..)
+  , InstScheme (..)
   , StraintTy (..)
   , TyScheme (..)
   , tySchemeBody
@@ -37,7 +39,7 @@ import Data.String (IsString)
 import Data.Text (Text)
 import Prettyprinter (Pretty (..), (<+>))
 import qualified Prettyprinter as P
-import Rulecheck.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenToDoc)
+import Rulecheck.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
 
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }
@@ -138,6 +140,9 @@ instance (Pretty a, ParenPretty r) => ParenPretty (TyF a r) where
 instance Pretty a => ParenPretty (Ty a) where
   parenPretty p = parenPretty p . project
 
+instance Pretty a => Pretty (Ty a) where
+  pretty = parenPrettyToDoc
+
 instance (Pretty b, Pretty a, ParenPretty r) => ParenPretty (TmF b a r) where
   parenPretty s = \case
     TmFreeF a -> parenAtom a
@@ -147,6 +152,9 @@ instance (Pretty b, Pretty a, ParenPretty r) => ParenPretty (TmF b a r) where
 
 instance (Pretty b, Pretty a) => ParenPretty (Tm b a) where
   parenPretty p = parenPretty p . project
+
+instance (Pretty b, Pretty a) => Pretty (Tm b a) where
+  pretty = parenPrettyToDoc
 
 data Forall b a = Forall
   { faBinders :: !(Seq b)
@@ -164,8 +172,12 @@ data Cls a = Cls
   , clsVars :: !(Seq a)
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Pretty a => ParenPretty (Cls a) where
-  parenPretty _ (Cls cn vs) = parenList False (parenAtom cn : fmap parenAtom (toList vs))
+instance Pretty a => Pretty (Cls a) where
+  pretty (Cls cn vs) = P.hsep (pretty cn : fmap pretty (toList vs))
+
+newtype ClsScheme a = ClsScheme { unClsScheme :: Forall TyVar (Cls a) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
 
 -- | Instance/Constraint decl (The same datatype is used for both)
 data Inst a = Inst
@@ -173,8 +185,12 @@ data Inst a = Inst
   , instVars :: !(Seq (Ty a))
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Pretty a => ParenPretty (Inst a) where
-  parenPretty s (Inst cn tys) = parenList False (parenAtom cn : fmap (parenPretty (Just "app":s)) (toList tys))
+instance Pretty a => Pretty (Inst a) where
+  pretty (Inst cn tys) = parenToDoc (parenList False (parenAtom cn : fmap (parenPretty [Just "app"]) (toList tys)))
+
+newtype InstScheme a = InstScheme { unInstScheme :: Forall TyVar (Inst a) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
 
 -- | Type with constraints
 -- "Straint" is the best of some bad naming options. "Con" is constructor, etc...
@@ -185,11 +201,11 @@ data StraintTy a = StraintTy
 
 instance Pretty a => Pretty (StraintTy a) where
   pretty (StraintTy cons ty) = startDoc where
-    endDoc = parenToDoc ty
+    endDoc = pretty ty
     startDoc = case toList cons of
       [] -> endDoc
-      [p] -> parenToDoc p <+> "=>" <+> endDoc
-      ps -> "(" <> P.hsep (P.punctuate "," (fmap parenToDoc ps)) <> ")" <+> "=>" <+> endDoc
+      [p] -> pretty p <+> "=>" <+> endDoc
+      ps -> "(" <> P.hsep (P.punctuate "," (fmap pretty ps)) <> ")" <+> "=>" <+> endDoc
 
 newtype TyScheme a = TyScheme { unTyScheme :: Forall TyVar (StraintTy a) }
   deriving stock (Show)
@@ -204,7 +220,7 @@ data Rw tmf = Rw
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Pretty tmf => Pretty (Rw tmf) where
-  pretty (Rw lhs rhs) = P.hsep [parenToDoc lhs, "=", parenToDoc rhs]
+  pretty (Rw lhs rhs) = P.hsep [pretty lhs, "=", pretty rhs]
 
 newtype RwScheme tmf = RwScheme { unRwScheme :: Forall TmVar (Rw tmf) }
   deriving stock (Show)
