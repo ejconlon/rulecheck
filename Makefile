@@ -36,3 +36,7 @@ test-all:
 .PHONY: test-searchterm
 test-searchterm:
 	stack build --fast --test searchterm:test:searchterm-test
+
+.PHONY: ghci-searchterm
+ghci-searchterm:
+	stack ghci --ghci-options "-ghci-script ../.ghci-manual" searchterm:lib

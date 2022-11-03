@@ -40,7 +40,7 @@ maxSearchDepth :: Int
 maxSearchDepth = 5
 
 maxSearchResults :: Int
-maxSearchResults = 100
+maxSearchResults = 1000
 
 printAlphaTm :: AlphaTm -> Text
 printAlphaTm = printTerm . fmap (TmVar . T.pack . ("?" ++) . show . unIndex) . unAlphaTm
@@ -86,7 +86,22 @@ basicDeclSrc = DeclSrcList
   , "plus :: Int -> Int -> Int"
   ]
 
+strainDeclSrc :: DeclSrc
+strainDeclSrc = DeclSrcList
+  [ "class Foo"
+  , "class Bar"
+  , "data FooThing"
+  , "instance Foo FooThing"
+  , "data BarThing"
+  , "instance Bar BarThing"
+  , "foo:: FooThing"
+  , "bar :: BarThing"
+  , "quux :: (Foo c, Bar b) => c -> b -> Int"
+  ]
+
 testSearch :: TestTree
 testSearch = testGroup "Search"
-  [ testFinds "basic" basicDeclSrc "Int" ["zero", "one", "((plus zero) one)"] -- "((plus ((plus one) zero)) zero)"]
+  [ testFinds "basic" basicDeclSrc "Int"
+    ["zero", "one", "(plus zero one)", "(plus (plus one zero) zero)"]
+  -- , testFinds "strain" strainDeclSrc "Int" ["(quux foo bar)"]
   ]

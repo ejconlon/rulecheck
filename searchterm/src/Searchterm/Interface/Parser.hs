@@ -272,9 +272,20 @@ tmLamP = optParensP $ do
   keywordP "->"
   TmLam x <$> tmP
 -- Need parens here because of recursive descent parsing!
-tmAppP = inParensP (TmApp <$> tmP <*> tmP)
+tmAppP = inParensP $ do
+  one <- tmP
+  two <- tmP
+  rest <- many tmP
+  pure (mkApp one two rest)
 -- We can only parse vars as free until we resolve them later
 tmFreeP = fmap (TmFree . TmVar . unTmName) tmNameP
+
+mkApp :: Tm TmVar TmVar -> Tm TmVar TmVar -> [Tm TmVar TmVar]-> Tm TmVar TmVar
+mkApp one two rest =
+  let app = TmApp one two
+  in case rest of
+    [] -> app
+    three:more -> mkApp app three more
 
 rwP :: P (Rw TmVar)
 rwP = do
