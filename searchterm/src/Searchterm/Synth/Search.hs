@@ -17,14 +17,14 @@ import Control.Monad.Except (MonadError (..))
 import Control.Monad.Logic (MonadLogic (..))
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
-import Data.Foldable (foldl', for_, toList)
+import Data.Foldable (foldl', toList)
 import Data.Functor.Foldable (cata, project)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), TmName, Ty,
-                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..))
+                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..))
 import Searchterm.Interface.Decl (Decl (..), DeclSet (..))
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Searchterm.Synth.UnionMap (UnionMap)
@@ -34,8 +34,11 @@ import Searchterm.Synth.Monad (TrackSt (..), Track, runManyTrack)
 import Searchterm.Interface.ParenPretty (prettyShow)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
-import Control.Monad (when)
+import Control.Monad (unless, void)
 -- import qualified Debug.Trace as DT
+-- import Text.Pretty.Simple (pShow)
+-- import qualified Data.Text as T
+-- import qualified Data.Text.Lazy as TL
 
 -- | Trace a single message - swap definitions to turn on/off
 traceM :: Applicative m => String -> m ()
@@ -134,10 +137,16 @@ type StBwd = TyGraph
 type St = TrackSt StFwd StBwd
 
 -- | Globally terminating errors for search (usable with 'MonadError')
-newtype SearchErr =
-    SearchErrMissingIndex Index
-  -- ^ Indicates undefined index in a declaration (meaning decl is not actually closed!)
-  -- This is a non-recoverable error - you need to fix the declarations.
+data SearchErr =
+    SearchErrMissingIndex !Index
+    -- ^ Indicates undefined index in a declaration (meaning decl is not actually closed!)
+    -- This is a non-recoverable error - you need to fix the declarations or fix the insertion code.
+  | SearchErrBadConstraintName !ClsName !ClsName
+    -- ^ Indicates inconsistent derivations in the decl set (inst name and class name mismatch).
+    -- This is a non-recoverable error - you need to fix the declarations.
+  | SearchErrBadConstraintLen !ClsName !Int !Int
+    -- ^ Indicates inconsistent derivations in the decl set (inst args and class args len mismatch).
+    -- This is a non-recoverable error - you need to fix the declarations.
   deriving stock (Eq, Show)
 
 instance Exception SearchErr
@@ -150,7 +159,7 @@ newtype SearchM a = SearchM { unSearchM :: Track Env StFwd StBwd SearchErr a }
 guardDepth :: SearchM ()
 guardDepth = do
   depthLim <- asks envDepthLim
-  when (depthLim < 1) (traceEmptyM "Would hit depth limit")
+  unless (depthLim >= 1) (traceEmptyM "Would hit depth limit")
 
 -- | Use this to encapsulate regions with decreased depth
 decDepth :: SearchM a -> SearchM a
@@ -176,22 +185,39 @@ insertTyVars onVar tvs = res where
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
 
+-- | Insert the given constraint scheme with fresh type metavariables.
+-- Returns inserted (dependent constraints, given constraint)
+insertStraintScheme :: (MonadError SearchErr m, MonadState St m) => InstScheme Index -> m (Seq StraintUniq, StraintUniq)
+insertStraintScheme (InstScheme (Forall tvs (Strained cons inst))) = do
+  ctx <- insertTyVars TyVertMeta tvs
+  ius <- for cons (insertStraint ctx)
+  iu <- insertStraint ctx inst
+  pure (ius, iu)
+
+-- | Insert the given constraint with the given type variable context.
 insertStraint :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Inst Index -> m StraintUniq
-insertStraint ctx (Inst cn tys) =  do
+insertStraint ctx _inst@(Inst cn tys) =  do
+  -- traceM ("**** INSERT STRAINT")
+  -- traceM ("Insert straint inst: " ++ prettyShow inst)
+  -- traceM ("Insert straint ctx: " ++ show (fmap prettyShow (toList ctx)))
+  -- traceM ("Insert straint ctx (show): " ++ show ctx)
   us <- traverse (fmap fst . insertTy ctx) tys
-  pure (StraintUniq cn us)
+  let su = StraintUniq cn us
+  -- traceM ("Inserted StraintUniq: " ++ prettyShow su)
+  pure su
 
 -- | Instantiate the type variables in the scheme with the given strategy, bind them in the local
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
-insertScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
-insertScheme onVar (TyScheme (Forall tvs (Strained cons ty))) = res where
-  res = do
-    ctx <- insertTyVars onVar tvs
-    ius <- for cons (insertStraint ctx)
-    (u, v) <- insertTy ctx ty
-    pure (ius, u, v)
+insertTyScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
+insertTyScheme onVar _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
+  -- traceM ("*** INSERT TY SCHEME")
+  -- traceM ("Ty: " ++ prettyShow ts)
+  ctx <- insertTyVars onVar tvs
+  ius <- for cons (insertStraint ctx)
+  (u, v) <- insertTy ctx ty
+  pure (ius, u, v)
 
 -- | Used in 'insertScheme' to do the type insertion.
 insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
@@ -201,7 +227,7 @@ insertTy ctx ty = res where
   onTy = \case
     TyFreeF i -> do
       u <- lookupCtx i
-      insert (TyFreeF u)
+      pure (u, TyFreeF u)
     TyConF tn ps -> do
       us <- fmap (fmap fst) (sequence ps)
       insert (TyConF tn us)
@@ -210,17 +236,40 @@ insertTy ctx ty = res where
       bu <- fmap fst bm
       insert (TyFunF au bu)
   res = do
+    -- traceM ("**** INSERT Ty")
+    -- traceM ("Insert ty TY: " ++ prettyShow ty)
+    -- traceM ("Insert ty TY (show): " ++ show ty)
+    -- traceM ("Insert ty ctx: " ++ show (fmap prettyShow (toList ctx)))
+    -- traceM ("Insert ty ctx (show): " ++ show ctx)
     stMid <- get
     let ea = runReaderStateT ctx stMid (cata onTy ty)
     case ea of
       Left err -> throwError err
       Right ((k, v), stEnd) -> do
         put stEnd
+        -- traceM ("INSERTED TY: " ++ show k ++ " " ++ show v)
         pure (k, v)
 
 -- | Instantiates the scheme with metavars
 insertMetaScheme :: TyScheme Index -> SearchM (Seq StraintUniq, TyUniq, TyUnify)
-insertMetaScheme = insertScheme TyVertMeta
+insertMetaScheme = insertTyScheme TyVertMeta
+
+-- | Inserts a partial application into the graph.
+-- Returns
+--   constraints
+--   additional context for the function type (argument type vars)
+--   the key for the function
+--   the type of the function
+insertPartial :: TyScheme Index -> Partial Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
+insertPartial _ts@(TyScheme (Forall tvs (Strained cons _))) (Partial args retTy) = do
+  -- traceM ("**** INSERT PARTIAL")
+  -- traceM ("TS: " ++ prettyShow ts)
+  ctx <- insertTyVars TyVertMeta tvs
+  -- traceM ("CTX: " ++ show ctx)
+  ius <- traverse (insertStraint ctx) cons
+  addlCtx <- traverse (fmap fst . insertTy ctx) args
+  (funcKey, funcVal) <- insertTy ctx retTy
+  pure (ius, addlCtx, funcKey, funcVal)
 
 -- | Allocate a fresh term binder
 freshTmBinder :: SearchM TmUniq
@@ -273,7 +322,7 @@ exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
     whenAlt (mightAlign goalVal candVal) $ do
       -- Ok, it might align. Add the type to the local search env and see if it really does.
       (candStraints, candKey, _) <- insertMetaScheme (declType decl)
-      for_ candStraints topUnifyStraint
+      fairTraverse_ topUnifyStraint candStraints
       _ <- tryAlignTy goalKey candKey
       pure (TmKnown name)
 
@@ -298,20 +347,6 @@ mkApp n = go (TmKnown n) where
     Empty -> t
     s :<| ss -> go (TmApp t s) ss
 
--- | Inserts a partial application into the graph.
--- Returns
---   constraints
---   additional context for the function type (argument type vars)
---   the key for the function
---   the type of the function
-insertPartial :: TyScheme Index -> Partial Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertPartial (TyScheme (Forall tvs (Strained cons _))) (Partial args retTy) = do
-  ctx <- insertTyVars TyVertMeta tvs
-  ius <- traverse (insertStraint ctx) cons
-  addlCtx <- traverse (fmap fst . insertTy ctx) args
-  (funcKey, funcVal) <- insertTy ctx retTy
-  pure (ius, addlCtx, funcKey, funcVal)
-
 -- | Find solutions by instantiating decl functions with matching return type
 funElimFits :: TyUniq -> SearchM TmFound
 funElimFits goalKey = traceScopeM "Fun elim fit" $ do
@@ -331,7 +366,7 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
         -- Unify the returned function with the goal (first, to help constraint search)
         _ <- tryAlignTy goalKey candKey
         -- Unify constraints (second, to help argument search)
-        _ <- fairTraverse topUnifyStraint straints
+        fairTraverse_ topUnifyStraint straints
         -- It unifies. Now we know that if we can find args we can satsify the goal.
         argTms <- fairTraverse recSearchUniq addlCtx
         pure (mkApp name argTms)
@@ -355,25 +390,35 @@ topSearchUniq goalKey = res where
 recSearchUniq :: TyUniq -> SearchM TmFound
 recSearchUniq = decDepth . topSearchUniq
 
-topUnifyStraint :: StraintUniq -> SearchM StraintUniq
-topUnifyStraint su@(StraintUniq cn _ts) = traceScopeM ("Straint unify: " ++ prettyShow su) $ do
+topUnifyStraint :: StraintUniq -> SearchM ()
+topUnifyStraint su@(StraintUniq cn ts) = traceScopeM ("Straint unify: " ++ prettyShow su) $ do
   deps <- asks (dsDeps . envDecls)
   case Map.lookup cn deps of
     Nothing -> traceEmptyM ("No instances for " ++ prettyShow cn)
     Just xs -> do
-      choose xs $ \_is -> do
-        -- TODO insert the scheme and try to unify!
-        us <- fairTraverse (uncurry tryAlignTy) (error "TODO")
-        pure (StraintUniq cn us)
+      choose xs $ \is -> do
+        (_pus, _su'@(StraintUniq cn' ts')) <- insertStraintScheme is
+        unless (cn == cn') (throwError (SearchErrBadConstraintName cn cn'))
+        let tsLen = Seq.length ts
+            tsLen' = Seq.length ts'
+        unless (tsLen == tsLen') (throwError (SearchErrBadConstraintLen cn tsLen tsLen'))
+        -- graph <- gets tsBwd
+        -- traceM ("Graph " ++ T.unpack (TL.toStrict (pShow graph)))
+        -- traceM ("Root StrainUniq: " ++ prettyShow su)
+        -- traceM ("Cand InstScheme: " ++ prettyShow is)
+        -- traceM ("Cand StrainUniq: " ++ prettyShow su')
+        -- traceM ("Trying to unify: " ++ show (fmap prettyShow ts) ++ " // " ++ show (fmap prettyShow ts'))
+        fairTraverse_ (void . uncurry tryAlignTy) (Seq.zip ts ts')
+        -- TODO recursively unify parent constraints (pus)
 
-recUnifyStraint :: StraintUniq -> SearchM StraintUniq
+recUnifyStraint :: StraintUniq -> SearchM ()
 recUnifyStraint = decDepth . topUnifyStraint
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
 searchScheme :: TyScheme Index -> SearchM TmFound
 searchScheme scheme = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
-  (goalStraints, goalKey, _) <- insertScheme TyVertSkolem scheme
-  for_ goalStraints topUnifyStraint
+  (goalStraints, goalKey, _) <- insertTyScheme TyVertSkolem scheme
+  fairTraverse_ topUnifyStraint goalStraints
   topSearchUniq goalKey
 
 -- | General search parameters

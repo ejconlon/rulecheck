@@ -99,7 +99,7 @@ testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "basic" basicDeclSrc "Int"
     ["zero", "one", "(plus zero one)", "(plus (plus one zero) zero)"]
-  -- , testFinds "strain" strainDeclSrc "Int"
-  --   ["(quux foo bar)"]
-  -- TODO make constraints work!
+  , testFinds "strain" strainDeclSrc "Int"
+    ["(quux foo bar)"]
+  -- TODO add test for recursive constraints
   ]
