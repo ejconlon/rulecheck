@@ -30,22 +30,24 @@ import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, re
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
 import Data.Tuple (swap)
-import Searchterm.Synth.Monad (RSE, runRSE, TrackSt (..), Track, runManyTrack)
+import Searchterm.Synth.Monad (TrackSt (..), Track, runManyTrack)
 import Searchterm.Interface.ParenPretty (prettyShow)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
+import Control.Monad (when)
 -- import qualified Debug.Trace as DT
 
--- | Tracing - swap definitions to turn on/off
+-- | Trace a single message - swap definitions to turn on/off
 traceM :: Applicative m => String -> m ()
 -- traceM = DT.traceM
 traceM _ = pure ()
 
+-- | Trace entering and exiting a scope
 traceScopeM :: (Monad m, Pretty a) => String -> m a -> m a
-traceScopeM msg act = do
-  traceM ("Enter: " ++ msg)
+traceScopeM ctx act = do
+  traceM ("Enter: " ++ ctx)
   a <- act
-  traceM ("Exit: " ++ msg ++ " with value: " ++ prettyShow a)
+  traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a)
   pure a
 
 -- | Tracing for search failures
@@ -84,6 +86,10 @@ fairTraverse_ f = go . toList where
   go = \case
     [] -> pure ()
     a : as -> f a >>- \_ -> go as
+
+-- boilerplate
+toListWithIndex :: Seq a -> [(a, Index)]
+toListWithIndex ss = zip (toList ss) (fmap Index [Seq.length ss - 1 .. 0])
 
 -- | A unique binder for enumerated lambdas
 newtype TmUniq = TmUniq { unTmUniq :: Int }
@@ -136,17 +142,23 @@ newtype SearchErr =
 
 instance Exception SearchErr
 
-type InnerM = RSE Env St SearchErr
-
-runInnerM :: InnerM a -> Env -> St -> Either SearchErr (a, St)
-runInnerM = runRSE
-
 -- | The core search monad. 'LogicT' is a list transformer monad with support for fair interleavings.
 newtype SearchM a = SearchM { unSearchM :: Track Env StFwd StBwd SearchErr a }
   deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr, Alternative, MonadLogic)
 
-toListWithIndex :: Seq a -> [(a, Index)]
-toListWithIndex ss = zip (toList ss) (fmap Index [Seq.length ss - 1 .. 0])
+-- | Use this to guard regions that will require some depth
+guardDepth :: SearchM ()
+guardDepth = do
+  depthLim <- asks envDepthLim
+  when (depthLim < 1) (traceEmptyM "Would hit depth limit")
+
+-- | Use this to encapsulate regions with decreased depth
+decDepth :: SearchM a -> SearchM a
+decDepth act = do
+  depthLim <- asks envDepthLim
+  if depthLim <= 0
+    then traceEmptyM "Hit depth limit"
+    else local (\env -> env { envDepthLim = envDepthLim env - 1 }) act
 
 -- | Lookup a bound type variable during type insertion
 lookupCtx :: (MonadError SearchErr m, MonadReader (Seq x) m) => Index -> m x
@@ -261,27 +273,23 @@ exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
     whenAlt (mightAlign goalVal candVal) $ do
       -- Ok, it might align. Add the type to the local search env and see if it really does.
       (candStraints, candKey, _) <- insertMetaScheme (declType decl)
-      for_ candStraints tryUnifyStraint
+      for_ candStraints topUnifyStraint
       _ <- tryAlignTy goalKey candKey
       pure (TmKnown name)
 
 -- | Find solutions to function-type goals by adding args to context and searching with the result type.
 funIntroFits :: TyUniq -> SearchM TmFound
 funIntroFits goalKey = traceScopeM "Fun intro fit" $ do
-  -- Only try this if we haven't hit the recursion depth limit
-  depthLim <- asks envDepthLim
-  if depthLim <= 0
-    then traceEmptyM "Hit depth lim in fun intro"
-    else do
-      (_, goalVal) <- lookupGoal goalKey
-      case goalVal of
-        TyFunF argKey retKey -> do
-          -- If the goal looks like a function, try adding the arg to the context and searching for a match.
-          retTm <- local (\env -> env { envCtx = envCtx env :|> argKey, envDepthLim = depthLim - 1 }) (searchUniq retKey)
-          -- Success - allocate a fresh binder and return a lambda.
-          b <- freshTmBinder
-          pure (TmLam b retTm)
-        _ -> traceEmptyM "Non fun in fun intro"
+  guardDepth
+  (_, goalVal) <- lookupGoal goalKey
+  case goalVal of
+    TyFunF argKey retKey -> do
+      -- If the goal looks like a function, try adding the arg to the context and searching for a match.
+      retTm <- local (\env -> env { envCtx = envCtx env :|> argKey }) (recSearchUniq retKey)
+      -- Success - allocate a fresh binder and return a lambda.
+      b <- freshTmBinder
+      pure (TmLam b retTm)
+    _ -> traceEmptyM "Non fun in fun intro"
 
 -- | Helper to return a multi-arg application
 mkApp :: TmName -> Seq TmFound -> TmFound
@@ -296,7 +304,6 @@ mkApp n = go (TmKnown n) where
 --   additional context for the function type (argument type vars)
 --   the key for the function
 --   the type of the function
--- TODO also insert constraints!!! They guide search...
 insertPartial :: TyScheme Index -> Partial Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
 insertPartial (TyScheme (Forall tvs (Strained cons _))) (Partial args retTy) = do
   ctx <- insertTyVars TyVertMeta tvs
@@ -308,39 +315,35 @@ insertPartial (TyScheme (Forall tvs (Strained cons _))) (Partial args retTy) = d
 -- | Find solutions by instantiating decl functions with matching return type
 funElimFits :: TyUniq -> SearchM TmFound
 funElimFits goalKey = traceScopeM "Fun elim fit" $ do
-  -- Only try this if we haven't hit the recursion depth limit
-  depthLim <- asks envDepthLim
-  if depthLim <= 0
-    then traceEmptyM "Hit depth limit in fun elim"
-    else do
-      decls <- asks envDecls
-      (_, goalVal) <- lookupGoal goalKey
-      choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
-        -- Partials are defined for any curried lambda - args will be nonempty
-        choose (declPartials decl) $ \part@(Partial _ retTy) -> do
-          let candVal = project retTy
-          -- Do a cheap check for possible alignment on the result type
-          whenAlt (mightAlign goalVal candVal) $ do
-            traceM ("Possible partial align: " ++ prettyShow part)
-            -- Now really check that the result type unifies:
-            -- Insert the partial to get vars for args and returned function
-            (straints, addlCtx, candKey, _) <- insertPartial (declType decl) part
-            -- Unify the returned function with the goal (first, to help constraint search)
-            _ <- tryAlignTy goalKey candKey
-            -- Unify constraints (second, to help argument search)
-            _ <- fairTraverse (local (\env -> env { envDepthLim = depthLim - 1 }) . tryUnifyStraint) straints
-            -- It unifies. Now we know that if we can find args we can satsify the goal.
-            argTms <- fairTraverse (local (\env -> env { envDepthLim = depthLim - 1 }) . searchUniq) addlCtx
-            pure (mkApp name argTms)
-            -- TODO Technically we don't have to find a term for each arg independently,
-            -- or even left to right. However, we need to tame the explosion of cases somehow.
-            -- Here we just find them independently nest them in an application. We could have
-            -- introduced lets with a bound application at then end (in ANF).
-            -- Maybe it is worth trying all possibilities but guarding with logict's 'once'.
+  guardDepth
+  decls <- asks envDecls
+  (_, goalVal) <- lookupGoal goalKey
+  choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
+    -- Partials are defined for any curried lambda - args will be nonempty
+    choose (declPartials decl) $ \part@(Partial _ retTy) -> do
+      let candVal = project retTy
+      -- Do a cheap check for possible alignment on the result type
+      whenAlt (mightAlign goalVal candVal) $ do
+        traceM ("Possible partial align: " ++ prettyShow part)
+        -- Now really check that the result type unifies:
+        -- Insert the partial to get vars for args and returned function
+        (straints, addlCtx, candKey, _) <- insertPartial (declType decl) part
+        -- Unify the returned function with the goal (first, to help constraint search)
+        _ <- tryAlignTy goalKey candKey
+        -- Unify constraints (second, to help argument search)
+        _ <- fairTraverse topUnifyStraint straints
+        -- It unifies. Now we know that if we can find args we can satsify the goal.
+        argTms <- fairTraverse recSearchUniq addlCtx
+        pure (mkApp name argTms)
+        -- TODO Technically we don't have to find a term for each arg independently,
+        -- or even left to right. However, we need to tame the explosion of cases somehow.
+        -- Here we just find them independently nest them in an application. We could have
+        -- introduced lets with a bound application at then end (in ANF).
+        -- Maybe it is worth trying all possibilities but guarding with logict's 'once'.
 
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
-searchUniq :: TyUniq -> SearchM TmFound
-searchUniq goalKey = res where
+topSearchUniq :: TyUniq -> SearchM TmFound
+topSearchUniq goalKey = res where
   -- TODO add the following search strategies:
   -- * Given function in context, see if the result of the function helps you solve the goal.
   --   If so, search for the arg of the function and return the application. (coq apply?)
@@ -349,28 +352,29 @@ searchUniq goalKey = res where
   fits = [ctxFits goalKey, exactDeclFits goalKey, funIntroFits goalKey, funElimFits goalKey]
   res = traceScopeM ("Key search: " ++ show (unTyUniq goalKey)) (interleaveAll fits)
 
-tryUnifyStraint :: StraintUniq -> SearchM StraintUniq
-tryUnifyStraint su@(StraintUniq cn _ts) = traceScopeM ("Straint search: " ++ prettyShow su) $ do
-  -- Only try this if we haven't hit the recursion depth limit
-  depthLim <- asks envDepthLim
-  if depthLim <= 0
-    then traceEmptyM "Hit depth limit in straint search"
-    else do
-      deps <- asks (dsDeps . envDecls)
-      case Map.lookup cn deps of
-        Nothing -> traceEmptyM ("No instances for " ++ prettyShow cn)
-        Just xs -> do
-          choose xs $ \_is -> do
-            -- TODO insert the scheme and try to unify!
-            us <- fairTraverse (uncurry tryAlignTy) (error "TODO")
-            pure (StraintUniq cn us)
+recSearchUniq :: TyUniq -> SearchM TmFound
+recSearchUniq = decDepth . topSearchUniq
+
+topUnifyStraint :: StraintUniq -> SearchM StraintUniq
+topUnifyStraint su@(StraintUniq cn _ts) = traceScopeM ("Straint unify: " ++ prettyShow su) $ do
+  deps <- asks (dsDeps . envDecls)
+  case Map.lookup cn deps of
+    Nothing -> traceEmptyM ("No instances for " ++ prettyShow cn)
+    Just xs -> do
+      choose xs $ \_is -> do
+        -- TODO insert the scheme and try to unify!
+        us <- fairTraverse (uncurry tryAlignTy) (error "TODO")
+        pure (StraintUniq cn us)
+
+recUnifyStraint :: StraintUniq -> SearchM StraintUniq
+recUnifyStraint = decDepth . topUnifyStraint
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
 searchScheme :: TyScheme Index -> SearchM TmFound
 searchScheme scheme = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
   (goalStraints, goalKey, _) <- insertScheme TyVertSkolem scheme
-  for_ goalStraints tryUnifyStraint
-  searchUniq goalKey
+  for_ goalStraints topUnifyStraint
+  topSearchUniq goalKey
 
 -- | General search parameters
 data SearchConfig = SearchConfig

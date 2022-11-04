@@ -1,7 +1,5 @@
 module Searchterm.Synth.Monad
-  ( RSE
-  , runRSE
-  , TrackSt (..)
+  ( TrackSt (..)
   , Track
   , observeManyTrack
   , runManyTrack
