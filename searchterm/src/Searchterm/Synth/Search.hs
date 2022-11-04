@@ -13,8 +13,8 @@ module Searchterm.Synth.Search
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (Exception)
-import Control.Monad.Except (Except, MonadError (..), runExcept)
-import Control.Monad.Logic (LogicT (..), MonadLogic (..), observeManyT)
+import Control.Monad.Except (MonadError (..))
+import Control.Monad.Logic (MonadLogic (..))
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
 import Data.Foldable (foldl', for_, toList)
@@ -30,6 +30,17 @@ import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, re
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
 import Data.Tuple (swap)
+import Searchterm.Synth.Monad (RSE, runRSE, TrackSt (..), Track, runManyTrack)
+-- import qualified Debug.Trace as DT
+
+-- | Tracing - swap definitions to turn on/off
+traceM :: Applicative m => String -> m ()
+-- traceM = DT.traceM
+traceM _ = pure ()
+
+-- | Tracing for search failures
+traceEmptyM :: (Alternative m) => String -> m a
+traceEmptyM msg = traceM msg *> empty
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -37,11 +48,11 @@ runReaderStateT r s m = runStateT (runReaderT m r) s
 
 -- | If true, run the search, else yield nothing
 whenAlt :: Alternative m => Bool -> m a -> m a
-whenAlt b fa = if b then fa else empty
+whenAlt b fa = if b then fa else traceEmptyM "failed alt"
 
 -- | Interleave a list of searches - fairly!
 interleaveAll :: (MonadLogic m, Foldable f) => f (m a) -> m a
-interleaveAll = foldr interleave empty
+interleaveAll = (traceM "interleaving all" *>) . foldr interleave (traceEmptyM "end of interleaveAll")
 
 -- | Choose a value from a list and continue the search with it - fairly!
 choose :: (MonadLogic m, Functor f, Foldable f) => f a -> (a -> m b) -> m b
@@ -61,6 +72,9 @@ data StraintUniq = StraintUniq
 -- | Search will yield closed terms with globally unique binders
 type TmFound = Tm TmUniq Index
 
+-- | Type unification graph
+type TyGraph = UnionMap TyUniq TyVert
+
 -- | Local environment for search (usable with 'MonadReader')
 data Env = Env
   { envDecls :: !DeclSet
@@ -71,17 +85,17 @@ data Env = Env
   -- ^ Remaining depth for recursive search
   } deriving stock (Eq, Show)
 
--- | Global state for search (usable with 'MonadState')
-data St = St
-  { stTySrc :: !TyUniq
+-- | Global forward state for search (usable with 'MonadState')
+data StFwd = StFwd
+  { stFwdTySrc :: !TyUniq
   -- ^ Next available unique vertex id
-  , stTyMap :: !(UnionMap TyUniq TyVert)
-  -- ^ Map of vertex id to data
-  -- This is in state because we're mutating as we search different branches (e.g. args + ret).
-  -- This is backtracked in the Alternative instance of SearchM.
-  , stTmSrc :: !TmUniq
+  , stFwdTmSrc :: !TmUniq
   -- ^ Next available unique term var binder
   } deriving stock (Eq, Show)
+
+type StBwd = TyGraph
+
+type St = TrackSt StFwd StBwd
 
 -- | Globally terminating errors for search (usable with 'MonadError')
 newtype SearchErr =
@@ -92,39 +106,14 @@ newtype SearchErr =
 
 instance Exception SearchErr
 
--- | The inner layer of the search monad. Though this is package-private, we have to newtype it
--- so we can refer to it as we stream results.
-newtype InnerM a = InnerM { unInnerM :: ReaderT Env (StateT St (Except SearchErr)) a }
-  deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr)
+type InnerM = RSE Env St SearchErr
 
 runInnerM :: InnerM a -> Env -> St -> Either SearchErr (a, St)
-runInnerM m r s = runExcept (runStateT (runReaderT (unInnerM m) r) s)
+runInnerM = runRSE
 
 -- | The core search monad. 'LogicT' is a list transformer monad with support for fair interleavings.
-newtype SearchM a = SearchM { unSearchM :: LogicT InnerM a }
-  deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr)
-
--- | Custom implementation that backtracks type map state
-instance Alternative SearchM where
-  empty = SearchM empty
-  a <|> b = do
-    -- The only thing we need to backtrack is type map state.
-    -- Other state components are increment-only.
-    saved <- gets stTyMap
-    let a' = unSearchM (modify' (\st -> st { stTyMap = saved }) *> a)
-        b' = unSearchM (modify' (\st -> st { stTyMap = saved }) *> b)
-    SearchM (a' <|> b')
-
--- | Custom implementation that backtracks type map state
-instance MonadLogic SearchM where
-  msplit a = do
-    saved <- gets stTyMap
-    mp <- SearchM (msplit (unSearchM a))
-    pure $ case mp of
-      Nothing -> Nothing
-      Just (val, rest) ->
-        let rest' = modify' (\st -> st { stTyMap = saved }) *> SearchM rest
-        in Just (val, rest')
+newtype SearchM a = SearchM { unSearchM :: Track Env StFwd StBwd SearchErr a }
+  deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr, Alternative, MonadLogic)
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss = zip (toList ss) (fmap Index [Seq.length ss - 1 .. 0])
@@ -141,7 +130,7 @@ lookupCtx i = do
 -- | Instantiate the type variables and return their ids.
 insertTyVars :: MonadState St m => (TyVar -> TyVert) -> Seq TyVar -> m (Seq TyUniq)
 insertTyVars onVar tvs = res where
-  insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
+  insertRaw v (TrackSt (StFwd srcx zz) umx) = (srcx, TrackSt (StFwd (srcx + 1) zz) (UM.insert srcx v umx))
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
 
@@ -162,7 +151,7 @@ insertScheme onVar (TyScheme (Forall tvs (Strained cons ty))) = res where
 -- | Used in 'insertScheme' to do the type insertion.
 insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
 insertTy ctx ty = res where
-  insertRaw v (St srcx umx zz) = (srcx, St (srcx + 1) (UM.insert srcx v umx) zz)
+  insertRaw v (TrackSt (StFwd srcx zz) umx) = (srcx, TrackSt (StFwd (srcx + 1) zz) (UM.insert srcx v umx))
   insert v = fmap (,v) (state (insertRaw (TyVertNode v)))
   onTy = \case
     TyFreeF i -> do
@@ -190,22 +179,26 @@ insertMetaScheme = insertScheme TyVertMeta
 
 -- | Allocate a fresh term binder
 freshTmBinder :: SearchM TmUniq
-freshTmBinder = state (\st -> let s = stTmSrc st in (s, st { stTmSrc = s + 1 }))
+freshTmBinder = state $ \st ->
+  let fwd = tsFwd st
+      s = stFwdTmSrc fwd
+  in (s, st { tsFwd = fwd { stFwdTmSrc = s + 1 } })
 
 -- | Yield the merged vertex id if the given vertex aligns with the current goal,
 -- otherwise yield nothing.
 tryAlignTy :: TyUniq -> TyUniq -> SearchM TyUniq
 tryAlignTy goalKey candKey = do
-  tyMap <- gets stTyMap
+  tyMap <- gets tsBwd
   case recAlignTys goalKey candKey tyMap of
-    Left _ -> empty
+    Left e -> traceEmptyM ("Failed to align: " ++ show e)
     Right (u, tyMap') -> do
-      modify' (\st -> st { stTyMap = tyMap' })
+      modify' (\st -> st { tsBwd = tyMap' })
       pure u
 
 -- | Find solutions by looking in the context for vars that match exactly.
 ctxFits :: TyUniq -> SearchM TmFound
 ctxFits goalKey = do
+  traceM "trying ctx"
   ctx <- asks envCtx
   choose (toListWithIndex ctx) $ \(candKey, idx) -> do
     _ <- tryAlignTy goalKey candKey
@@ -214,19 +207,20 @@ ctxFits goalKey = do
 -- | If the goal is a type vertex (not a meta/skolem vertex), yield it.
 lookupGoal :: TyUniq -> SearchM (TyUniq, TyUnify)
 lookupGoal goalKey = do
-  um <- gets stTyMap
+  um <- gets tsBwd
   let (mp, um') = UM.find goalKey um
   case mp of
-    Nothing -> empty
+    Nothing -> traceEmptyM ("Goal not found: " ++ show goalKey)
     Just (newKey, vert) -> do
-      modify' (\st -> st { stTyMap = um' })
+      modify' (\st -> st { tsBwd = um' })
       case vert of
         TyVertNode val -> pure (newKey, val)
-        _ -> empty
+        _ -> traceEmptyM ("Goal not node: " ++ show goalKey ++ " " ++ show vert)
 
 -- | Find solutions by instantiating decls and matching the goal exactly.
 exactDeclFits :: TyUniq -> SearchM TmFound
 exactDeclFits goalKey = do
+  traceM "trying exact decl"
   decls <- asks envDecls
   (_, goalVal) <- lookupGoal goalKey
   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
@@ -242,10 +236,11 @@ exactDeclFits goalKey = do
 -- | Find solutions to function-type goals by adding args to context and searching with the result type.
 funIntroFits :: TyUniq -> SearchM TmFound
 funIntroFits goalKey = do
+  traceM "trying fun intro"
   -- Only try this if we haven't hit the recursion depth limit
   depthLim <- asks envDepthLim
   if depthLim <= 0
-    then empty
+    then traceEmptyM "hit depth lim in fun intro"
     else do
       (_, goalVal) <- lookupGoal goalKey
       case goalVal of
@@ -255,7 +250,7 @@ funIntroFits goalKey = do
           -- Success - allocate a fresh binder and return a lambda.
           b <- freshTmBinder
           pure (TmLam b retTm)
-        _ -> empty
+        _ -> traceEmptyM "non fun in fun intro"
 
 -- | Helper to return a multi-arg application
 mkApp :: TmName -> Seq TmFound -> TmFound
@@ -289,10 +284,11 @@ insertPartial _ty (Partial args retTy) = do
 -- | Find solutions by instantiating decl functions with matching return type
 funElimFits :: TyUniq -> SearchM TmFound
 funElimFits goalKey = do
+  traceM "trying fun elim"
   -- Only try this if we haven't hit the recursion depth limit
   depthLim <- asks envDepthLim
   if depthLim <= 0
-    then empty
+    then traceEmptyM "hit depth limit in fun elim"
     else do
       decls <- asks envDecls
       (_, goalVal) <- lookupGoal goalKey
@@ -325,7 +321,9 @@ searchUniq goalKey = res where
   -- * Case split on all constructors of a datatype. (coq destruct?)
   -- Really, just look up the standard coq tactics and do what they do.
   fits = [ctxFits goalKey, exactDeclFits goalKey, funIntroFits goalKey, funElimFits goalKey]
-  res = interleaveAll fits
+  res = do
+    traceM ("looking for key " ++ show goalKey)
+    interleaveAll fits
 
 -- TODO implement this!
 tryUnifyStraint :: StraintUniq -> SearchM ()
@@ -334,6 +332,7 @@ tryUnifyStraint _su = pure ()
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
 searchScheme :: TyScheme Index -> SearchM TmFound
 searchScheme scheme = do
+  traceM ("looking for scheme " ++ show scheme)
   (goalStraints, goalKey, _) <- insertScheme TyVertSkolem scheme
   for_ goalStraints tryUnifyStraint
   searchUniq goalKey
@@ -352,7 +351,7 @@ data SearchConfig = SearchConfig
 initEnvSt :: SearchConfig -> (Env, St)
 initEnvSt (SearchConfig decls _ depthLim) =
   let env = Env decls Seq.empty depthLim
-      st = St 0 UM.empty 0
+      st = TrackSt (StFwd 0 0) UM.empty
   in (env, st)
 
 -- | A "suspended" search for incremental consumption
@@ -367,7 +366,7 @@ data SearchSusp a = SearchSusp
 -- 'msplit' is reportedly slow.
 nextSearchResult :: SearchSusp a -> Either SearchErr (Maybe (a, SearchSusp a))
 nextSearchResult (SearchSusp env st act) =
-  let ea = runInnerM (observeManyT 1 (unSearchM (msplit act))) env st
+  let ea = runManyTrack 1 (unSearchM (msplit act)) env st
   in flip fmap ea $ \(xs, st') ->
     case xs of
       [] -> Nothing
@@ -398,4 +397,4 @@ runSearchSusp sc =
 runSearchN :: SearchConfig -> Int -> Either SearchErr [TmFound]
 runSearchN sc n =
   let (env, st) = initEnvSt sc
-  in fmap fst (runInnerM (observeManyT n (unSearchM (searchScheme (scTarget sc)))) env st)
+  in fmap fst (runManyTrack n (unSearchM (searchScheme (scTarget sc))) env st)
