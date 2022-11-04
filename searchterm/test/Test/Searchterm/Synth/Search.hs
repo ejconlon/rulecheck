@@ -52,32 +52,41 @@ reportMissing tms =
     for_ (toList tms) (TIO.putStrLn . printAlphaTm)
     fail ("Missing " ++ show (Set.size tms) ++ " terms")
 
-findAll :: Int -> Set AlphaTm -> SearchSusp TmFound -> IO ()
-findAll !lim !tms !susp =
-  if lim <= 0 || Set.null tms
-    then reportMissing tms
+reportIllegal :: AlphaTm -> IO ()
+reportIllegal tm = fail ("Found illegal term: " ++ T.unpack (printAlphaTm tm))
+
+findAll :: Int -> Set AlphaTm -> Set AlphaTm -> SearchSusp TmFound -> IO ()
+findAll !lim !yesTms !noTms !susp =
+  if lim <= 0 || Set.null yesTms
+    then reportMissing yesTms
     else do
       mx <- rethrow (nextSearchResult susp)
       case mx of
-        Nothing -> reportMissing tms
+        Nothing -> reportMissing yesTms
         Just (tm, susp') -> do
           let tm' = mapAlphaTm tm
           -- TIO.putStrLn (printAlphaTm tm')
-          let tms' = Set.delete tm' tms
-          findAll (lim - 1) tms' susp'
+          if Set.member tm' noTms
+            then reportIllegal tm'
+            else do
+              let tms' = Set.delete tm' yesTms
+              findAll (lim - 1) tms' noTms susp'
 
-testFinds :: TestName -> DeclSrc -> Text -> [Text] -> TestTree
-testFinds n src tyStr tmStrs = testCase n $ do
+testFinds :: TestName -> DeclSrc -> Text -> [Text] -> [Text] -> TestTree
+testFinds n src tyStr yesTmStrs noTmStrs = testCase n $ do
   ds <- loadDecls src
   tsNamed <- rethrow (parseType tyStr)
   ts <- rethrow (namelessType tsNamed)
-  tms <- traverse (rethrow . parseTerm) tmStrs
+  yesTms <- traverse (rethrow . parseTerm) yesTmStrs
+  noTms <- traverse (rethrow . parseTerm) noTmStrs
   let isKnown (TmVar v) = let k = TmName v in if Map.member k (dsMap ds) then Just k else Nothing
-  ctms <- traverse (rethrow . closeAlphaTm isKnown) tms
-  let tmSet = Set.fromList ctms
-  let conf = SearchConfig ds ts maxSearchDepth
+  yesCtms <- traverse (rethrow . closeAlphaTm isKnown) yesTms
+  noCtms <- traverse (rethrow . closeAlphaTm isKnown) noTms
+  let yesTmSet = Set.fromList yesCtms
+      noTmSet = Set.fromList noCtms
+      conf = SearchConfig ds ts maxSearchDepth
       susp = runSearchSusp conf
-  findAll maxSearchResults tmSet susp
+  findAll maxSearchResults yesTmSet noTmSet susp
 
 basicDeclSrc :: DeclSrc
 basicDeclSrc = DeclSrcList
@@ -86,8 +95,8 @@ basicDeclSrc = DeclSrcList
   , "plus :: Int -> Int -> Int"
   ]
 
-strainDeclSrc :: DeclSrc
-strainDeclSrc = DeclSrcList
+strainSimpleDeclSrc :: DeclSrc
+strainSimpleDeclSrc = DeclSrcList
   [ "instance Foo FooThing"
   , "instance Bar BarThing"
   , "foo :: FooThing"
@@ -95,11 +104,22 @@ strainDeclSrc = DeclSrcList
   , "quux :: (Foo c, Bar b) => c -> b -> Int"
   ]
 
+strainRecDeclSrc :: DeclSrc
+strainRecDeclSrc = DeclSrcList
+  [ "instance Wonky a => Foo (FooThing a)"
+  , "instance Wonky Char"
+  , "foo :: FooThing Char"
+  , "bar :: FooThing String"
+  , "quux :: Foo c => c -> Int"
+  ]
+
 testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "basic" basicDeclSrc "Int"
     ["zero", "one", "(plus zero one)", "(plus (plus one zero) zero)"]
-  , testFinds "strain" strainDeclSrc "Int"
+    ["(plus zero)", "plus", "(zero plus)"]
+  , testFinds "strain simple" strainSimpleDeclSrc "Int"
     ["(quux foo bar)"]
+    ["foo"]
   -- TODO add test for recursive constraints
   ]
