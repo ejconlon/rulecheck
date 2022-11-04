@@ -43,35 +43,20 @@ finalize :: y -> Track r x y e a -> Track r x y e a
 finalize saved x = Track (unTrack x <|> unTrack (restore saved empty))
 
 reset :: Track r x y e a -> Track r x y e a
-reset x = gets tsBwd >>= \saved -> finalize saved x
+reset x = do
+  saved <- gets tsBwd
+  finalize saved x
 
 -- | Custom implementation that backtracks part of state
 instance Alternative (Track r x y e) where
   empty = Track empty
   x <|> y = do
     saved <- gets tsBwd
-    finalize saved (Track (unTrack x <|> unTrack (restore saved y)))
+    Track (unTrack x <|> unTrack (restore saved y))
 
 -- | Custom implementation that backtracks part of state
 instance MonadLogic (Track r x y e) where
-  msplit x = do
-    saved <- gets tsBwd
-    msplitWith saved x
+  msplit x = Track (fmap (fmap (second Track)) (msplit (unTrack x)))
   interleave x y = do
     saved <- gets tsBwd
-    interleaveWith saved x y
-
-msplitWith :: y -> Track r x y e a -> Track r x y e (Maybe (a, Track r x y e a))
-msplitWith saved x = do
-  mp <- Track (msplit (unTrack x))
-  restore saved (pure (fmap (second Track) mp))
-
-interleaveWith :: y -> Track r x y e a -> Track r x y e a -> Track r x y e a
-interleaveWith saved = go where
-  go x y = do
-    mp <- Track (msplit (unTrack x))
-    case mp of
-      Nothing -> finalize saved (restore saved y)
-      Just (val, restX) -> do
-        let restYX = go (restore saved y) (Track restX)
-        Track (pure val <|> unTrack restYX)
+    Track (interleave (unTrack x) (unTrack (restore saved y)))

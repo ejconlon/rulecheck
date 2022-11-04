@@ -57,6 +57,11 @@ testBwd = testCase "bwd" $ do
   trackRun trackInt3 @?= (res2, st0)
   trackRun trackFair0 @?= ([3, 2, 1], st0)
   trackRun trackFair1 @?= ([3, 2, 4, 1, 3, 2], st0)
+  trackRun trackSplitEff0 @?= ([1, 0], st0)
+  trackRun trackSplitEff1 @?= ([1, 0], st0)
+  trackRun trackSplitEff2 @?= ([2, 0], st0)
+  trackRun trackSplitEff3 @?= ([2, 0], st0)
+  trackRun trackIntMulti0 @?= ([2, 0, 1], st0)
 
 type T = Track () Int Int Void
 
@@ -102,3 +107,34 @@ trackFair0 = trackList [3, 2, 1] >>- \n ->
   replicateM_ n trackIncBwd >> gets tsBwd
 trackFair1 = trackList [3, 2, 1] >>- \n ->
   replicateM_ n trackIncBwd >> (gets tsBwd <|> (trackIncBwd >> gets tsBwd))
+
+trackSplitEff0 :: T Int
+trackSplitEff0 = do
+  mp <- msplit ((trackIncBwd >> pure 0) <|> gets tsBwd)
+  case mp of
+    Nothing -> empty
+    Just (_, rest) -> gets tsBwd <|> rest
+
+trackSplitEff1 :: T Int
+trackSplitEff1 = do
+  mp <- msplit (interleave (trackIncBwd >> pure 0) (gets tsBwd))
+  case mp of
+    Nothing -> empty
+    Just (_, rest) -> gets tsBwd <|> rest
+
+trackSplitEff2 :: T Int
+trackSplitEff2 = do
+  mp <- msplit ((trackIncBwd >> pure 0) <|> gets tsBwd)
+  case mp of
+    Nothing -> empty
+    Just (_, rest) -> trackIncBwd >> (gets tsBwd <|> rest)
+
+trackSplitEff3 :: T Int
+trackSplitEff3 = do
+  mp <- msplit (interleave (trackIncBwd >> pure 0) (gets tsBwd))
+  case mp of
+    Nothing -> empty
+    Just (_, rest) -> trackIncBwd >> (gets tsBwd <|> rest)
+
+trackIntMulti0 :: T Int
+trackIntMulti0 = interleave ((trackIncBwd >> trackIncBwd >> gets tsBwd) <|> (trackIncBwd >> gets tsBwd)) (gets tsBwd)
