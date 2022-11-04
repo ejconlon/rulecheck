@@ -49,7 +49,7 @@ import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, 
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num)
+  deriving newtype (Eq, Ord, Num, Pretty)
 
 -- | Type variable
 newtype TyVar = TyVar { unTyVar :: Text }
@@ -142,6 +142,9 @@ instance (Pretty a, ParenPretty r) => ParenPretty (TyF a r) where
       Just "funl" : _ -> True
       _ -> False
 
+instance (Pretty a, ParenPretty r) => Pretty (TyF a r) where
+  pretty = parenPrettyToDoc
+
 instance Pretty a => ParenPretty (Ty a) where
   parenPretty p = parenPretty p . project
 
@@ -154,6 +157,9 @@ instance (Pretty b, Pretty a, ParenPretty r) => ParenPretty (TmF b a r) where
     TmKnownF n -> parenAtom n
     TmAppF wl wr -> parenList True [parenPretty s wl, parenPretty s wr]
     TmLamF b w -> parenList True [parenDoc ("\\" <> pretty b), "->", parenPretty s w]
+
+instance (Pretty b, Pretty a, ParenPretty r) => Pretty (TmF b a r) where
+  pretty = parenPrettyToDoc
 
 instance (Pretty b, Pretty a) => ParenPretty (Tm b a) where
   parenPretty p = parenPretty p . project

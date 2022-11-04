@@ -9,6 +9,8 @@ import Searchterm.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF)
 import Searchterm.Synth.UnionFind (MergeRes (..))
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
+import Prettyprinter (Pretty)
+import Searchterm.Interface.ParenPretty (ParenPretty)
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =
@@ -53,7 +55,7 @@ mightAlign one two =
 -- | A unique id for the vertices of our type unification graph
 newtype TyUniq = TyUniq { unTyUniq :: Int }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num)
+  deriving newtype (Eq, Ord, Enum, Num, Pretty, ParenPretty)
 
 -- | Types in the unification graph have holes that point to other nodes in the graph
 type TyUnify = TyF TyUniq TyUniq

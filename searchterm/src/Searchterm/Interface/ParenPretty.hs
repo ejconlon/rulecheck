@@ -1,7 +1,8 @@
 -- | This exists so we can detect when parentheses are and aren't necessary
 -- when pretty-printing! Sad, right?
 module Searchterm.Interface.ParenPretty
-  ( docToText
+  ( prettyShow
+  , docToText
   , parenToDoc
   , Paren
   , ParenPretty (..)
@@ -21,6 +22,10 @@ import Data.Void (Void, absurd)
 import Prettyprinter (Doc, Pretty (..), defaultLayoutOptions, layoutSmart)
 import qualified Prettyprinter as P
 import Prettyprinter.Render.Text (renderStrict)
+import qualified Data.Text as T
+
+prettyShow :: Pretty a => a -> String
+prettyShow = T.unpack . docToText . pretty
 
 docToText :: Doc ann -> Text
 docToText = renderStrict . layoutSmart defaultLayoutOptions

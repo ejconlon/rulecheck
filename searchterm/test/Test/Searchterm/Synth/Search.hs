@@ -88,13 +88,9 @@ basicDeclSrc = DeclSrcList
 
 strainDeclSrc :: DeclSrc
 strainDeclSrc = DeclSrcList
-  [ "class Foo"
-  , "class Bar"
-  , "data FooThing"
-  , "instance Foo FooThing"
-  , "data BarThing"
+  [ "instance Foo FooThing"
   , "instance Bar BarThing"
-  , "foo:: FooThing"
+  , "foo :: FooThing"
   , "bar :: BarThing"
   , "quux :: (Foo c, Bar b) => c -> b -> Int"
   ]
@@ -105,4 +101,5 @@ testSearch = testGroup "Search"
     ["zero", "one", "(plus zero one)", "(plus (plus one zero) zero)"]
   -- , testFinds "strain" strainDeclSrc "Int"
   --   ["(quux foo bar)"]
+  -- TODO make constraints work!
   ]
