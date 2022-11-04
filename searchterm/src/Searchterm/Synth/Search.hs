@@ -58,6 +58,14 @@ interleaveAll = (traceM "interleaving all" *>) . foldr interleave (traceEmptyM "
 choose :: (MonadLogic m, Functor f, Foldable f) => f a -> (a -> m b) -> m b
 choose fa f = interleaveAll (fmap f fa)
 
+-- | We need to make sure that traverse doesn't draw from the first element indefinitely, etc.
+-- This uses fair bind (>>-) to re-implement traverse (slower but more fair).
+fairTraverse :: MonadLogic m => (a -> m b) -> Seq a -> m (Seq b)
+fairTraverse f = go Empty where
+  go !acc = \case
+    Empty -> pure acc
+    a :<| as -> f a >>- \b -> go (acc :|> b) as
+
 -- | A unique binder for enumerated lambdas
 newtype TmUniq = TmUniq { unTmUniq :: Int }
   deriving stock (Show)
@@ -258,14 +266,6 @@ mkApp n = go (TmKnown n) where
   go !t = \case
     Empty -> t
     s :<| ss -> go (TmApp t s) ss
-
--- | We need to make sure that traverse doesn't draw from the first element indefinitely, etc.
--- This uses fair bind (>>-) to re-implement traverse (slower but more fair).
-fairTraverse :: (a -> SearchM b) -> Seq a -> SearchM (Seq b)
-fairTraverse f = go Empty where
-  go !acc = \case
-    Empty -> pure acc
-    a :<| as -> f a >>- \b -> go (acc :|> b) as
 
 -- | Inserts a partial application into the graph.
 -- Returns
