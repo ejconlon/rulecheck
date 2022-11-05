@@ -397,7 +397,7 @@ topUnifyStraint su@(StraintUniq cn ts) = traceScopeM ("Straint unify: " ++ prett
     Nothing -> traceEmptyM ("No instances for " ++ prettyShow cn)
     Just xs -> do
       choose xs $ \is -> do
-        (_pus, _su'@(StraintUniq cn' ts')) <- insertStraintScheme is
+        (pus, _su'@(StraintUniq cn' ts')) <- insertStraintScheme is
         unless (cn == cn') (throwError (SearchErrBadConstraintName cn cn'))
         let tsLen = Seq.length ts
             tsLen' = Seq.length ts'
@@ -408,8 +408,10 @@ topUnifyStraint su@(StraintUniq cn ts) = traceScopeM ("Straint unify: " ++ prett
         -- traceM ("Cand InstScheme: " ++ prettyShow is)
         -- traceM ("Cand StrainUniq: " ++ prettyShow su')
         -- traceM ("Trying to unify: " ++ show (fmap prettyShow ts) ++ " // " ++ show (fmap prettyShow ts'))
+        -- Unify the child constraint
         fairTraverse_ (void . uncurry tryAlignTy) (Seq.zip ts ts')
-        -- TODO recursively unify parent constraints (pus)
+        -- Unify each of the parent constraints too
+        fairTraverse_ recUnifyStraint pus
 
 recUnifyStraint :: StraintUniq -> SearchM ()
 recUnifyStraint = decDepth . topUnifyStraint

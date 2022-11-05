@@ -121,8 +121,8 @@ testSearch = testGroup "Search"
   , testFinds "strain simple" strainSimpleDeclSrc "Int"
     ["(quux foo bar)"]
     ["foo"]
-  -- , testFinds "strain rec" strainSimpleDeclSrc "Int"
-  --   ["(quux foo)"]
-  --   ["(quux bar)"]
-  -- TODO fix recursive constraints
+  , testFinds "strain rec" strainRecDeclSrc "Int"
+    ["(quux foo)"]
+    ["(quux bar)"]
+  -- TODO more tests!!! But the pattern is clear...
   ]
