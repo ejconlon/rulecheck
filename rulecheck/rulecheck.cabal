@@ -15,6 +15,7 @@ library
       Rulecheck.Parsing
       Rulecheck.Rendering
       Rulecheck.Rule
+      Rulecheck.RuleExtraction
       Rulecheck.Testing
       Rulecheck.Typecheck
   other-modules:
@@ -52,6 +53,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie
   build-depends:
       QuickCheck
+    , aeson
     , base >=4.12 && <5
     , containers
     , exceptions
@@ -106,6 +108,7 @@ executable rulecheck-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck
+    , aeson
     , base >=4.12 && <5
     , containers
     , exceptions
@@ -163,6 +166,7 @@ test-suite rulecheck-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck
+    , aeson
     , base >=4.12 && <5
     , containers
     , exceptions
