@@ -9,5 +9,5 @@ import Rulecheck.Typecheck
 getRulesFromFile :: String -> GhcM [Rule]
 getRulesFromFile f = do
   tcm <- typecheck f
-  let rules = getTypecheckedRuleDecls tcm
+  let rules = concatMap getTypecheckedRuleDecls tcm
   mapM ruleFromDecl rules

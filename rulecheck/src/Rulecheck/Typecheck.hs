@@ -9,9 +9,9 @@ module Rulecheck.Typecheck
 
 import Data.List (find)
 import Data.Maybe (fromJust)
-import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, ModuleName, Name, ParsedModule (pm_mod_summary),
+import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, ModSummary, ModuleName, Name, ParsedModule (pm_mod_summary),
             TyThing (..), TypecheckedMod (..), TypecheckedModule (..), getModuleGraph, mgModSummaries,
-            modInfoLookupName, modInfoTopLevelScope, moduleName, ms_mod, parseModule, typecheckModule)
+            modInfoLookupName, modInfoTopLevelScope, moduleName, ms_mod, parseModule, typecheckModule, pprModule)
 import GHC.Core.Utils (exprType)
 import GHC.Data.Bag (bagToList)
 import GHC.HsToCore (deSugarExpr)
@@ -21,17 +21,18 @@ import GHC.Utils.Outputable (Outputable (..), showSDocUnsafe)
 import HIE.Bios (loadFile)
 import Rulecheck.Monad (GhcM)
 
-typecheck :: String -> GhcM TypecheckedModule
+getModSummaryName :: ModSummary -> String
+getModSummaryName s = showSDocUnsafe (pprModule $ ms_mod s)
+
+
+typecheck :: String -> GhcM [TypecheckedModule]
 typecheck filename = do
   -- For some reason, this does not return the expected result.
   -- Get the typechecked module from the dependency graph.
-  _                <- loadFile (filename, filename)
-  graph            <- getModuleGraph
-  case mgModSummaries graph of
-    [modSummary] ->  do
-      parsed <- parseModule modSummary
-      typecheckModule parsed
-    _ -> fail "Expected one module"
+  _      <- loadFile (filename, filename)
+  graph  <- getModuleGraph
+  parsed <- mapM parseModule (mgModSummaries graph)
+  mapM typecheckModule parsed
 
 tcmName :: TypecheckedModule -> ModuleName
 tcmName = moduleName . ms_mod . pm_mod_summary . tm_parsed_module

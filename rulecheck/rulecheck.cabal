@@ -56,6 +56,7 @@ library
     , aeson
     , base >=4.12 && <5
     , containers
+    , directory
     , exceptions
     , generic-lens
     , ghc ==9.0.2
@@ -111,6 +112,7 @@ executable rulecheck-exe
     , aeson
     , base >=4.12 && <5
     , containers
+    , directory
     , exceptions
     , generic-lens
     , ghc ==9.0.2
@@ -169,6 +171,7 @@ test-suite rulecheck-test
     , aeson
     , base >=4.12 && <5
     , containers
+    , directory
     , exceptions
     , generic-lens
     , ghc ==9.0.2

@@ -6,6 +6,7 @@ dependencies:
 - ghc == 9.0.2
 - aeson
 - containers
+- directory
 - exceptions
 - little-rio
 - little-logger
