@@ -44,7 +44,7 @@ testParse :: TestTree
 testParse = testCase "parse" $ do
   assertParseTm "foo" (TmFree "foo")
 
-  -- assertParseTm "(case x of { Bar y => x ; Baz z => z })" $
-  --   TmCase (TmFree "x") (Seq.fromList [mkPP "Bar" ["y"] (TmFree "x"), mkPP "Baz" ["z"] (TmFree "z")])
+  assertParseTm "(case x of { Bar y -> x ; Baz z -> z })" $
+    TmCase (TmFree "x") (Seq.fromList [mkPP "Bar" ["y"] (TmFree "x"), mkPP "Baz" ["z"] (TmFree "z")])
 
-  -- assertParseTm "(let x = y in x)" (TmLet "x" (TmFree "y") (TmFree "x"))
+  assertParseTm "(let x = y in x)" (TmLet "x" (TmFree "y") (TmFree "x"))

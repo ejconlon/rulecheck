@@ -19,7 +19,7 @@ import qualified Data.Text.IO as TIO
 import Data.Void (Void)
 import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), Forall (..), Inst (..), InstScheme (..),
                                  ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..),
-                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars)
+                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars, PatPair (..), ConPat (..), Pat (..))
 import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
                                   ModLine (..), RuleLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
@@ -286,11 +286,13 @@ clsLineP = do
   keywordP "class"
   ClsLine <$> clsSchemeP
 
-tmP, tmLamP, tmAppP, tmFreeP :: P (Tm TmVar TmVar)
+tmP, tmLamP, tmAppP, tmFreeP, tmLetP, tmCaseP :: P (Tm TmVar TmVar)
 tmP = foldr1 (<|>)
   [ tmLamP
   , tmAppP
   , tmFreeP
+  , tmLetP
+  , tmCaseP
   ]
 tmLamP = optParensP $ do
   _ <- keywordP "\\"
@@ -305,6 +307,28 @@ tmAppP = inParensP $ do
   pure (mkApp one two rest)
 -- We can only parse vars as free until we resolve them later
 tmFreeP = fmap (TmFree . TmVar . unTmName) tmNameP
+tmLetP = optParensP $ do
+  _ <- keywordP "let"
+  b <- tmVarP
+  _ <- keywordP "="
+  arg <- tmP
+  _ <- keywordP "in"
+  TmLet b arg <$> tmP
+tmCaseP = optParensP $ do
+  _ <- keywordP "case"
+  scrut <- tmP
+  _ <- keywordP "of"
+  _ <- keywordP "{"
+  pairs <- sepBy patPairP (keywordP ";")
+  _ <- keywordP "}"
+  pure (TmCase scrut (Seq.fromList pairs))
+
+patPairP :: P (PatPair TmVar (Tm TmVar TmVar))
+patPairP = do
+  cn <- tmNameP
+  bs <- many tmVarP
+  _ <- keywordP "->"
+  PatPair (Pat (ConPat cn (Seq.fromList bs))) <$> tmP
 
 mkApp :: Tm TmVar TmVar -> Tm TmVar TmVar -> [Tm TmVar TmVar]-> Tm TmVar TmVar
 mkApp one two rest =

@@ -179,7 +179,7 @@ instance (Pretty b, Pretty a, ParenPretty r) => ParenPretty (TmF b a r) where
       ["let", parenAtom b, "=", parenPretty (Nothing:s) arg, "in", parenPretty (Nothing:s) body]
     TmCaseF scrut pairs ->
       let start = ["case", parenPretty (Nothing:s) scrut, "of", "{"]
-          mid = intercalate [";"] [[parenDoc (pretty pat), "=>", parenPretty (Nothing:s) body] | PatPair pat body <- toList pairs]
+          mid = intercalate [";"] [[parenDoc (pretty pat), "->", parenPretty (Nothing:s) body] | PatPair pat body <- toList pairs]
           end = ["}"]
           parts = start ++ mid ++ end
       in parenList True parts
