@@ -7,7 +7,7 @@ module Searchterm.Synth.Monad
 
 import Control.Monad.Except (Except, MonadError, runExcept)
 import Control.Monad.State.Strict (StateT (..), MonadState (..), modify', gets)
-import Control.Monad.Reader (ReaderT (..), MonadReader)
+import Control.Monad.Reader (ReaderT (..), MonadReader (..))
 import Control.Monad.Logic (LogicT, MonadLogic (..), observeManyT)
 import Control.Applicative (Alternative (..))
 import Data.Bifunctor (second)
@@ -34,27 +34,30 @@ observeManyTrack n = observeManyT n . unTrack . reset
 runManyTrack :: Int -> Track r x y e a -> r -> TrackSt x y -> Either e ([a], TrackSt x y)
 runManyTrack n m = runRSE (observeManyTrack n m)
 
-restore :: y -> Track r x y e a -> Track r x y e a
-restore saved x = modify' (\st -> st { tsBwd = saved }) *> x
+restore :: r -> y -> Track r x y e a -> Track r x y e a
+restore noted saved x = modify' (\st -> st { tsBwd = saved }) *> local (const noted) x
 
-finalize :: y -> Track r x y e a -> Track r x y e a
-finalize saved x = Track (unTrack x <|> unTrack (restore saved empty))
+finalize :: r -> y -> Track r x y e a -> Track r x y e a
+finalize noted saved x = Track (unTrack x <|> unTrack (restore noted saved empty))
 
 reset :: Track r x y e a -> Track r x y e a
 reset x = do
+  noted <- ask
   saved <- gets tsBwd
-  finalize saved x
+  finalize noted saved x
 
 -- | Custom implementation that backtracks part of state
 instance Alternative (Track r x y e) where
   empty = Track empty
   x <|> y = do
+    noted <- ask
     saved <- gets tsBwd
-    Track (unTrack x <|> unTrack (restore saved y))
+    Track (unTrack x <|> unTrack (restore noted saved y))
 
 -- | Custom implementation that backtracks part of state
 instance MonadLogic (Track r x y e) where
   msplit x = Track (fmap (fmap (second Track)) (msplit (unTrack x)))
   interleave x y = do
+    noted <- ask
     saved <- gets tsBwd
-    Track (interleave (unTrack x) (unTrack (restore saved y)))
+    Track (interleave (unTrack x) (unTrack (restore noted saved y)))

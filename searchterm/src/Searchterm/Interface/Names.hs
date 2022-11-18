@@ -26,6 +26,7 @@ import Searchterm.Interface.Core (Forall (..), Index (..), Inst (..), InstScheme
                                  TmName (..), TyScheme (..), TyVar, PatPair (..), Pat (..), ConPat (..))
 import Control.Monad (void)
 import Data.Maybe (fromMaybe)
+import GHC.Stack (HasCallStack)
 
 indexSeqWith :: (b -> a -> Bool) -> Seq a -> b -> Maybe Index
 indexSeqWith f s a = fmap (\lvl -> Index (Seq.length s - lvl - 1)) (Seq.findIndexR (f a) s)
@@ -33,16 +34,16 @@ indexSeqWith f s a = fmap (\lvl -> Index (Seq.length s - lvl - 1)) (Seq.findInde
 indexSeq :: Eq a => Seq a -> a -> Maybe Index
 indexSeq = indexSeqWith (==)
 
-unsafeIndexSeqWith :: (b -> a -> Bool) -> Seq a -> b -> Index
+unsafeIndexSeqWith :: HasCallStack => (b -> a -> Bool) -> Seq a -> b -> Index
 unsafeIndexSeqWith f s a = fromMaybe (error "unsafeIndexSeqWith") (indexSeqWith f s a)
 
-unsafeIndexSeq :: Eq a => Seq a -> a -> Index
+unsafeIndexSeq :: (HasCallStack, Eq a) => Seq a -> a -> Index
 unsafeIndexSeq s a = fromMaybe (error "unsafeIndexSeq") (indexSeqWith (==) s a)
 
 lookupSeq :: Seq a -> Index -> Maybe a
-lookupSeq s (Index i) = Seq.lookup (Seq.length s - i) s
+lookupSeq s (Index i) = Seq.lookup (Seq.length s - i - 1) s
 
-unsafeLookupSeq :: Seq a -> Index -> a
+unsafeLookupSeq :: HasCallStack => Seq a -> Index -> a
 unsafeLookupSeq s ix = fromMaybe (error "unsafeLookupSeq") (lookupSeq s ix)
 
 newtype NamelessErr v = NamelessErrMissing (Seq v)

@@ -24,8 +24,6 @@ import Control.Monad.Reader (runReader, asks, MonadReader (..), Reader)
 import Data.Sequence (Seq(..))
 import Data.Maybe (fromMaybe)
 import Data.Functor.Foldable (cata)
-import Searchterm.Interface.ParenPretty (docToText)
-import Prettyprinter (pretty)
 
 rethrow :: Exception e => Either e a -> IO a
 rethrow = either throwIO pure
@@ -46,7 +44,7 @@ maxSearchDepth :: Int
 maxSearchDepth = 5
 
 maxSearchResults :: Int
-maxSearchResults = 1000
+maxSearchResults = 10000
 
 printAlphaTm :: AlphaTm -> Text
 printAlphaTm = printTerm . fmap (TmVar . T.pack . ("?" ++) . show . unIndex) . unAlphaTm

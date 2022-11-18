@@ -367,6 +367,8 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
       -- Do a cheap check for possible alignment on the result type
       whenAlt (mightAlign goalVal candVal) $ do
         traceM ("Possible partial align: " ++ prettyShow part)
+        ctx <- asks envCtx
+        traceM ("Current ctx: " ++ show ctx)
         -- Now really check that the result type unifies:
         -- Insert the partial to get vars for args and returned function
         (straints, addlCtx, candKey, _) <- insertPartial (declType decl) part
@@ -375,23 +377,37 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
         -- Unify constraints (second, to help argument search)
         fairTraverse_ topUnifyStraint straints
         -- It unifies. Now we know that if we can find args we can satsify the goal.
-        argTms <- fairTraverse recSearchUniq addlCtx
-        pure (mkApp (TmKnown name) argTms)
+        -- TODO remove this:
+        -- argTms <- fairTraverse recSearchUniq addlCtx
+        -- pure (mkApp (TmKnown name) argTms)
         -- TODO replace with this:
-        -- searchLetApp (TmKnown name) addlCtx
+        traceM ("** Search let app for: " ++ show addlCtx)
+        searchLetApp (TmKnown name) addlCtx
 
 -- | Search for an application of the given types.
 -- We search left to right, adding arguments to the context (in let binds) in the hope that
 -- it's possible to re-use some elements of the context to solve later args.
 searchLetApp :: TmFound -> Seq TyUniq -> SearchM TmFound
-searchLetApp fnTm = go id Empty . toList where
+searchLetApp fnTm us = res where
+  res = do
+    ctx <- asks envCtx
+    traceM ("Starting with ctx " ++ show ctx)
+    go id Empty (toList us)
   go !outFn !argNames = \case
     [] -> do
       ctx <- asks envCtx
+      traceM ("Final letapp context: " ++ show ctx)
+      traceM ("Final letapp args: " ++ show argNames)
       pure (outFn (mkApp fnTm (fmap (TmFree . unsafeIndexSeqWith (\x (b, _) -> b == x) ctx) argNames)))
-    a:rest -> recSearchUniq a >>- \b -> do
-      x <- freshTmBinder
-      local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (TmLet x b) (argNames :|> x) rest)
+    a:rest -> do
+      traceM ("Searching for: " ++ show a)
+      ctx <- asks envCtx
+      traceM ("With ctx: " ++ show ctx)
+      recSearchUniq a >>- \b -> do
+        x <- freshTmBinder
+        ctx' <- asks envCtx
+        traceM ("Binding " ++ show x ++ " as " ++ show b ++ " in " ++ show ctx')
+        local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (outFn . TmLet x b) (argNames :|> x) rest)
 
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
 topSearchUniq :: TyUniq -> SearchM TmFound
