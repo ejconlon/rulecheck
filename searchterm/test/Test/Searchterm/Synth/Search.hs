@@ -11,15 +11,21 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..))
+import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..))
 import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
-import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType)
+import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm)
-import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, TmFound, nextSearchResult, runSearchSusp)
+import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, TmFound, nextSearchResult, runSearchSusp, TmUniq)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.Tasty.Providers (TestName)
+import Control.Monad.Reader (runReader, asks, MonadReader (..), Reader)
+import Data.Sequence (Seq(..))
+import Data.Maybe (fromMaybe)
+import Data.Functor.Foldable (cata)
+import Searchterm.Interface.ParenPretty (docToText)
+import Prettyprinter (pretty)
 
 rethrow :: Exception e => Either e a -> IO a
 rethrow = either throwIO pure
@@ -55,6 +61,19 @@ reportMissing tms =
 reportIllegal :: AlphaTm -> IO ()
 reportIllegal tm = fail ("Found illegal term: " ++ T.unpack (printAlphaTm tm))
 
+inlineLets :: TmFound -> TmFound
+inlineLets = flip runReader Empty . cata goTm where
+  goTm :: TmF TmUniq Index (Reader (Seq (Maybe TmFound)) TmFound) -> Reader (Seq (Maybe TmFound)) TmFound
+  goTm = \case
+    TmFreeF a -> do
+      mx <- asks (`unsafeLookupSeq` a)
+      pure (fromMaybe (TmFree a) mx)
+    TmKnownF n -> pure (TmKnown n)
+    TmAppF wl wr -> TmApp <$> wl <*> wr
+    TmLamF b w -> TmLam b <$> local (:|> Nothing) w
+    TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
+    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse undefined pairs
+
 findAll :: Int -> Set AlphaTm -> Set AlphaTm -> SearchSusp TmFound -> IO ()
 findAll !lim !yesTms !noTms !susp =
   if lim <= 0 || Set.null yesTms
@@ -64,7 +83,9 @@ findAll !lim !yesTms !noTms !susp =
       case mx of
         Nothing -> reportMissing yesTms
         Just (tm, susp') -> do
-          let tm' = mapAlphaTm tm
+          -- TIO.putStrLn (docToText (pretty tm))
+          let tmNoLet = inlineLets tm
+          let tm' = mapAlphaTm tmNoLet
           -- TIO.putStrLn (printAlphaTm tm')
           if Set.member tm' noTms
             then reportIllegal tm'

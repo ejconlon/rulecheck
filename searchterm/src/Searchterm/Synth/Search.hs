@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | Methods to enumerate terms of a given type
 module Searchterm.Synth.Search
   ( TmUniq (..)
@@ -23,7 +25,7 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
-import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), TmName, Ty,
+import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), Ty,
                                  TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..))
 import Searchterm.Interface.Decl (Decl (..), DeclSet (..))
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
@@ -35,6 +37,7 @@ import Searchterm.Interface.ParenPretty (prettyShow)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Control.Monad (unless, void)
+import Searchterm.Interface.Names (unsafeIndexSeqWith)
 -- import qualified Debug.Trace as DT
 -- import Text.Pretty.Simple (pShow)
 -- import qualified Data.Text as T
@@ -97,7 +100,10 @@ toListWithIndex ss = zip (toList ss) (fmap Index [Seq.length ss - 1 .. 0])
 -- | A unique binder for enumerated lambdas
 newtype TmUniq = TmUniq { unTmUniq :: Int }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Pretty)
+  deriving newtype (Eq, Ord, Enum, Num)
+
+instance Pretty TmUniq where
+  pretty (TmUniq i) = "?tmu@" <> pretty i
 
 -- | A typeclass constraint for unification.
 data StraintUniq = StraintUniq
@@ -118,7 +124,7 @@ type TyGraph = UnionMap TyUniq TyVert
 data Env = Env
   { envDecls :: !DeclSet
   -- ^ Top-level declarations usable in term search
-  , envCtx :: !(Seq TyUniq)
+  , envCtx :: !(Seq (TmUniq, TyUniq))
   -- ^ Local type constraints
   , envDepthLim :: !Int
   -- ^ Remaining depth for recursive search
@@ -293,7 +299,7 @@ tryAlignTy goalKey candKey = do
 ctxFits :: TyUniq -> SearchM TmFound
 ctxFits goalKey = traceScopeM "Ctx fit" $ do
   ctx <- asks envCtx
-  choose (toListWithIndex ctx) $ \(candKey, idx) -> do
+  choose (toListWithIndex ctx) $ \((_, candKey), idx) -> do
     _ <- tryAlignTy goalKey candKey
     pure (TmFree idx)
 
@@ -334,15 +340,16 @@ funIntroFits goalKey = traceScopeM "Fun intro fit" $ do
   case goalVal of
     TyFunF argKey retKey -> do
       -- If the goal looks like a function, try adding the arg to the context and searching for a match.
-      retTm <- local (\env -> env { envCtx = envCtx env :|> argKey }) (recSearchUniq retKey)
+      x <- freshTmBinder
+      retTm <- local (\env -> env { envCtx = envCtx env :|> (x, argKey) }) (recSearchUniq retKey)
       -- Success - allocate a fresh binder and return a lambda.
       b <- freshTmBinder
       pure (TmLam b retTm)
     _ -> traceEmptyM "Non fun in fun intro"
 
 -- | Helper to return a multi-arg application
-mkApp :: TmName -> Seq TmFound -> TmFound
-mkApp n = go (TmKnown n) where
+mkApp :: TmFound -> Seq TmFound -> TmFound
+mkApp = go where
   go !t = \case
     Empty -> t
     s :<| ss -> go (TmApp t s) ss
@@ -369,12 +376,22 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
         fairTraverse_ topUnifyStraint straints
         -- It unifies. Now we know that if we can find args we can satsify the goal.
         argTms <- fairTraverse recSearchUniq addlCtx
-        pure (mkApp name argTms)
-        -- TODO Technically we don't have to find a term for each arg independently,
-        -- or even left to right. However, we need to tame the explosion of cases somehow.
-        -- Here we just find them independently nest them in an application. We could have
-        -- introduced lets with a bound application at then end (in ANF).
-        -- Maybe it is worth trying all possibilities but guarding with logict's 'once'.
+        pure (mkApp (TmKnown name) argTms)
+        -- TODO replace with this:
+        -- searchLetApp (TmKnown name) addlCtx
+
+-- | Search for an application of the given types.
+-- We search left to right, adding arguments to the context (in let binds) in the hope that
+-- it's possible to re-use some elements of the context to solve later args.
+searchLetApp :: TmFound -> Seq TyUniq -> SearchM TmFound
+searchLetApp fnTm = go id Empty . toList where
+  go !outFn !argNames = \case
+    [] -> do
+      ctx <- asks envCtx
+      pure (outFn (mkApp fnTm (fmap (TmFree . unsafeIndexSeqWith (\x (b, _) -> b == x) ctx) argNames)))
+    a:rest -> recSearchUniq a >>- \b -> do
+      x <- freshTmBinder
+      local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (TmLet x b) (argNames :|> x) rest)
 
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
 topSearchUniq :: TyUniq -> SearchM TmFound

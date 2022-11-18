@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | "Alignment" is one layer of unification.
 module Searchterm.Synth.Align where
 
@@ -9,8 +11,8 @@ import Searchterm.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF)
 import Searchterm.Synth.UnionFind (MergeRes (..))
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
-import Prettyprinter (Pretty)
-import Searchterm.Interface.ParenPretty (ParenPretty)
+import Prettyprinter (Pretty (..))
+import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom)
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =
@@ -55,7 +57,13 @@ mightAlign one two =
 -- | A unique id for the vertices of our type unification graph
 newtype TyUniq = TyUniq { unTyUniq :: Int }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Pretty, ParenPretty)
+  deriving newtype (Eq, Ord, Enum, Num)
+
+instance Pretty TyUniq where
+  pretty (TyUniq i) = "?tyu@" <> pretty i
+
+instance ParenPretty TyUniq where
+  parenPretty _ = parenAtom
 
 -- | Types in the unification graph have holes that point to other nodes in the graph
 type TyUnify = TyF TyUniq TyUniq

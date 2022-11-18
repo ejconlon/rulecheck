@@ -53,7 +53,10 @@ import Data.List (intercalate)
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, Pretty)
+  deriving newtype (Eq, Ord, Num)
+
+instance Pretty Index where
+  pretty (Index i) = "?idx@" <> pretty i
 
 -- | Type variable
 newtype TyVar = TyVar { unTyVar :: Text }
