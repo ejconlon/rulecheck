@@ -12,6 +12,9 @@ module Searchterm.Interface.Core
   , ModName (..)
   , RuleName (..)
   , Ty (..)
+  , ConPat (..)
+  , Pat (..)
+  , PatPair (..)
   , Tm (..)
   , TyF (..)
   , TmF (..)
@@ -45,6 +48,7 @@ import Data.Text (Text)
 import Prettyprinter (Pretty (..), (<+>))
 import qualified Prettyprinter as P
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
+import Data.List (intercalate)
 
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }
@@ -93,12 +97,23 @@ data Ty a =
   | TyFun (Ty a) (Ty a)
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
--- -- | Constructor pattern for term case statements
--- data Pat b tm = Pat
---   { patCon :: !TmName
---   , patVars :: !(Seq b)
---   , patBody :: !tm
---   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+-- | Constructor pattern for term case statements
+data ConPat b = ConPat
+  { conPatName :: !TmName
+  , conPatVars :: !(Seq b)
+  } deriving stock (Eq, Ord, Show)
+
+-- | A pattern - for now we only generate constructor patterns
+-- but this could be enriched with literals, wildcards, etc
+newtype Pat b = Pat { patCon :: ConPat b }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord)
+
+-- | A "pattern pair" - LHS and RHS of a case match
+data PatPair b tm = PatPair
+  { ppPat :: !(Pat b)
+  , ppBody :: !tm
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 -- | Term with a hole for variables (can later be filled in with indices)
 data Tm b a =
@@ -106,8 +121,8 @@ data Tm b a =
   | TmKnown !TmName
   | TmApp (Tm b a) (Tm b a)
   | TmLam !b (Tm b a)
-  -- | TmLet !b (Tm b a) (Tm b a)
-  -- | TmCase (Tm b a) !(Seq (Pat b (Tm b a)))
+  | TmLet !b (Tm b a) (Tm b a)
+  | TmCase (Tm b a) !(Seq (PatPair b (Tm b a)))
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 -- The TH here punches a hole in the recursive parts too, so we get simple folds for types and terms
@@ -151,12 +166,23 @@ instance Pretty a => ParenPretty (Ty a) where
 instance Pretty a => Pretty (Ty a) where
   pretty = parenPrettyToDoc
 
+instance Pretty b => Pretty (Pat b) where
+  pretty (Pat (ConPat cn bs)) = P.hsep (pretty cn: fmap pretty (toList bs))
+
 instance (Pretty b, Pretty a, ParenPretty r) => ParenPretty (TmF b a r) where
   parenPretty s = \case
     TmFreeF a -> parenAtom a
     TmKnownF n -> parenAtom n
-    TmAppF wl wr -> parenList True [parenPretty s wl, parenPretty s wr]
-    TmLamF b w -> parenList True [parenDoc ("\\" <> pretty b), "->", parenPretty s w]
+    TmAppF wl wr -> parenList True [parenPretty (Nothing:s) wl, parenPretty (Nothing:s) wr]
+    TmLamF b w -> parenList True [parenDoc ("\\" <> pretty b), "->", parenPretty (Nothing:s) w]
+    TmLetF b arg body -> parenList True
+      ["let", parenAtom b, "=", parenPretty (Nothing:s) arg, "in", parenPretty (Nothing:s) body]
+    TmCaseF scrut pairs ->
+      let start = ["case", parenPretty (Nothing:s) scrut, "of", "{"]
+          mid = intercalate [";"] [[parenDoc (pretty pat), "=>", parenPretty (Nothing:s) body] | PatPair pat body <- toList pairs]
+          end = ["}"]
+          parts = start ++ mid ++ end
+      in parenList True parts
 
 instance (Pretty b, Pretty a, ParenPretty r) => Pretty (TmF b a r) where
   pretty = parenPrettyToDoc
