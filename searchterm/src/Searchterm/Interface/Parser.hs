@@ -7,7 +7,7 @@ module Searchterm.Interface.Parser where
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (throwIO)
-import Control.Monad (void)
+import Control.Monad (void, join)
 import Data.Char (isAlphaNum, isSpace)
 import Data.Foldable (toList)
 import Data.List (nub)
@@ -83,36 +83,62 @@ isIdentChar c = isAlphaNum c || c == '_'
 isSymChar :: Char -> Bool
 isSymChar c = not (isSpace c || c == ')')
 
-upperP :: P Text
-upperP = lexP $ do
+-- Raw `UpperIdent_string` (no post-lex)
+rawUpperP :: P Text
+rawUpperP = do
   x <- P MPC.upperChar
   xs <- many (satisfy isIdentChar)
   pure (T.pack (x:xs))
 
-lowerP :: P Text
-lowerP = lexP $ do
+-- Raw `lowerIdent_string` (no post-lex)
+rawLowerP :: P Text
+rawLowerP = do
   x <- P MPC.lowerChar
   xs <- many (satisfy isIdentChar)
   pure (T.pack (x:xs))
 
-identP :: P Text
-identP = lexP $ do
+-- Raw module prefix `UpperIdent.UpperIdent.` (no post-lex)
+rawModPrefixP :: P Text
+rawModPrefixP = do
+  ms <- many (rawUpperP <* periodP)
+  pure $ case ms of
+    [] -> ""
+    _ -> T.concat (join [[m, "."] | m <- ms])
+
+-- Raw identifier (`Up...` or `low...`)
+rawIdentP :: P Text
+rawIdentP = do
   x <- P MPC.letterChar
   xs <- many (satisfy isIdentChar)
   pure (T.pack (x:xs))
+
+withModPrefixP :: P Text -> P Text
+withModPrefixP p = (<>) <$> rawModPrefixP <*> p
+
+upperP :: P Text
+upperP = lexP (withModPrefixP rawUpperP)
+
+lowerP :: P Text
+lowerP = lexP (withModPrefixP rawLowerP)
+
+identP :: P Text
+identP = lexP (withModPrefixP rawIdentP)
+
+-- Symbol with module prefix - inside parens like "(Mod.++)"
+symP :: P Text
+symP = lexP $ do
+  -- Don't lex parens here because no space allowed
+  _ <- P (MPC.char '(')
+  ms <- rawModPrefixP
+  xs <- many (satisfy isSymChar)
+  _ <- P (MPC.char ')')
+  pure (T.pack ("(" ++ T.unpack ms ++ xs ++ ")"))
 
 tyNameP :: P TyName
 tyNameP = fmap TyName upperP
 
 tmNameP :: P TmName
-tmNameP = lexP $ ident <|> sym where
-  ident = fmap TmName identP
-  sym = do
-    -- Don't lex parens here because no space allowed
-    _ <- P (MPC.char '(')
-    xs <- many (satisfy isSymChar)
-    _ <- P (MPC.char ')')
-    pure (TmName (T.pack ("(" ++ xs ++ ")")))
+tmNameP = fmap TmName (identP <|> symP)
 
 tyVarP :: P TyVar
 tyVarP = fmap TyVar lowerP
