@@ -377,36 +377,20 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
         -- Unify constraints (second, to help argument search)
         fairTraverse_ topUnifyStraint straints
         -- It unifies. Now we know that if we can find args we can satsify the goal.
-        -- TODO remove this:
-        -- argTms <- fairTraverse recSearchUniq addlCtx
-        -- pure (mkApp (TmKnown name) argTms)
-        -- TODO replace with this:
-        traceM ("** Search let app for: " ++ show addlCtx)
         searchLetApp (TmKnown name) addlCtx
 
 -- | Search for an application of the given types.
 -- We search left to right, adding arguments to the context (in let binds) in the hope that
 -- it's possible to re-use some elements of the context to solve later args.
 searchLetApp :: TmFound -> Seq TyUniq -> SearchM TmFound
-searchLetApp fnTm us = res where
-  res = do
-    ctx <- asks envCtx
-    traceM ("Starting with ctx " ++ show ctx)
-    go id Empty (toList us)
+searchLetApp fnTm us = go id Empty (toList us) where
   go !outFn !argNames = \case
     [] -> do
       ctx <- asks envCtx
-      traceM ("Final letapp context: " ++ show ctx)
-      traceM ("Final letapp args: " ++ show argNames)
       pure (outFn (mkApp fnTm (fmap (TmFree . unsafeIndexSeqWith (\x (b, _) -> b == x) ctx) argNames)))
     a:rest -> do
-      traceM ("Searching for: " ++ show a)
-      ctx <- asks envCtx
-      traceM ("With ctx: " ++ show ctx)
       recSearchUniq a >>- \b -> do
         x <- freshTmBinder
-        ctx' <- asks envCtx
-        traceM ("Binding " ++ show x ++ " as " ++ show b ++ " in " ++ show ctx')
         local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (outFn . TmLet x b) (argNames :|> x) rest)
 
 -- | Search for a term matching the current goal type using a number of interleaved strategies.

@@ -44,7 +44,7 @@ maxSearchDepth :: Int
 maxSearchDepth = 5
 
 maxSearchResults :: Int
-maxSearchResults = 10000
+maxSearchResults = 1000
 
 printAlphaTm :: AlphaTm -> Text
 printAlphaTm = printTerm . fmap (TmVar . T.pack . ("?" ++) . show . unIndex) . unAlphaTm
@@ -135,7 +135,7 @@ strainRecDeclSrc = DeclSrcList
 testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "basic" basicDeclSrc "Int"
-    ["zero", "one", "(plus zero one)", "(plus (plus one zero) zero)"]
+    ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
     ["(plus zero)", "plus", "(zero plus)"]
   , testFinds "strain simple" strainSimpleDeclSrc "Int"
     ["(quux foo bar)"]
