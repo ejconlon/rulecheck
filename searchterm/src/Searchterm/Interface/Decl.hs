@@ -17,9 +17,9 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), TyScheme (..),
-                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials)
+                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials, TyName, Ty)
 import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
-import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..))
+import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..), ConsLine (..))
 
 -- | A declared term (essentially name and type scheme)
 data Decl = Decl
@@ -31,15 +31,27 @@ data Decl = Decl
   -- ^ If this is a function declaration, types of partial applications
   } deriving stock (Eq, Ord, Show)
 
+-- | A contructor signature - name of the constructor and type information
+data ConSig = ConSig
+  { csName :: !TmName
+  -- ^ Constructor name
+  , csScheme :: !(TyScheme Index)
+  -- ^ Type scheme of the constructed type (does not include arguments to constructor)
+  , csVars :: !(Seq (Ty Index))
+  -- ^ Vars with type indices possibly bound in the scheme
+  } deriving stock (Eq, Ord, Show)
+
 data DeclSet = DeclSet
   { dsMap :: !(Map TmName Decl)
   -- ^ Map from term to its definition
   , dsDeps :: !(Map ClsName (Seq (InstScheme Index)))
   -- ^ Map from class name to instance schemes
+  , dsCons :: !(Map TyName (Seq ConSig))
+  -- ^ Map from type name to constructors
   } deriving stock (Eq, Show)
 
 emptyDeclSet :: DeclSet
-emptyDeclSet = DeclSet Map.empty Map.empty
+emptyDeclSet = DeclSet Map.empty Map.empty Map.empty
 
 data DeclErr =
     DeclErrNameless !(NamelessErr TyVar)
@@ -84,10 +96,14 @@ insertInstM is = do
       let cn = instName (instSchemeBody is')
       modify' (\ds -> ds { dsDeps = Map.alter (Just . maybe (Seq.singleton is') (:|> is')) cn (dsDeps ds) })
 
+insertConsM :: TyName -> Seq TmName -> DeclM ()
+insertConsM _tn _cns = pure () -- TODO
+
 insertLineM :: Line -> DeclM ()
 insertLineM = \case
     LineFunc (FuncLine n ts) -> insertTmDeclM n ts
     LineInst (InstLine is) -> insertInstM is
+    LineCons (ConsLine tm cns) -> insertConsM tm cns
     -- Do we need to add anything else to the decl set for search?
     _ -> pure ()
 

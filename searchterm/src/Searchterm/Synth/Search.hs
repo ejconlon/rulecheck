@@ -393,6 +393,20 @@ searchLetApp fnTm us = go id Empty (toList us) where
         x <- freshTmBinder
         local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (outFn . TmLet x b) (argNames :|> x) rest)
 
+destructFits :: TyUniq -> SearchM TmFound
+destructFits goalKey = traceScopeM "Destruct fit" $ do
+  guardDepth
+  (_, goalVal) <- lookupGoal goalKey
+  case goalVal of
+    TyConF tn _ -> do
+      decls <- asks envDecls
+      case Map.lookup tn (dsCons decls) of
+        -- Only consider cases with more than one alternative.
+        -- Otherwise the constructor will be tried in fun elim.
+        Just cons | Seq.length cons > 1 -> empty  -- TODO
+        _ -> empty
+    _ -> empty
+
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
 topSearchUniq :: TyUniq -> SearchM TmFound
 topSearchUniq goalKey = res where
@@ -401,7 +415,7 @@ topSearchUniq goalKey = res where
   --   If so, search for the arg of the function and return the application. (coq apply?)
   -- * Case split on all constructors of a datatype. (coq destruct?)
   -- Really, just look up the standard coq tactics and do what they do.
-  fits = [ctxFits goalKey, exactDeclFits goalKey, funIntroFits goalKey, funElimFits goalKey]
+  fits = [ctxFits goalKey, exactDeclFits goalKey, funIntroFits goalKey, funElimFits goalKey, destructFits goalKey]
   res = traceScopeM ("Key search: " ++ show (unTyUniq goalKey)) (interleaveAll fits)
 
 recSearchUniq :: TyUniq -> SearchM TmFound
