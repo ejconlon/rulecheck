@@ -1,12 +1,14 @@
 module Rulecheck.Typecheck
   ( getBinds
   , getNameUnsafe
+  , getModNameUnsafe
   , getType
   , getTypecheckedRuleDecls
   , getTypeForNameUnsafe
   , typecheck
   ) where
 
+import Control.Monad.IO.Class (liftIO)
 import Data.List (find)
 import Data.Maybe (fromJust)
 import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, ModSummary, ModuleName, Name, ParsedModule (pm_mod_summary),
@@ -32,10 +34,14 @@ typecheck filename = do
   _      <- loadFile (filename, filename)
   graph  <- getModuleGraph
   parsed <- mapM parseModule (mgModSummaries graph)
+  liftIO $ putStrLn $ "Parsed " ++ show (length parsed) ++ " modules from file " ++ filename
   mapM typecheckModule parsed
 
 tcmName :: TypecheckedModule -> ModuleName
 tcmName = moduleName . ms_mod . pm_mod_summary . tm_parsed_module
+
+getModNameUnsafe :: TypecheckedModule -> String
+getModNameUnsafe mod = showSDocUnsafe (ppr (tcmName mod))
 
 -- | For debugging only
 getNameUnsafe :: TypecheckedModule -> String -> Maybe Name

@@ -1,8 +1,10 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (FromJSON, eitherDecodeFileStrict)
 import Data.Char
+import Data.List (isSuffixOf)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
@@ -11,7 +13,11 @@ import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering (outputString)
 import Rulecheck.Rule
 import Rulecheck.RuleExtraction
+import System.IO (hPutStrLn, stderr)
 import System.Directory
+
+logFile :: String
+logFile = "log.txt"
 
 data PackageDescription =
   PackageDescription
@@ -58,6 +64,7 @@ generateFile opts = do
   modContents <- getModContents opts
   writeFile (genModFile opts) modContents
 
+demoGenOpts :: GenerateOptions
 demoGenOpts = GenerateOptions
   "demo-domain/src/DemoDomain.hs"
   "DemoTest.Generated.DemoDomain"
@@ -71,6 +78,31 @@ ensureFileExists path = do
         then error ("File " ++ path ++ " does not exist")
         else return ()
 
+filesToSkip :: [String]
+filesToSkip =
+  [ -- Only rules are for lower version, ignore for now
+    "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs"
+  , "Agda-2.6.2.2/src/full/Agda/TypeChecking/Monad/Base.hs" -- Precedence parsing error
+  , "Agda-2.6.2.2/src/data/MAlonzo/src/MAlonzo/RTE.hs" -- Cabal error (unknown target)
+  , "blaze-builder-0.4.2.2/benchmarks/LazyByteString.hs" -- Cabal error (unknown target)
+     -- Only rules are for lower version, ignore for now
+  , "base-compat-0.11.2/src/Data/List/Compat.hs"
+  , "boring-0.2/src/Data/Boring.hs" -- This rule is in a comment
+    -- Only rules are for lower version
+  , "bytestring-builder-0.10.8.2.0/src/Data/ByteString/Short/Internal.hs"
+    -- Could not load module (hidden package)
+  , "bytestring-builder-0.10.8.2.0/src/Data/ByteString/Builder/Prim.hs"
+  , "clash-lib-1.6.4/src/Clash/Util/Interpolate.hs" -- Could not resolve dependencies
+  , "clash-prelude-1.6.4/src/Clash/Sized/Vector.hs" -- Lots of type errors
+  ]
+
+shouldSkip :: FilePath -> Bool
+shouldSkip path = any (`isSuffixOf` path) filesToSkip
+
+assert :: Monad m => Bool -> String -> m ()
+assert True _    = return ()
+assert False msg = error msg
+
 processPackage :: String -> PackageDescription -> IO ()
 processPackage prefix pkg = do
   putStrLn $ "Processing " ++ name pkg
@@ -81,21 +113,37 @@ processPackage prefix pkg = do
       r <- ruleSideDoc rule RHS
       return $ l $+$ text "->" $+$ r
     go :: FilePath -> IO ()
-    go path = do
+    go path | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
+    go path | otherwise = do
       ensureFileExists path
       putStrLn $ "Processing file at " ++ path
       rulesStr <- cradleGhcM path $ do
-         rules <- getRulesFromFile path
-         docs  <- mapM ruleDoc rules
-         outputString docs
+        rules <- getRulesFromFile path
+        if length rules == 0
+          then liftIO $ appendFile logFile $ "No rules detected in file " ++ path
+          else return ()
+        docs  <- mapM ruleDoc rules
+        outputString docs
       putStrLn rulesStr
+
+startFromPackage :: Maybe String
+startFromPackage = Just "clash-prelude"
+
+packagesToSkip :: [String]
+packagesToSkip = ["clash-prelude"]
 
 main :: IO ()
 main = do
   jsonResult :: Either String [PackageDescription] <- eitherDecodeFileStrict "../auto/foo"
   case jsonResult of
     Left error         -> putStrLn error
-    Right descriptions -> mapM_ (processPackage "/Users/zgrannan/haskell-packages") descriptions
+    Right descriptions ->
+      mapM_ (processPackage "/Users/zgrannan/haskell-packages") toProcess
+      where
+        skip package = elem (name package) packagesToSkip
+        toProcess = filter (not . skip) $ case startFromPackage of
+            Just p  -> dropWhile ((p /=) . name) descriptions
+            Nothing -> descriptions
   -- Placeholder - just generate our fixed target for now
   -- generateFile demoGenOpts
   putStrLn "Done"
