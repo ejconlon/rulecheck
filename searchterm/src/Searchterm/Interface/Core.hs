@@ -35,6 +35,8 @@ module Searchterm.Interface.Core
   , Partial (..)
   , partialToTy
   , tyToPartials
+  , unrollTy
+  , explodeTy
 ) where
 
 import Control.Monad (join)
@@ -301,6 +303,23 @@ tyToPartials = onOuter where
   onInner as t = Partial as t :<| case t of
     TyFun x y -> onInner (as :|> x) y
     _ -> Empty
+
+-- | "Unroll" argument types off the front of a function type
+unrollTy :: Ty a -> (Ty a, Seq (Ty a))
+unrollTy = go Empty where
+  go !args = \case
+    TyFun arg body -> go (args :|> arg) body
+    nonFun -> (nonFun, args)
+
+-- | "Explode" a type scheme into result scheme and function arguments.
+-- NOTE: Forbids any constraints in the scheme.
+explodeTy :: TyScheme a -> Maybe (TyScheme a, Seq (Ty a))
+explodeTy (TyScheme (Forall tvs (Strained is tyStart))) =
+  if Seq.null is
+    then
+      let (tyEnd, tyArgs) = unrollTy tyStart
+      in Just (TyScheme (Forall tvs (Strained Empty tyEnd)), tyArgs)
+    else Nothing
 
 instance Pretty a => Pretty (Partial a) where
   pretty = pretty . partialToTy

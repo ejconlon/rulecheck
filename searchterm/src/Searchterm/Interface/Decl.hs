@@ -17,7 +17,7 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), TyScheme (..),
-                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials, TyName, Ty)
+                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials, TyName, Ty, explodeTy)
 import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
 import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..), ConsLine (..))
 
@@ -54,10 +54,12 @@ emptyDeclSet :: DeclSet
 emptyDeclSet = DeclSet Map.empty Map.empty Map.empty
 
 data DeclErr =
-    DeclErrNameless !(NamelessErr TyVar)
-  | DeclErrDupe
-  | DeclErrNamed !TmName DeclErr
+    DeclErrNameless !(Maybe TmName) !(NamelessErr TyVar)
+  | DeclErrDupeTm !TmName
+  | DeclErrDupeCons !TyName
   | DeclErrInst !(Inst TyVar) DeclErr
+  | DeclErrMissingCon !TmName
+  | DeclErrForbidStraint !TmName
   deriving stock (Eq, Ord, Show)
 
 instance Exception DeclErr
@@ -65,7 +67,7 @@ instance Exception DeclErr
 mkDecl :: TmName -> TyScheme TyVar -> Either DeclErr Decl
 mkDecl n s = do
   case namelessType s of
-    Left e -> Left (DeclErrNameless e)
+    Left e -> Left (DeclErrNameless (Just n) e)
     Right s' -> do
       let ps = tyToPartials (tySchemeBody s')
       pure (Decl n s' ps)
@@ -81,23 +83,42 @@ execDeclM m = fmap snd . runDeclM m
 insertTmDeclM :: TmName -> TyScheme TyVar -> DeclM ()
 insertTmDeclM n s =
   case mkDecl n s of
-    Left e -> throwError (DeclErrNamed n e)
+    Left e -> throwError e
     Right d -> do
       m <- gets dsMap
       case Map.lookup n m of
-        Just _ -> throwError (DeclErrNamed n DeclErrDupe)
+        Just _ -> throwError (DeclErrDupeTm n)
         Nothing -> modify' (\ds -> ds { dsMap = Map.insert n d (dsMap ds) })
 
 insertInstM :: InstScheme TyVar -> DeclM ()
 insertInstM is = do
   case namelessInst is of
-    Left e -> throwError (DeclErrInst (instSchemeBody is) (DeclErrNameless e))
+    Left e -> throwError (DeclErrInst (instSchemeBody is) (DeclErrNameless Nothing e))
     Right is' -> do
       let cn = instName (instSchemeBody is')
       modify' (\ds -> ds { dsDeps = Map.alter (Just . maybe (Seq.singleton is') (:|> is')) cn (dsDeps ds) })
 
+declToConSig :: Decl -> DeclM ConSig
+declToConSig (Decl nm ty _) =
+  case explodeTy ty of
+    Nothing -> throwError (DeclErrForbidStraint nm)
+    Just (tyEnd, argTys) -> pure (ConSig nm tyEnd argTys)
+
+prepSigM :: TmName -> DeclM ConSig
+prepSigM cn = do
+  tms <- gets dsMap
+  case Map.lookup cn tms of
+    Nothing -> throwError (DeclErrMissingCon cn)
+    Just decl -> declToConSig decl
+
 insertConsM :: TyName -> Seq TmName -> DeclM ()
-insertConsM _tn _cns = pure () -- TODO
+insertConsM tn cns = do
+  cons <- gets dsCons
+  case Map.lookup tn cons of
+    Just _ -> throwError (DeclErrDupeCons tn)
+    Nothing -> do
+      sigs <- traverse prepSigM cns
+      modify' (\ds -> ds { dsCons = Map.insert tn sigs cons })
 
 insertLineM :: Line -> DeclM ()
 insertLineM = \case

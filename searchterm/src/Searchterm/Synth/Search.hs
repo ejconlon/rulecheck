@@ -398,12 +398,19 @@ destructFits goalKey = traceScopeM "Destruct fit" $ do
   guardDepth
   (_, goalVal) <- lookupGoal goalKey
   case goalVal of
-    TyConF tn _ -> do
-      decls <- asks envDecls
-      case Map.lookup tn (dsCons decls) of
-        -- Only consider cases with more than one alternative.
-        -- Otherwise the constructor will be tried in fun elim.
-        Just cons | Seq.length cons > 1 -> empty  -- TODO
+    -- Try to satisfy a function goal with data arg by destructing
+    TyFunF argKey _retKey -> do
+      (_, argVal) <- lookupGoal argKey
+      case argVal of
+        -- Can only destruct type constructors
+        TyConF tn _ -> do
+          decls <- asks envDecls
+          case Map.lookup tn (dsCons decls) of
+            -- And can only destruct if we know the data constructors
+            Just _cons -> do
+              -- error "TODO"
+              empty
+            _ -> empty
         _ -> empty
     _ -> empty
 
