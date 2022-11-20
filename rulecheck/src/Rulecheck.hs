@@ -4,7 +4,7 @@ module Rulecheck where
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (FromJSON, eitherDecodeFileStrict)
 import Data.Char
-import Data.List (isSuffixOf)
+import Data.List (isInfixOf)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
@@ -40,17 +40,8 @@ data GenerateOptions =
     , genModFile :: FilePath
     }
 
+capitalize :: String -> String
 capitalize (h : t) = toUpper h : t
-
-getOptions :: PackageDescription -> [GenerateOptions]
-getOptions desc = map go (files desc) where
-
-  baseModName = capitalize (name desc)
-  genModName  = "Rulecheck.Generated." ++ baseModName
-  genModFile  = baseModName ++ ".hs"
-
-  go :: FilePath -> GenerateOptions
-  go f = GenerateOptions f genModName (Set.fromList undefined) genModFile
 
 getModContents :: GenerateOptions -> IO String
 getModContents (GenerateOptions {srcFile, genModName, genDeps, genModFile}) =
@@ -71,6 +62,15 @@ demoGenOpts = GenerateOptions
   (Set.fromList ["DemoDomain"])
   "demo-test/test/DemoTest/Generated/DemoDomain.hs"
 
+getGenerateOptions :: FilePath -> Int -> PackageDescription -> GenerateOptions
+getGenerateOptions path num desc =
+  GenerateOptions
+    path
+    ("RuleCheck.Generated.Test" ++ show num)
+    (Set.fromList ["Test"])
+    (name desc ++ "-test/RuleCheck/Generated/Test" ++ show num ++ ".hs")
+
+
 ensureFileExists :: FilePath -> IO ()
 ensureFileExists path = do
       exists <- doesFileExist path
@@ -83,8 +83,8 @@ filesToSkip =
   [ -- Only rules are for lower version, ignore for now
     "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs"
   , "Agda-2.6.2.2/src/full/Agda/TypeChecking/Monad/Base.hs" -- Precedence parsing error
-  , "Agda-2.6.2.2/src/data/MAlonzo/src/MAlonzo/RTE.hs" -- Cabal error (unknown target)
-  , "blaze-builder-0.4.2.2/benchmarks/LazyByteString.hs" -- Cabal error (unknown target)
+  , "Agda-2.6.2.2/src/data/MAlonzo/src/MAlonzo/RTE.hs" -- ???
+  , "blaze-builder-0.4.2.2/benchmarks/LazyByteString.hs" -- Not a source file
      -- Only rules are for lower version, ignore for now
   , "base-compat-0.11.2/src/Data/List/Compat.hs"
   , "boring-0.2/src/Data/Boring.hs" -- This rule is in a comment
@@ -94,10 +94,13 @@ filesToSkip =
   , "bytestring-builder-0.10.8.2.0/src/Data/ByteString/Builder/Prim.hs"
   , "clash-lib-1.6.4/src/Clash/Util/Interpolate.hs" -- Could not resolve dependencies
   , "clash-prelude-1.6.4/src/Clash/Sized/Vector.hs" -- Lots of type errors
+  , "fourmolu-0.4.0.0/data/examples/"               -- These aren't source files
+  , "haskell-src-exts-1.23.1/tests/examples/"       -- These aren't source files
+  , "hasktags-0.72.0/testcases/"                    -- These aren't source files
   ]
 
 shouldSkip :: FilePath -> Bool
-shouldSkip path = any (`isSuffixOf` path) filesToSkip
+shouldSkip path = any (`isInfixOf` path) filesToSkip
 
 assert :: Monad m => Bool -> String -> m ()
 assert True _    = return ()
@@ -106,31 +109,45 @@ assert False msg = error msg
 processPackage :: String -> PackageDescription -> IO ()
 processPackage prefix pkg = do
   putStrLn $ "Processing " ++ name pkg
-  mapM_ go (map (packageFilePath prefix pkg) $ files pkg)
+  mapM_ go (zip (map (packageFilePath prefix pkg) $ files pkg) [1..])
   where
     ruleDoc rule = do
       l <- ruleSideDoc rule LHS
       r <- ruleSideDoc rule RHS
       return $ l $+$ text "->" $+$ r
-    go :: FilePath -> IO ()
-    go path | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
-    go path | otherwise = do
+    go :: (FilePath, Int) -> IO ()
+    go (path, n) | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
+    go (path, n) | otherwise = do
       ensureFileExists path
       putStrLn $ "Processing file at " ++ path
-      rulesStr <- cradleGhcM path $ do
-        rules <- getRulesFromFile path
-        if length rules == 0
-          then liftIO $ appendFile logFile $ "No rules detected in file " ++ path
-          else return ()
-        docs  <- mapM ruleDoc rules
-        outputString docs
-      putStrLn rulesStr
+      generateFile (getGenerateOptions path n pkg)
+
+
+      -- Printing
+      -- rulesStr <- cradleGhcM path $ do
+      --   rules <- getRulesFromFile path
+      --   if length rules == 0
+      --     then liftIO $ appendFile logFile $ "No rules detected in file " ++ path
+      --     else return ()
+      --   docs  <- mapM ruleDoc rules
+      --   outputString docs
+      -- putStrLn rulesStr
 
 startFromPackage :: Maybe String
-startFromPackage = Just "clash-prelude"
+startFromPackage = Just "fastmath"
 
 packagesToSkip :: [String]
-packagesToSkip = ["clash-prelude"]
+packagesToSkip =
+  [ "clash-prelude"    -- Appears to have compilation issues
+  , "doctest"          -- Cabal unknown target
+  , "doctest-parallel" -- Cabal unknown target
+  , "flat"             -- cannot satisfy -package dlist-0.8.0.7
+  , "foundation"       -- Cabal cannot find basement package
+  , "ghc-exactprint"   -- Cannot find various modules
+  , "ghc-lib"          -- Issue with native headers (i.e missing ffitarget_x86.h)
+  , "ghc-lib-parser"   -- Issue with native headers (i.e missing ffitarget_x86.h)
+  , "leveldb-haskell"  -- Requires local installation of leveldb
+  ]
 
 main :: IO ()
 main = do

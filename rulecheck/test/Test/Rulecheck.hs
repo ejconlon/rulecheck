@@ -61,14 +61,14 @@ testGetParsedRuleDecls = testCase "getParsedRuleDecls" $ do
 
 testGetNameUnsafe :: TestTree
 testGetNameUnsafe = testCase "getName" $ do
-  tcm <- cradleGhcM demoDomainFile (typecheck demoDomainFile)
+  [tcm] <- cradleGhcM demoDomainFile (typecheck demoDomainFile)
   isJust (getNameUnsafe tcm ".*") @?= True
   isJust (getNameUnsafe tcm "NONEXISTANT") @?= False
 
 testGetTypeForNameUnsafe :: TestTree
 testGetTypeForNameUnsafe = testCase "getTypeForName" $ do
   expected <- cradleGhcM demoDomainFile$ do
-    tcm      <- typecheck demoDomainFile
+    [tcm]  <- typecheck demoDomainFile
     typ      <- getTypeForNameUnsafe tcm ".*"
     outputString (fromJust typ)
   expected @?= "main:DemoDomain.Expr\n-> main:DemoDomain.Expr -> main:DemoDomain.Expr"
@@ -76,7 +76,7 @@ testGetTypeForNameUnsafe = testCase "getTypeForName" $ do
 testGetRule :: TestTree
 testGetRule = testCase "getRule" $ do
   cradleGhcM demoDomainFile $ do
-    tcm      <- typecheck demoDomainFile
+    [tcm]      <- typecheck demoDomainFile
     let [rule1, _] = getTypecheckedRuleDecls tcm
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
@@ -93,7 +93,7 @@ testGetRule = testCase "getRule" $ do
 testRuleSideDoc :: TestTree
 testRuleSideDoc = testCase "ruleSidedoc" $ do
   cradleGhcM demoDomainFile $ do
-    tcm <- typecheck demoDomainFile
+    [tcm] <- typecheck demoDomainFile
     let [rule1, _] = getTypecheckedRuleDecls tcm
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
