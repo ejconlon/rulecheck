@@ -132,6 +132,16 @@ strainRecDeclSrc = DeclSrcList
   , "quux :: Foo c => c -> Int"
   ]
 
+destructDeclSrc :: DeclSrc
+destructDeclSrc = DeclSrcList
+  [ "data Either a b"
+  , "Left :: a -> Either a b"
+  , "Right :: b -> Either a b"
+  , "constructors Either Left Right"
+  , "showChar :: Char -> String"
+  , "showInt :: Int -> String"
+  ]
+
 testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "basic" basicDeclSrc "Int"
@@ -143,5 +153,9 @@ testSearch = testGroup "Search"
   , testFinds "strain rec" strainRecDeclSrc "Int"
     ["(quux foo)"]
     ["(quux bar)"]
+  -- TODO fix this
+  -- , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
+  --   ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
+  --   ["showChar"]
   -- TODO more tests!!! But the pattern is clear...
   ]

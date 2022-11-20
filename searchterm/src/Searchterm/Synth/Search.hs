@@ -26,7 +26,7 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), Ty,
-                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..))
+                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..), ConPat (..), Pat (..))
 import Searchterm.Interface.Decl (Decl (..), DeclSet (..), ConSig (..))
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Searchterm.Synth.UnionMap (UnionMap)
@@ -216,14 +216,14 @@ insertStraint ctx _inst@(Inst cn tys) =  do
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
-insertTyScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, TyUniq, TyUnify)
+insertTyScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
 insertTyScheme onVar _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
   -- traceM ("*** INSERT TY SCHEME")
   -- traceM ("Ty: " ++ prettyShow ts)
   ctx <- insertTyVars onVar tvs
   ius <- for cons (insertStraint ctx)
   (u, v) <- insertTy ctx ty
-  pure (ius, u, v)
+  pure (ius, ctx, u, v)
 
 -- | Used in 'insertScheme' to do the type insertion.
 insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
@@ -257,7 +257,7 @@ insertTy ctx ty = res where
         pure (k, v)
 
 -- | Instantiates the scheme with metavars
-insertMetaScheme :: TyScheme Index -> SearchM (Seq StraintUniq, TyUniq, TyUnify)
+insertMetaScheme :: TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
 insertMetaScheme = insertTyScheme TyVertMeta
 
 -- | Inserts a partial application into the graph.
@@ -327,7 +327,7 @@ exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
     let candVal = project (tySchemeBody (declType decl))
     whenAlt (mightAlign goalVal candVal) $ do
       -- Ok, it might align. Add the type to the local search env and see if it really does.
-      (candStraints, candKey, _) <- insertMetaScheme (declType decl)
+      (candStraints, _, candKey, _) <- insertMetaScheme (declType decl)
       fairTraverse_ topUnifyStraint candStraints
       _ <- tryAlignTy goalKey candKey
       pure (TmKnown name)
@@ -413,9 +413,23 @@ destructFits goalKey = traceScopeM "Destruct fit" $ do
         _ -> empty
     _ -> empty
 
--- | TODO fill this in
+-- | Search for patterns matching the given LHS/RHS with the given constructor
 searchPatPair :: TyUniq -> TyUniq -> ConSig -> SearchM (PatPair TmUniq TmFound)
-searchPatPair _argKey _retKey (ConSig _nm _ty _bs) = empty -- error "TODO"
+searchPatPair argKey retKey (ConSig nm ty bs) = do
+  -- Insert the type of the LHS
+  (_, lhsCtx, lhsKey, _) <- insertMetaScheme ty
+  -- Unify the LHS with the arg
+  _ <- tryAlignTy argKey lhsKey
+  -- Create tm and ty binders for arguments
+  newCtx <- for bs $ \b -> do
+    x <- freshTmBinder
+    (y, _) <- insertTy lhsCtx b
+    pure (x, y)
+  let tmBinders = fmap fst newCtx
+  -- Add them to the context and search for body terms
+  local (\env -> env { envCtx = envCtx env <> newCtx }) $
+    flip fmap (recSearchUniq retKey) $ \body ->
+      PatPair (Pat (ConPat nm tmBinders)) body
 
 -- | Search for a lambda case term matching the given argKey -> retKey function type
 -- using the given constructors.
@@ -439,12 +453,21 @@ searchCase argKey retKey cons = res where
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
 topSearchUniq :: TyUniq -> SearchM TmFound
 topSearchUniq goalKey = res where
-  -- TODO add the following search strategies:
-  -- * Given function in context, see if the result of the function helps you solve the goal.
-  --   If so, search for the arg of the function and return the application. (coq apply?)
-  -- * Case split on all constructors of a datatype. (coq destruct?)
-  -- Really, just look up the standard coq tactics and do what they do.
-  fits = [ctxFits goalKey, exactDeclFits goalKey, funIntroFits goalKey, funElimFits goalKey, destructFits goalKey]
+  fits =
+    [ ctxFits goalKey
+    -- ^ Solve with a variable in the context
+    , exactDeclFits goalKey
+    -- ^ Solve with a known term
+    , funIntroFits goalKey
+    -- ^ Solve a function goal by adding arg to context and searching
+    -- for a term of the return type.
+    , funElimFits goalKey
+    -- ^ Solve by looking at partial applications of known terms s.t.
+    -- the return type matches the goal, then search for args for the application.
+    -- TODO Also look at partial applications of functions in the context.
+    , destructFits goalKey
+    -- ^ Solve a function goal by pattern matching on the argument type.
+    ]
   res = traceScopeM ("Key search: " ++ show (unTyUniq goalKey)) (interleaveAll fits)
 
 recSearchUniq :: TyUniq -> SearchM TmFound
@@ -479,7 +502,7 @@ recUnifyStraint = decDepth . topUnifyStraint
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
 searchScheme :: TyScheme Index -> SearchM TmFound
 searchScheme scheme = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
-  (goalStraints, goalKey, _) <- insertTyScheme TyVertSkolem scheme
+  (goalStraints, _, goalKey, _) <- insertTyScheme TyVertSkolem scheme
   fairTraverse_ topUnifyStraint goalStraints
   topSearchUniq goalKey
 

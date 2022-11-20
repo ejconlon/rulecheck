@@ -48,3 +48,9 @@ testParse = testCase "parse" $ do
     TmCase (TmFree "x") (Seq.fromList [mkPP "Bar" ["y"] (TmFree "x"), mkPP "Baz" ["z"] (TmFree "z")])
 
   assertParseTm "(let x = y in x)" (TmLet "x" (TmFree "y") (TmFree "x"))
+
+  assertParseTm "(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))" $
+    TmLam "x"  $ TmCase (TmFree "x") $ Seq.fromList
+      [ mkPP "Left" ["y"] (TmApp (TmFree "showChar") (TmFree "y"))
+      , mkPP "Right" ["z"] (TmApp (TmFree "showInt") (TmFree "z"))
+      ]
