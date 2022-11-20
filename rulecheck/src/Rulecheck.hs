@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
@@ -12,6 +13,7 @@ import Rulecheck.Rendering (outputString)
 import Rulecheck.Rule
 import Rulecheck.RuleExtraction
 import System.Directory
+import System.Environment (getArgs)
 
 packageDescriptionsFile :: FilePath
 packageDescriptionsFile = "./packageDescriptions.json"
@@ -166,16 +168,23 @@ packagesToSkip =
   , "type-of-html"     -- Strange error (duplicate definition of symbol in runtime linking)
   ]
 
-main :: IO ()
-main = do
-  jsonResult :: Either String [PackageDescription] <- eitherDecodeFileStrict packageDescriptionsFile
+getPackagesToProcess :: IO [PackageDescription]
+getPackagesToProcess = do
+  jsonResult <- eitherDecodeFileStrict packageDescriptionsFile
   case jsonResult of
-    Left err           -> putStrLn err
+    Left err           -> error err
     Right descriptions ->
-      mapM_ (processPackage "/Users/zgrannan/haskell-packages") toProcess
-      where
-        skip package = elem (name package) packagesToSkip
-        toProcess = filter (not . skip) $ case startFromPackage of
+      fmap go getArgs
+        where
+          go [] = filter (not . skip) $ case startFromPackage of
             Just p  -> dropWhile ((p /=) . name) descriptions
             Nothing -> descriptions
+          go packages = filter ((`elem` packages) . name) descriptions
+
+          skip package = elem (name package) packagesToSkip
+
+main :: IO ()
+main = do
+  toProcess <- getPackagesToProcess
+  mapM_ (processPackage "/Users/zgrannan/haskell-packages") toProcess
   putStrLn "Done"

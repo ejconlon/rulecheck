@@ -18,9 +18,12 @@ import Data.Set (Set)
 import GHC (GhcMonad (..), GhcTc, HsExpr, Kind, LHsExpr, LRuleDecl, RuleBndr (RuleBndr), RuleDecl (..), unLoc)
 import GHC.Data.FastString (fs_zenc, zString)
 import GHC.Driver.Session (HasDynFlags)
+import GHC.Hs.Decls
 import GHC.Types.Basic (RuleName)
-import GHC.Types.Var (Var, varType)
-import GHC.Utils.Outputable (Outputable (..), SDoc, parens, pprWithCommas, text, ($+$), (<+>))
+import GHC.Types.Var (Var, varName, varType, isId)
+import GHC.Types.Name (isValName)
+import GHC.Types.Name.Set
+import GHC.Utils.Outputable (Outputable (..), SDoc, parens, pprWithCommas, text, ($+$), (<+>), showSDocUnsafe)
 import Prelude hiding ((<>))
 import Rulecheck.Monad (GhcM)
 import Rulecheck.Rendering (outputString)
@@ -32,13 +35,17 @@ data RuleSide = LHS | RHS
 --   it contains all of the information necessary to construct fuzzing test cases
 data Rule = Rule
   { ruleName    :: RuleName
-  , ruleArgs    :: [Var]
+  , ruleArgs    :: [Var] -- IMPORTANT! This also includes type variables
   , ruleLHS     :: HsExpr GhcTc
   , ruleRHS     :: HsExpr GhcTc
 
   -- | The type of `ruleLHS`, presumably this is also the type of `ruleRHS`!
   , ruleType :: Kind
   }
+
+-- Extract only the term arguments from the rule
+valArgs :: Rule -> [Var]
+valArgs = filter (isValName . varName) . ruleArgs
 
 getSide :: RuleSide -> Rule -> HsExpr GhcTc
 getSide LHS = ruleLHS
@@ -75,9 +82,18 @@ ruleFromDecl decl =
     let args       = getRuleArguments decl
     let (lhs, rhs) = getRuleBody decl
     let name = getRuleName decl
+    let (HsRuleRn lhsVars rhsVars) = rd_ext (unLoc decl)
+    let explicitVars = unionNameSet lhsVars rhsVars
+    liftIO $ putStrLn $ showSDocUnsafe $ ppr explicitVars
+    -- mapM_ (go explicitVars) args
+    let valueArgs = filter (\arg -> elemNameSet (varName arg) explicitVars) args
     session <- getSession
     lhsTyp  <- liftIO $ getType session lhs
-    return $ Rule name args (unLoc lhs) (unLoc rhs) (fromJust lhsTyp)
+    return $ Rule name valueArgs (unLoc lhs) (unLoc rhs) (fromJust lhsTyp)
+  -- where
+  --   go explicitVars arg =
+  --     liftIO $
+  --       putStrLn $ (showSDocUnsafe $ ppr arg) ++ " in? " ++ show (elemNameSet (varName arg) explicitVars)
 
 sanitizeString :: String -> String
 sanitizeString = map (\c -> if isAlphaNum c then c else '_')
@@ -106,7 +122,7 @@ ruleSideDoc :: (Monad m, HasDynFlags m) => Rule -> RuleSide -> m SDoc
 ruleSideDoc rule side = do
   let prefix = "fn_" ++ sideString side ++ "_"
       name = prefix ++ sanitizeName (ruleName rule)
-      args = ruleArgs rule
+      args = valArgs rule
   body      <- toSDoc (getSide side rule)
   argTypes  <- fmap asTuple (traverse (toSDoc . varType) args)
   resultTyp <- toSDoc (ruleType rule)
