@@ -114,8 +114,8 @@ asTuple [] = text "()"
 asTuple [el] = ppr el
 asTuple elems = parens $ pprWithCommas ppr elems
 
-toSDoc :: (Functor m, HasDynFlags m) => Outputable a => a -> m SDoc
-toSDoc = fmap text . outputString
+toSDoc :: (Functor m, HasDynFlags m) => Outputable a => Set String -> a -> m SDoc
+toSDoc importedModuleNames = fmap text . outputString importedModuleNames
 
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
 ruleSideDoc :: Rule -> RuleSide -> SDoc
@@ -160,7 +160,7 @@ ruleModuleHeaderDoc modName deps =
   let start = text "module" <+> text modName <+> text "where" $+$
         text "import Test.Tasty (TestTree)" $+$
         text "import Rulecheck.Testing (SomeTestableRule (..), TestableRule (..), testSomeTestableRule)"
-  in foldl' (\x d -> x $+$ text "import qualified" <+> text d) start (toList deps)
+  in foldl' (\x d -> x $+$ text "import" <+> text d) start (toList deps)
 
 -- | Renders the entire test module
 ruleModuleDoc :: String -> Set String -> [Rule] -> SDoc

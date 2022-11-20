@@ -50,7 +50,7 @@ getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
     rules <- getRulesFromFile srcFile
     let modDoc = ruleModuleDoc genModName genDeps rules
-    outputString modDoc
+    outputString genDeps modDoc
 
 generateFile :: GenerateOptions -> IO ()
 generateFile opts = do
@@ -73,13 +73,26 @@ testSrcDir desc = testBaseDir desc ++ "/test"
 testGenDir :: PackageDescription -> FilePath
 testGenDir desc = testSrcDir desc ++ "/RuleCheck/Generated"
 
+
+importsForPackage :: PackageDescription -> Set String
+importsForPackage pkg | name pkg == "Color"
+  = Set.fromList [ "Graphics.Color.Model.Internal"
+                 , "Graphics.Color.Adaptation.Internal"
+                 , "Graphics.Color.Space.Internal"
+                 , "Graphics.Color.Algebra.Elevator"
+                 ]
+importsForPackage _ = Set.fromList []
+
 getGenerateOptions :: FilePath -> Int -> PackageDescription -> GenerateOptions
 getGenerateOptions path num desc =
   GenerateOptions
     path
     ("RuleCheck.Generated.Test" ++ show num)
-    (Set.fromList [])
+    (Set.union (importsForPackage desc) defaultImports)
     (testGenDir desc ++ "/Test" ++ show num ++ ".hs")
+  where
+    defaultImports :: Set String
+    defaultImports = Set.fromList ["GHC.Base", "GHC.Float", "GHC.Types", "GHC.Word"]
 
 
 assertFileExists :: FilePath -> IO ()
