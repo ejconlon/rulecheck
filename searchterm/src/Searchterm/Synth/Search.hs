@@ -26,8 +26,8 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), Ty,
-                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..))
-import Searchterm.Interface.Decl (Decl (..), DeclSet (..))
+                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..))
+import Searchterm.Interface.Decl (Decl (..), DeclSet (..), ConSig (..))
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
@@ -393,13 +393,14 @@ searchLetApp fnTm us = go id Empty (toList us) where
         x <- freshTmBinder
         local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (outFn . TmLet x b) (argNames :|> x) rest)
 
+-- Generates a lambdacase expression
 destructFits :: TyUniq -> SearchM TmFound
 destructFits goalKey = traceScopeM "Destruct fit" $ do
   guardDepth
   (_, goalVal) <- lookupGoal goalKey
   case goalVal of
     -- Try to satisfy a function goal with data arg by destructing
-    TyFunF argKey _retKey -> do
+    TyFunF argKey retKey -> do
       (_, argVal) <- lookupGoal argKey
       case argVal of
         -- Can only destruct type constructors
@@ -407,12 +408,33 @@ destructFits goalKey = traceScopeM "Destruct fit" $ do
           decls <- asks envDecls
           case Map.lookup tn (dsCons decls) of
             -- And can only destruct if we know the data constructors
-            Just _cons -> do
-              -- error "TODO"
-              empty
+            Just cons -> searchCase argKey retKey cons
             _ -> empty
         _ -> empty
     _ -> empty
+
+-- | TODO fill this in
+searchPatPair :: TyUniq -> TyUniq -> ConSig -> SearchM (PatPair TmUniq TmFound)
+searchPatPair _argKey _retKey (ConSig _nm _ty _bs) = empty -- error "TODO"
+
+-- | Search for a lambda case term matching the given argKey -> retKey function type
+-- using the given constructors.
+searchCase :: TyUniq -> TyUniq -> Seq ConSig -> SearchM TmFound
+searchCase argKey retKey cons = res where
+  res = do
+    -- Allocate fresh binder for lambda arg
+    argBind <- freshTmBinder
+    -- With the lambda arg in scope...
+    local (\env -> env { envCtx = envCtx env :|> (argBind, argKey) }) $
+      -- search for each of the branches
+      go argBind Empty (toList cons)
+  go argBind !pairs = \case
+    [] ->
+      -- found them all? return the lambda + case tm
+      pure (TmLam argBind (TmCase (TmFree (Index 0)) pairs))
+    con:rest -> do
+      -- unify a pat pair for each con and fairly continue
+      searchPatPair argKey retKey con >>- \p -> go argBind (pairs :|> p) rest
 
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
 topSearchUniq :: TyUniq -> SearchM TmFound
