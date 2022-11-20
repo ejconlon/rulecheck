@@ -1,20 +1,16 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
-import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (FromJSON, eitherDecodeFileStrict)
-import Data.Char
 import Data.List (isInfixOf)
 import Data.List.Utils
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
-import GHC.Utils.Outputable (Outputable (..), SDoc, parens, pprWithCommas, text, ($+$), (<+>))
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering (outputString)
 import Rulecheck.Rule
 import Rulecheck.RuleExtraction
-import System.IO (hPutStrLn, stderr)
 import System.Directory
 
 packageDescriptionsFile :: FilePath
@@ -47,11 +43,8 @@ data GenerateOptions =
     , genModFile :: FilePath
     }
 
-capitalize :: String -> String
-capitalize (h : t) = toUpper h : t
-
 getModContents :: GenerateOptions -> IO String
-getModContents (GenerateOptions {srcFile, genModName, genDeps, genModFile}) =
+getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
     rules <- getRulesFromFile srcFile
     modDoc <- ruleModuleDoc genModName genDeps rules
@@ -83,7 +76,7 @@ getGenerateOptions path num desc =
   GenerateOptions
     path
     ("RuleCheck.Generated.Test" ++ show num)
-    (Set.fromList ["Test"])
+    (Set.fromList [])
     (testGenDir desc ++ "/Test" ++ show num ++ ".hs")
 
 
@@ -113,15 +106,17 @@ filesToSkip =
   , "fourmolu-0.4.0.0/data/examples/"               -- These aren't source files
   , "haskell-src-exts-1.23.1/tests/examples/"       -- These aren't source files
   , "hasktags-0.72.0/testcases/"                    -- These aren't source files
+  , "matrix-static-0.3/src/Data/Matrix/Static.hs"   -- This causes a segfault, somehow
   , "ormolu-0.3.1.0/data/examples/"                 -- These aren't source files
+  , "polysemy-1.6.0.0/src/Polysemy/State.hs"        -- Also segfaults, somehow
+  , "streamly-0.8.1.1/src/inline.hs"                -- Doesn't seem to be a source file
+  , "streamly-0.8.1.1/src/Streamly/Internal/Data/Array/PrimInclude.hs" -- Not a target
+  , "streamly-0.8.1.1/src/Streamly/Internal/Data/Stream/PreludeCommon.hs" -- Not a target
+  , "vector-0.12.3.1/internal/GenUnboxTuple.hs" -- Not a target
   ]
 
 shouldSkip :: FilePath -> Bool
 shouldSkip path = any (`isInfixOf` path) filesToSkip
-
-assert :: Monad m => Bool -> String -> m ()
-assert True _    = return ()
-assert False msg = error msg
 
 setupTestDirectory :: PackageDescription -> IO ()
 setupTestDirectory pkg =
@@ -143,30 +138,15 @@ processPackage prefix pkg = do
   setupTestDirectory pkg
   mapM_ go (zip (map (packageFilePath prefix pkg) $ files pkg) [1..])
   where
-    ruleDoc rule = do
-      l <- ruleSideDoc rule LHS
-      r <- ruleSideDoc rule RHS
-      return $ l $+$ text "->" $+$ r
     go :: (FilePath, Int) -> IO ()
-    go (path, n) | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
+    go (path, _) | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
     go (path, n) | otherwise = do
       assertFileExists path
       putStrLn $ "Processing file at " ++ path
       generateFile (getGenerateOptions path n pkg)
 
-
-      -- Printing
-      -- rulesStr <- cradleGhcM path $ do
-      --   rules <- getRulesFromFile path
-      --   if length rules == 0
-      --     then liftIO $ appendFile logFile $ "No rules detected in file " ++ path
-      --     else return ()
-      --   docs  <- mapM ruleDoc rules
-      --   outputString docs
-      -- putStrLn rulesStr
-
 startFromPackage :: Maybe String
-startFromPackage = Just "Rattus"
+startFromPackage = Just "primitive"
 
 packagesToSkip :: [String]
 packagesToSkip =
@@ -181,14 +161,16 @@ packagesToSkip =
   , "leveldb-haskell"  -- Requires local installation of leveldb
   , "mysql-simple"     -- Cannot satisfy package -package mysql-0.2.1
   , "Rattus"           -- GHCi cannot find symbol during dynamic linking
+  , "primitive"        -- Strange error (duplicate definition of symbol in runtime linking)
   , "sized"            -- Type errors
+  , "type-of-html"     -- Strange error (duplicate definition of symbol in runtime linking)
   ]
 
 main :: IO ()
 main = do
   jsonResult :: Either String [PackageDescription] <- eitherDecodeFileStrict packageDescriptionsFile
   case jsonResult of
-    Left error         -> putStrLn error
+    Left err           -> putStrLn err
     Right descriptions ->
       mapM_ (processPackage "/Users/zgrannan/haskell-packages") toProcess
       where
@@ -196,6 +178,4 @@ main = do
         toProcess = filter (not . skip) $ case startFromPackage of
             Just p  -> dropWhile ((p /=) . name) descriptions
             Nothing -> descriptions
-  -- Placeholder - just generate our fixed target for now
-  -- generateFile demoGenOpts
   putStrLn "Done"

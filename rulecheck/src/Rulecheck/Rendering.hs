@@ -10,7 +10,7 @@ import Control.Monad.Catch (MonadThrow, throwM)
 import GHC.Hs.Decls (LHsDecl)
 import GHC.Hs.Extension (GhcPs)
 import GHC.Plugins (HasDynFlags (..), Origin (..), Outputable (..), PprStyle (..), SrcSpan (..),
-                    UnhelpfulSpanReason (..), reallyAlwaysQualify)
+                    UnhelpfulSpanReason (..), alwaysQualify)
 import GHC.ThToHs (convertToHsDecls)
 import GHC.Utils.Error (MsgDoc)
 import GHC.Utils.Outputable (SDoc, initSDocContext, renderWithStyle, vcat)
@@ -32,7 +32,7 @@ stripNulls = filter (/= '\NUL')
 renderSDoc :: (Functor m, HasDynFlags m) => SDoc -> m String
 renderSDoc doc = flip fmap getDynFlags $ \dynFlags ->
   -- Uh this style seems to work...
-  let sty = PprDump reallyAlwaysQualify
+  let sty = PprDump alwaysQualify
       ctx = initSDocContext dynFlags sty
   in stripNulls (renderWithStyle ctx doc)
 

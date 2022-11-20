@@ -13,7 +13,6 @@ import Control.Monad (foldM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Char (isAlphaNum)
 import Data.Foldable (foldl', toList)
-import Data.List (isPrefixOf)
 import Data.Maybe (fromJust)
 import Data.Set (Set)
 import GHC (GhcMonad (..), GhcTc, HsExpr, Kind, LHsExpr, LRuleDecl, RuleBndr (RuleBndr), RuleDecl (..), unLoc)
@@ -65,7 +64,7 @@ getRuleArguments decl =
 
   where
     getID (RuleBndr _ ident) = unLoc ident
-    getID _               = error "unimplemented" -- TODO
+    getID _                  = error "unimplemented"
 
 -- | Obtains a `Rule` from the corresponding typechecked rule declaration
 -- Note that this requires interacting with GHC to get the type of the LHS of the rule
@@ -99,21 +98,8 @@ asTuple [] = text "()"
 asTuple [el] = ppr el
 asTuple elems = parens $ pprWithCommas ppr elems
 
--- awful - remove src from the text and replace with dest
-hackReplaceIn :: String -> String -> String -> String
-hackReplaceIn src dest = go where
-  srcLen = length src
-  go = \case
-    [] -> []
-    xs@(y:ys) -> if src `isPrefixOf` xs
-      then dest ++ go (drop srcLen xs)
-      else y : go ys
-
--- awful - remove "main:" prefix anywhere in the text
--- TODO maybe try a different strategy in renderSDoc?
--- something instead of "let sty = PprDump reallyAlwaysQualify"
-hackReplaceMain :: (Functor m, HasDynFlags m) => Outputable a => a -> m SDoc
-hackReplaceMain = fmap (text . hackReplaceIn "main:" "") . outputString
+toSDoc :: (Functor m, HasDynFlags m) => Outputable a => a -> m SDoc
+toSDoc = fmap text . outputString
 
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
 ruleSideDoc :: (Monad m, HasDynFlags m) => Rule -> RuleSide -> m SDoc
@@ -121,9 +107,9 @@ ruleSideDoc rule side = do
   let prefix = "fn_" ++ sideString side ++ "_"
       name = prefix ++ sanitizeName (ruleName rule)
       args = ruleArgs rule
-  body <- hackReplaceMain (getSide side rule)
-  argTypes <- fmap asTuple (traverse (hackReplaceMain . varType) args)
-  resultTyp <- hackReplaceMain (ruleType rule)
+  body      <- toSDoc (getSide side rule)
+  argTypes  <- fmap asTuple (traverse (toSDoc . varType) args)
+  resultTyp <- toSDoc (ruleType rule)
   let args' = asTuple args
   pure $!
     text name <+> text "::" <+> argTypes <+> text "->" <+> resultTyp $+$

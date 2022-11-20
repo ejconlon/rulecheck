@@ -71,7 +71,7 @@ testGetTypeForNameUnsafe = testCase "getTypeForName" $ do
     [tcm]  <- typecheck demoDomainFile
     typ      <- getTypeForNameUnsafe tcm ".*"
     outputString (fromJust typ)
-  expected @?= "main:DemoDomain.Expr\n-> main:DemoDomain.Expr -> main:DemoDomain.Expr"
+  expected @?= "DemoDomain.Expr\n-> DemoDomain.Expr -> DemoDomain.Expr"
 
 testGetRule :: TestTree
 testGetRule = testCase "getRule" $ do
@@ -85,10 +85,10 @@ testGetRule = testCase "getRule" $ do
     lhs'    <- outputString (ruleLHS rule)
     rhs'    <- outputString (ruleRHS rule)
     retType <- outputString (ruleType rule)
-    liftIO $ argTyp   @?= "main:DemoDomain.Expr"
-    liftIO $ lhs' @?= (arg' ++ " main:DemoDomain../ " ++ arg')
-    liftIO $ rhs' @?= "main:DemoDomain.Const 1"
-    liftIO $ retType @?= "main:DemoDomain.Expr"
+    liftIO $ argTyp   @?= "DemoDomain.Expr"
+    liftIO $ lhs' @?= (arg' ++ " DemoDomain../ " ++ arg')
+    liftIO $ rhs' @?= "DemoDomain.Const 1"
+    liftIO $ retType @?= "DemoDomain.Expr"
 
 testRuleSideDoc :: TestTree
 testRuleSideDoc = testCase "ruleSidedoc" $ do

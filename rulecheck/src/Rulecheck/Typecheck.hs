@@ -41,7 +41,7 @@ tcmName :: TypecheckedModule -> ModuleName
 tcmName = moduleName . ms_mod . pm_mod_summary . tm_parsed_module
 
 getModNameUnsafe :: TypecheckedModule -> String
-getModNameUnsafe mod = showSDocUnsafe (ppr (tcmName mod))
+getModNameUnsafe = showSDocUnsafe . ppr . tcmName
 
 -- | For debugging only
 getNameUnsafe :: TypecheckedModule -> String -> Maybe Name

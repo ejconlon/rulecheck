@@ -12,4 +12,5 @@ packages:
 - searchterm
 - rulecheck
 - demo-domain
-- demo-test
+# - demo-test
+# - package-tests/scientific-test
