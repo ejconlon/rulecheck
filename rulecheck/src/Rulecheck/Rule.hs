@@ -164,8 +164,8 @@ ruleModuleHeaderDoc modName deps =
 
 -- | Renders the entire test module
 ruleModuleDoc :: String -> Set String -> [Rule] -> SDoc
-ruleModuleDoc modName deps rules =
-  foldl' (\x r -> (x $+$) (f r)) (ruleModuleHeaderDoc modName deps) rules
+ruleModuleDoc modName deps =
+  foldl' (\x r -> x $+$ f r) (ruleModuleHeaderDoc modName deps)
   where
     f :: Rule -> SDoc
     f r = lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r

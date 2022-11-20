@@ -21,6 +21,7 @@ default-extensions:
 - GeneralizedNewtypeDeriving
 - LambdaCase
 - KindSignatures
+- MagicHash # This is necessary for FastMath, for example
 - MultiParamTypeClasses
 - Rank2Types
 - ScopedTypeVariables
@@ -30,6 +31,7 @@ default-extensions:
 - TypeApplications
 - TypeOperators
 - TypeFamilies
+
 
 ghc-options:
 - -Wall

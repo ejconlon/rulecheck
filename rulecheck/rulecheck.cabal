@@ -11,6 +11,7 @@ build-type:     Simple
 library
   exposed-modules:
       Rulecheck
+      Rulecheck.Config
       Rulecheck.Monad
       Rulecheck.Parsing
       Rulecheck.Rendering
@@ -40,6 +41,7 @@ library
       GeneralizedNewtypeDeriving
       LambdaCase
       KindSignatures
+      MagicHash
       MultiParamTypeClasses
       MultiWayIf
       Rank2Types
@@ -97,6 +99,7 @@ executable rulecheck-exe
       GeneralizedNewtypeDeriving
       LambdaCase
       KindSignatures
+      MagicHash
       MultiParamTypeClasses
       MultiWayIf
       Rank2Types
@@ -157,6 +160,7 @@ test-suite rulecheck-test
       GeneralizedNewtypeDeriving
       LambdaCase
       KindSignatures
+      MagicHash
       MultiParamTypeClasses
       MultiWayIf
       Rank2Types
