@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | Methods to enumerate terms of a given type
 module Searchterm.Synth.Search
@@ -49,16 +50,25 @@ traceM :: Applicative m => String -> m ()
 traceM _ = pure ()
 
 -- | Trace entering and exiting a scope
-traceScopeM :: (Monad m, Pretty a) => String -> m a -> m a
-traceScopeM ctx act = do
-  traceM ("Enter: " ++ ctx)
-  a <- act
-  traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a)
-  pure a
+traceScopeM :: (MonadLogic m, Pretty a) => String -> m a -> m a
+-- traceScopeM ctx act = do
+--   traceM ("Enter: " ++ ctx)
+--   ifte act
+--     (\a -> a <$ traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a))
+--     (traceM ("Exit: " ++ ctx ++ " (empty)") *> empty)
+traceScopeM _ = id
 
 -- | Tracing for search failures
 traceEmptyM :: (Alternative m) => String -> m a
-traceEmptyM msg = traceM ("Empty: " ++ msg) *> empty
+-- traceEmptyM msg = traceM ("Empty: " ++ msg) *> empty
+traceEmptyM _ = empty
+
+-- | Log on success/failure
+traceTryM :: MonadLogic m => String -> m a -> m a
+-- traceTryM ctx act = ifte act
+--   (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
+--   (traceM ("Try failed: " ++ ctx) *> empty)
+traceTryM _ = id
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -95,7 +105,9 @@ fairTraverse_ f = go . toList where
 
 -- boilerplate
 toListWithIndex :: Seq a -> [(a, Index)]
-toListWithIndex ss = zip (toList ss) (fmap Index [Seq.length ss - 1 .. 0])
+toListWithIndex ss =
+  let len = Seq.length ss
+  in zip (toList ss) (fmap (\i -> Index (len - i - 1)) [0..])
 
 -- | A unique binder for enumerated lambdas
 newtype TmUniq = TmUniq { unTmUniq :: Int }
@@ -257,6 +269,11 @@ insertTy ctx ty = res where
         pure (k, v)
 
 -- | Instantiates the scheme with metavars
+-- Returns
+--  constraints
+--  type var context
+--  the instantiated type key
+--  the instantiated type value
 insertMetaScheme :: TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
 insertMetaScheme = insertTyScheme TyVertMeta
 
@@ -300,7 +317,7 @@ ctxFits :: TyUniq -> SearchM TmFound
 ctxFits goalKey = traceScopeM "Ctx fit" $ do
   ctx <- asks envCtx
   choose (toListWithIndex ctx) $ \((_, candKey), idx) -> do
-    _ <- tryAlignTy goalKey candKey
+    _ <- traceTryM ("Align ctx fit: " ++ show candKey) (tryAlignTy goalKey candKey)
     pure (TmFree idx)
 
 -- | If the goal is a type vertex (not a meta/skolem vertex), yield it.
@@ -373,7 +390,7 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
         -- Insert the partial to get vars for args and returned function
         (straints, addlCtx, candKey, _) <- insertPartial (declType decl) part
         -- Unify the returned function with the goal (first, to help constraint search)
-        _ <- tryAlignTy goalKey candKey
+        _ <- traceTryM "Align partial" (tryAlignTy goalKey candKey)
         -- Unify constraints (second, to help argument search)
         fairTraverse_ topUnifyStraint straints
         -- It unifies. Now we know that if we can find args we can satsify the goal.
@@ -389,8 +406,10 @@ searchLetApp fnTm us = go id Empty (toList us) where
       ctx <- asks envCtx
       pure (outFn (mkApp fnTm (fmap (TmFree . unsafeIndexSeqWith (\x (b, _) -> b == x) ctx) argNames)))
     a:rest -> do
+      traceM ("SLA search for " ++ show a)
       recSearchUniq a >>- \b -> do
         x <- freshTmBinder
+        traceM ("SLA found " ++ show b ++ " as " ++ show x)
         local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (outFn . TmLet x b) (argNames :|> x) rest)
 
 -- Generates a lambdacase expression
@@ -426,8 +445,11 @@ searchPatPair argKey retKey (ConSig nm ty bs) = do
     (y, _) <- insertTy lhsCtx b
     pure (x, y)
   let tmBinders = fmap fst newCtx
+  traceM ("Searching for pat pairs: " ++ show ty ++ " " ++ show newCtx)
   -- Add them to the context and search for body terms
-  local (\env -> env { envCtx = envCtx env <> newCtx }) $
+  local (\env -> env { envCtx = envCtx env <> newCtx }) $ do
+    ctx <- asks envCtx
+    traceM ("ctx " ++ show ctx)
     flip fmap (recSearchUniq retKey) $ \body ->
       PatPair (Pat (ConPat nm tmBinders)) body
 

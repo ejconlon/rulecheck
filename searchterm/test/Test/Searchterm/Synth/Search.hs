@@ -70,7 +70,7 @@ inlineLets = flip runReader Empty . cata goTm where
     TmAppF wl wr -> TmApp <$> wl <*> wr
     TmLamF b w -> TmLam b <$> local (:|> Nothing) w
     TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
-    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse undefined pairs
+    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse sequence pairs
 
 findAll :: Int -> Set AlphaTm -> Set AlphaTm -> SearchSusp TmFound -> IO ()
 findAll !lim !yesTms !noTms !susp =
@@ -144,7 +144,10 @@ destructDeclSrc = DeclSrcList
 
 testSearch :: TestTree
 testSearch = testGroup "Search"
-  [ testFinds "basic" basicDeclSrc "Int"
+  [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
+    ["(\\x -> x)"]
+    []
+  , testFinds "basic" basicDeclSrc "Int"
     ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
     ["(plus zero)", "plus", "(zero plus)"]
   , testFinds "strain simple" strainSimpleDeclSrc "Int"
@@ -153,9 +156,8 @@ testSearch = testGroup "Search"
   , testFinds "strain rec" strainRecDeclSrc "Int"
     ["(quux foo)"]
     ["(quux bar)"]
-  -- TODO fix this
-  -- , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
-  --   ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
-  --   ["showChar"]
+  , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
+    ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
+    ["showChar"]
   -- TODO more tests!!! But the pattern is clear...
   ]

@@ -70,3 +70,10 @@ instance MonadLogic (Track r x y e) where
   interleave x y = do
     oldTes <- Track get
     Track (interleave (unTrack x) (unTrack (restore oldTes y)))
+
+-- -- Break glass in case of emergency: Disable fairness!
+-- instance MonadLogic (Track r x y e) where
+--   msplit x = Track (fmap (fmap (second Track)) (msplit (unTrack x)))
+--   interleave = (<|>)
+--   (>>-) :: Track r x y e a -> (a -> Track r x y e b) -> Track r x y e b
+--   (>>-) = (>>=)

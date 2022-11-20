@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Searchterm.Interface.Parser where
-  -- ( parseLines
-  -- , parseLinesIO
-  -- ) where
+module Searchterm.Interface.Parser
+  ( parseTerm
+  , parseType
+  , parseLines
+  , parseLinesIO
+  ) where
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (throwIO)

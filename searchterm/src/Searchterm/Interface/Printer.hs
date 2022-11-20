@@ -1,6 +1,8 @@
-module Searchterm.Interface.Printer where
-  -- ( printLines
-  -- ) where
+module Searchterm.Interface.Printer
+  ( printTerm
+  , printType
+  , printLines
+  ) where
 
 import Data.Foldable (toList)
 import Data.Sequence (Seq)

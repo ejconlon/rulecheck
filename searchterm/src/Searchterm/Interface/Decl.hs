@@ -1,12 +1,14 @@
 -- | Declarations of terms in our universe
-module Searchterm.Interface.Decl where
-  -- ( Partial (..)
-  -- , Decl (..)
-  -- , DeclErr
-  -- , DeclSet (..)
-  -- , mkDecl
-  -- , mkDecls
-  -- ) where
+module Searchterm.Interface.Decl
+  ( Decl (..)
+  , DeclErr (..)
+  , DeclSet (..)
+  , emptyDeclSet
+  , ConSig (..)
+  , mkDecl
+  , mkDecls
+  , mkLineDecls
+  ) where
 
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
