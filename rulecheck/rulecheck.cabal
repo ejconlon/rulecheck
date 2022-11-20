@@ -52,7 +52,8 @@ library
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie
   build-depends:
-      QuickCheck
+      MissingH
+    , QuickCheck
     , aeson
     , base >=4.12 && <5
     , containers
@@ -108,7 +109,8 @@ executable rulecheck-exe
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      QuickCheck
+      MissingH
+    , QuickCheck
     , aeson
     , base >=4.12 && <5
     , containers
@@ -167,7 +169,8 @@ test-suite rulecheck-test
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      QuickCheck
+      MissingH
+    , QuickCheck
     , aeson
     , base >=4.12 && <5
     , containers

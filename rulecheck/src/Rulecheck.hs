@@ -5,6 +5,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (FromJSON, eitherDecodeFileStrict)
 import Data.Char
 import Data.List (isInfixOf)
+import Data.List.Utils
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
@@ -16,7 +17,13 @@ import Rulecheck.RuleExtraction
 import System.IO (hPutStrLn, stderr)
 import System.Directory
 
-logFile :: String
+packageDescriptionsFile :: FilePath
+packageDescriptionsFile = "./packageDescriptions.json"
+
+packageTestsPrefix :: String
+packageTestsPrefix = "package-tests"
+
+logFile :: FilePath
 logFile = "log.txt"
 
 data PackageDescription =
@@ -62,17 +69,26 @@ demoGenOpts = GenerateOptions
   (Set.fromList ["DemoDomain"])
   "demo-test/test/DemoTest/Generated/DemoDomain.hs"
 
+testBaseDir :: PackageDescription -> FilePath
+testBaseDir desc = packageTestsPrefix ++ "/" ++ name desc ++ "-test"
+
+testSrcDir :: PackageDescription -> FilePath
+testSrcDir desc = testBaseDir desc ++ "/test"
+
+testGenDir :: PackageDescription -> FilePath
+testGenDir desc = testSrcDir desc ++ "/RuleCheck/Generated"
+
 getGenerateOptions :: FilePath -> Int -> PackageDescription -> GenerateOptions
 getGenerateOptions path num desc =
   GenerateOptions
     path
     ("RuleCheck.Generated.Test" ++ show num)
     (Set.fromList ["Test"])
-    (name desc ++ "-test/RuleCheck/Generated/Test" ++ show num ++ ".hs")
+    (testGenDir desc ++ "/Test" ++ show num ++ ".hs")
 
 
-ensureFileExists :: FilePath -> IO ()
-ensureFileExists path = do
+assertFileExists :: FilePath -> IO ()
+assertFileExists path = do
       exists <- doesFileExist path
       if not exists
         then error ("File " ++ path ++ " does not exist")
@@ -97,6 +113,7 @@ filesToSkip =
   , "fourmolu-0.4.0.0/data/examples/"               -- These aren't source files
   , "haskell-src-exts-1.23.1/tests/examples/"       -- These aren't source files
   , "hasktags-0.72.0/testcases/"                    -- These aren't source files
+  , "ormolu-0.3.1.0/data/examples/"                 -- These aren't source files
   ]
 
 shouldSkip :: FilePath -> Bool
@@ -106,9 +123,24 @@ assert :: Monad m => Bool -> String -> m ()
 assert True _    = return ()
 assert False msg = error msg
 
+setupTestDirectory :: PackageDescription -> IO ()
+setupTestDirectory pkg =
+  do
+    dirExists <- doesDirectoryExist (testBaseDir pkg)
+    if dirExists
+      then removeDirectoryRecursive (testBaseDir pkg)
+      else return ()
+    createDirectoryIfMissing True (testGenDir pkg) -- This will create all intermediate dirs
+    copyFile "test-template/Main.hs" (testSrcDir pkg ++ "/Main.hs")
+    yamlTemplate <- readFile "test-template/package.yaml"
+    let packageYaml = replace "{testname}" (name pkg ++ "-test") (replace "{packagename}" (name pkg) yamlTemplate)
+    writeFile (testBaseDir pkg ++ "/package.yaml") packageYaml
+
+
 processPackage :: String -> PackageDescription -> IO ()
 processPackage prefix pkg = do
   putStrLn $ "Processing " ++ name pkg
+  setupTestDirectory pkg
   mapM_ go (zip (map (packageFilePath prefix pkg) $ files pkg) [1..])
   where
     ruleDoc rule = do
@@ -118,7 +150,7 @@ processPackage prefix pkg = do
     go :: (FilePath, Int) -> IO ()
     go (path, n) | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
     go (path, n) | otherwise = do
-      ensureFileExists path
+      assertFileExists path
       putStrLn $ "Processing file at " ++ path
       generateFile (getGenerateOptions path n pkg)
 
@@ -134,7 +166,7 @@ processPackage prefix pkg = do
       -- putStrLn rulesStr
 
 startFromPackage :: Maybe String
-startFromPackage = Just "fastmath"
+startFromPackage = Just "Rattus"
 
 packagesToSkip :: [String]
 packagesToSkip =
@@ -147,11 +179,14 @@ packagesToSkip =
   , "ghc-lib"          -- Issue with native headers (i.e missing ffitarget_x86.h)
   , "ghc-lib-parser"   -- Issue with native headers (i.e missing ffitarget_x86.h)
   , "leveldb-haskell"  -- Requires local installation of leveldb
+  , "mysql-simple"     -- Cannot satisfy package -package mysql-0.2.1
+  , "Rattus"           -- GHCi cannot find symbol during dynamic linking
+  , "sized"            -- Type errors
   ]
 
 main :: IO ()
 main = do
-  jsonResult :: Either String [PackageDescription] <- eitherDecodeFileStrict "../auto/foo"
+  jsonResult :: Either String [PackageDescription] <- eitherDecodeFileStrict packageDescriptionsFile
   case jsonResult of
     Left error         -> putStrLn error
     Right descriptions ->
