@@ -23,7 +23,7 @@ import GHC.Types.Basic (RuleName)
 import GHC.Types.Var (Var, varName, varType, isId)
 import GHC.Types.Name (isValName)
 import GHC.Types.Name.Set
-import GHC.Utils.Outputable (Outputable (..), SDoc, parens, pprWithCommas, text, ($+$), (<+>), showSDocUnsafe)
+import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), (<>), showSDocUnsafe)
 import Prelude hiding ((<>))
 import Rulecheck.Monad (GhcM)
 import Rulecheck.Rendering (outputString)
@@ -118,17 +118,18 @@ toSDoc :: (Functor m, HasDynFlags m) => Outputable a => a -> m SDoc
 toSDoc = fmap text . outputString
 
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
-ruleSideDoc :: (Monad m, HasDynFlags m) => Rule -> RuleSide -> m SDoc
-ruleSideDoc rule side = do
-  let prefix = "fn_" ++ sideString side ++ "_"
-      name = prefix ++ sanitizeName (ruleName rule)
-      args = valArgs rule
-  body      <- toSDoc (getSide side rule)
-  argTypes  <- fmap asTuple (traverse (toSDoc . varType) args)
-  resultTyp <- toSDoc (ruleType rule)
-  let args' = asTuple args
-  pure $!
-    text name <+> text "::" <+> argTypes <+> text "->" <+> resultTyp $+$
+ruleSideDoc :: Rule -> RuleSide -> SDoc
+ruleSideDoc rule side =
+  let
+    prefix    = "fn_" ++ sideString side ++ "_"
+    name      = prefix ++ sanitizeName (ruleName rule)
+    args      = valArgs rule
+    body      = ppr (getSide side rule)
+    argTypes  = asTuple (map (ppr . varType) args)
+    resultTyp = ppr (ruleType rule)
+    args'     = asTuple args
+  in
+    text name <+> text "::" <+> argTypes <+> arrow <+> resultTyp $+$
     text name <+> args' <+> text "=" <+> body
 
 -- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
@@ -162,10 +163,12 @@ ruleModuleHeaderDoc modName deps =
   in foldl' (\x d -> x $+$ text "import qualified" <+> text d) start (toList deps)
 
 -- | Renders the entire test module
-ruleModuleDoc :: (Monad m, HasDynFlags m) => String -> Set String -> [Rule] -> m SDoc
+ruleModuleDoc :: String -> Set String -> [Rule] -> SDoc
 ruleModuleDoc modName deps rules =
-  let f r = do
-        lhs <- ruleSideDoc r LHS
-        rhs <- ruleSideDoc r RHS
-        pure (lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r)
-  in foldM (\x r -> fmap (x $+$) (f r)) (ruleModuleHeaderDoc modName deps) rules
+  foldl' (\x r -> (x $+$) (f r)) (ruleModuleHeaderDoc modName deps) rules
+  where
+    f :: Rule -> SDoc
+    f r = lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r
+      where
+        lhs = ruleSideDoc r LHS
+        rhs = ruleSideDoc r RHS

@@ -49,13 +49,13 @@ getModContents :: GenerateOptions -> IO String
 getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
     rules <- getRulesFromFile srcFile
-    modDoc <- ruleModuleDoc genModName genDeps rules
+    let modDoc = ruleModuleDoc genModName genDeps rules
     outputString modDoc
 
 generateFile :: GenerateOptions -> IO ()
 generateFile opts = do
-  modContents <- getModContents opts
-  writeFile (genModFile opts) modContents
+    modContents <- getModContents opts
+    writeFile (genModFile opts) modContents
 
 demoGenOpts :: GenerateOptions
 demoGenOpts = GenerateOptions
