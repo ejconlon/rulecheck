@@ -18,6 +18,7 @@ import GHC.Plugins
 import GHC.ThToHs (convertToHsDecls)
 import GHC.Utils.Error (MsgDoc)
 import Language.Haskell.TH.Syntax (Dec)
+import Rulecheck.Config
 import System.IO.Unsafe
 
 -- Convert a sequence of TH declarations (abstract syntax) to HS declarations (concrete syntax)
@@ -63,9 +64,16 @@ identifyRequiredImports doc =
 renderSDoc :: (Functor m, HasDynFlags m) => SDoc -> m String
 renderSDoc doc = flip fmap getDynFlags $ \dynFlags ->
   -- Uh this style seems to work...
-  let sty = mkUserStyle neverQualify AllTheWay
+  let sty = mkUserStyle q AllTheWay
       ctx = initSDocContext dynFlags sty
   in stripNulls (renderWithStyle ctx doc)
+  where
+    renameInternal = mkModuleName . internalToPublicMod . moduleNameString . moduleName
+    q = QueryQualify
+          (\m _ -> NameQual (renameInternal m))
+          (queryQualifyModule neverQualify)
+          (queryQualifyPackage neverQualify)
+
 
 -- | Error encountered in conversion
 newtype ConvertErr =

@@ -39,7 +39,7 @@ getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
 
     -- Determines the necessary module imports by identifying all of the Name's
     -- that need to be rendered in `modDoc`
-    additionalImports <- identifyRequiredImports modDoc
+    additionalImports <- Set.map internalToPublicMod <$> identifyRequiredImports modDoc
 
     -- This is the final version of the test suite, adding all of the required additional
     -- imports

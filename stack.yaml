@@ -12,7 +12,7 @@ packages:
 - searchterm
 - rulecheck
 - demo-domain
-# - package-tests/Color-test
+- package-tests/algebraic-graphs-test
 
 #   Uncomment below to enable fuzz testing for the demo app
 # - demo-test
@@ -24,4 +24,8 @@ packages:
 # Uncomment to use the local version of "Color", for example
 # This might be necessary if you want to make some changes to the module
 # to facilitate testing (e.g. expose a hidden module containing rewrite rules)
-# - /Users/zgrannan/haskell-packages/Color-0.3.3
+# - ../haskell-packages/Color-0.3.3
+#
+# Other packages with similar changes necessary
+- ../haskell-packages/aeson-2.0.3.0
+- ../haskell-packages/algebraic-graphs-0.6.1

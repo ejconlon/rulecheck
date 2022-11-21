@@ -40,8 +40,8 @@ logFile = "log.txt"
 
 filesToSkip :: [String]
 filesToSkip =
-  [ -- Only rules are for lower version, ignore for now
-    "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs"
+  [ "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs" -- Rules apply to a lower version
+  , "aeson-2.0.3.0/tests/UnitTests.hs"                    -- We don't care about rules in tests
   , "Agda-2.6.2.2/src/full/Agda/TypeChecking/Monad/Base.hs" -- Precedence parsing error
   , "Agda-2.6.2.2/src/data/MAlonzo/src/MAlonzo/RTE.hs" -- ???
   , "blaze-builder-0.4.2.2/benchmarks/LazyByteString.hs" -- Not a source file
@@ -87,3 +87,11 @@ packagesToSkip =
 -- Allows for adding additional imports, if necessary
 importsForPackage :: PackageDescription -> Set String
 importsForPackage _ = Set.fromList []
+
+-- Given a possibly internal module, return a public version of that module with similar exports
+-- For example, many types in the private module `Data.Set.Internal` are in `Data.Set`, so the
+-- latter can be used instead.
+-- This is used as a workaround for limitations in automatic import detection.
+internalToPublicMod :: String -> String
+internalToPublicMod "Data.Set.Internal" = "Data.Set"
+internalToPublicMod s = s
