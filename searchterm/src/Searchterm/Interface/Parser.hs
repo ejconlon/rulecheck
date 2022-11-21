@@ -11,7 +11,7 @@ module Searchterm.Interface.Parser
 import Control.Applicative (Alternative (..))
 import Control.Exception (throwIO)
 import Control.Monad (void, join)
-import Data.Char (isAlphaNum, isSpace)
+import Data.Char (isAlphaNum, isSpace, isDigit)
 import Data.Foldable (toList)
 import Data.List (nub)
 import Data.Sequence (Seq (..))
@@ -29,6 +29,8 @@ import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
+import Data.Scientific (Scientific)
+import Text.Read (readMaybe)
 
 newtype P a = P { unP :: Parsec Void Text a }
   deriving newtype (Functor, Applicative, Monad, MonadFail)
@@ -76,6 +78,15 @@ optParensP p = inParensP p <|> p
 
 satisfy :: (Char -> Bool) -> P Char
 satisfy f = P (MP.satisfy f)
+
+-- Only satisfy the longest match of 1 or more (facepalm)
+satisfyGreedy :: (Char -> Bool) -> P String
+satisfyGreedy f = go [] where
+  go !acc = do
+    mx <- P (MP.optional (MP.satisfy f))
+    case mx of
+      Nothing -> if null acc then empty else pure (reverse acc)
+      Just x -> go (x:acc)
 
 sepBy :: P a -> P () -> P [a]
 sepBy p x = P (MP.sepBy (unP p) (unP x))
@@ -360,8 +371,43 @@ ruleLineP = do
   keywordP "::"
   RuleLine . Rule (T.pack n) rw <$> tySchemeP
 
+isIntChar :: Char -> Bool
+isIntChar c = isDigit c || c == '-'
+
+intP :: P Integer
+intP = lexP $ do
+  n <- some (satisfy isIntChar) <* P (MP.notFollowedBy (MP.satisfy isFloatChar))
+  maybe empty pure (readMaybe n)
+
+charP :: P Char
+charP = lexP $ do
+  _ <- P (void (MPC.char '\''))
+  c <- satisfy (/= '\'')
+  _ <- P (void (MPC.char '\''))
+  pure c
+
+strP :: P Text
+strP = lexP $ do
+  _ <- P (void (MPC.char '"'))
+  n <- many (satisfy (/= '"'))
+  _ <- P (void (MPC.char '"'))
+  pure (T.pack n)
+
+isFloatChar :: Char -> Bool
+isFloatChar c = isDigit c || c == '.' || c == '-'
+
+sciP :: P Scientific
+sciP = lexP $ do
+  n <- some (satisfy isFloatChar) <* P (MP.notFollowedBy (MP.satisfy isFloatChar))
+  maybe empty pure (readMaybe n)
+
 litP :: P Lit
-litP = empty  -- TODO fill in parser
+litP = foldr1 (<|>)
+  [ LitChar <$> charP
+  , LitString <$> strP
+  , LitInteger <$> intP
+  , LitScientific <$> sciP
+  ]
 
 litLineP :: P LitLine
 litLineP = do

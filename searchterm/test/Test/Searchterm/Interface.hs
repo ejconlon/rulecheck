@@ -61,13 +61,12 @@ assertParseLine :: Text -> Line -> IO ()
 assertParseLine expectedTxt expectedLine = do
   let actualTxt = docToText (pretty expectedLine)
   actualTxt @?= expectedTxt
-  -- TODO parse it
-  -- actualLine <- either throwIO pure (parseLine "<test>" expectedTxt)
-  -- actualLine @?= expectedLine
+  actualLine <- either throwIO pure (parseLine "<test>" expectedTxt)
+  actualLine @?= expectedLine
 
 testParseLine :: TestTree
 testParseLine = testCase "parseLine" $ do
   assertParseLine "literal Int 0 -1 2" (LineLit (LitLine "Int" (Seq.fromList (fmap LitInteger [0, -1, 2]))))
   assertParseLine "literal Char 'a' '_'" (LineLit (LitLine "Char" (Seq.fromList (fmap LitChar ['a', '_']))))
   assertParseLine "literal String \"foo\" \"\"" (LineLit (LitLine "String" (Seq.fromList (fmap LitString ["foo", ""]))))
-  assertParseLine "literal Double 0.1 1.0" (LineLit (LitLine "Double" (Seq.fromList (fmap LitScientific [read "0.1", read "1"]))))
+  assertParseLine "literal Double 0.1 -1.0" (LineLit (LitLine "Double" (Seq.fromList (fmap LitScientific [read "0.1", read "-1.0"]))))
