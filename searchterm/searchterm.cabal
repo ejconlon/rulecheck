@@ -67,6 +67,7 @@ library
     , pretty-simple
     , prettyprinter
     , recursion-schemes
+    , scientific
     , text
     , transformers
   default-language: Haskell2010
@@ -123,6 +124,7 @@ test-suite searchterm-test
     , pretty-simple
     , prettyprinter
     , recursion-schemes
+    , scientific
     , searchterm
     , tasty
     , tasty-hunit

@@ -8,7 +8,7 @@ import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
-import Searchterm.Interface.Core (ClsScheme, InstScheme, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar)
+import Searchterm.Interface.Core (ClsScheme, InstScheme, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar, Lit)
 
 data DataLine = DataLine
   { dlName :: !TyName
@@ -62,6 +62,14 @@ newtype RuleLine = RuleLine
 instance Pretty RuleLine where
   pretty (RuleLine ru) = P.hsep ["rule", pretty ru]
 
+data LitLine = LitLine
+  { llName :: !TyName
+  , llValues :: !(Seq Lit)
+  } deriving stock (Eq, Show)
+
+instance Pretty LitLine where
+  pretty (LitLine nm vals) = P.hsep ("literal" : pretty nm : fmap pretty (toList vals))
+
 data Line =
     LineData !DataLine
   | LineCons !ConsLine
@@ -70,6 +78,7 @@ data Line =
   | LineCls !ClsLine
   | LineMod !ModLine
   | LineRule !RuleLine
+  | LineLit !LitLine
   deriving stock (Eq, Show)
 
 instance Pretty Line where
@@ -81,3 +90,4 @@ instance Pretty Line where
     LineCls cl -> pretty cl
     LineMod ml -> pretty ml
     LineRule rl -> pretty rl
+    LineLit ll -> pretty ll

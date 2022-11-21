@@ -11,6 +11,7 @@ module Searchterm.Interface.Core
   , ClsName (..)
   , ModName (..)
   , RuleName (..)
+  , Lit (..)
   , Ty (..)
   , ConPat (..)
   , Pat (..)
@@ -51,6 +52,7 @@ import Prettyprinter (Pretty (..), (<+>))
 import qualified Prettyprinter as P
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
 import Data.List (intercalate)
+import Data.Scientific (Scientific)
 
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }
@@ -95,6 +97,20 @@ newtype RuleName = RuleName { unRuleName :: Text }
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString, Pretty)
 
+data Lit =
+    LitInteger !Integer
+  | LitScientific !Scientific
+  | LitChar !Char
+  | LitString !Text
+  deriving stock (Eq, Ord, Show)
+
+instance Pretty Lit where
+  pretty = \case
+    LitInteger n -> pretty n
+    LitScientific s -> pretty (show s)
+    LitChar c -> pretty (show c)
+    LitString txt -> pretty (show txt)
+
 -- | Type with a hole for variables (can later be filled in with indices)
 data Ty a =
     TyFree !a
@@ -123,6 +139,7 @@ data PatPair b tm = PatPair
 -- | Term with a hole for variables (can later be filled in with indices)
 data Tm b a =
     TmFree !a
+  | TmLit !Lit
   | TmKnown !TmName
   | TmApp (Tm b a) (Tm b a)
   | TmLam !b (Tm b a)
@@ -177,6 +194,7 @@ instance Pretty b => Pretty (Pat b) where
 instance (Pretty b, Pretty a, ParenPretty r) => ParenPretty (TmF b a r) where
   parenPretty s = \case
     TmFreeF a -> parenAtom a
+    TmLitF l -> parenAtom l
     TmKnownF n -> parenAtom n
     TmAppF wl wr -> parenList True [parenPretty (Nothing:s) wl, parenPretty (Nothing:s) wr]
     TmLamF b w -> parenList True [parenDoc ("\\" <> pretty b), "->", parenPretty (Nothing:s) w]

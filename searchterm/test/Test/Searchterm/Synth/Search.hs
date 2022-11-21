@@ -66,6 +66,7 @@ inlineLets = flip runReader Empty . cata goTm where
     TmFreeF a -> do
       mx <- asks (`unsafeLookupSeq` a)
       pure (fromMaybe (TmFree a) mx)
+    TmLitF l -> pure (TmLit l)
     TmKnownF n -> pure (TmKnown n)
     TmAppF wl wr -> TmApp <$> wl <*> wr
     TmLamF b w -> TmLam b <$> local (:|> Nothing) w

@@ -21,9 +21,9 @@ import qualified Data.Text.IO as TIO
 import Data.Void (Void)
 import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), Forall (..), Inst (..), InstScheme (..),
                                  ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..),
-                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars, PatPair (..), ConPat (..), Pat (..))
+                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars, PatPair (..), ConPat (..), Pat (..), Lit (..))
 import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
-                                  ModLine (..), RuleLine (..))
+                                  ModLine (..), RuleLine (..), LitLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
@@ -248,6 +248,7 @@ lineP = moreLexP $ foldr1 (<|>)
   , LineCls <$> clsLineP
   , LineInst <$> instLineP
   , LineRule <$> ruleLineP
+  , LineLit <$> litLineP
   ]
 
 linesP :: P (Seq Line)
@@ -357,6 +358,16 @@ ruleLineP = do
   rw <- rwSchemeP
   keywordP "::"
   RuleLine . Rule (T.pack n) rw <$> tySchemeP
+
+litP :: P Lit
+litP = empty  -- TODO fill in parser
+
+litLineP :: P LitLine
+litLineP = do
+  keywordP "literal"
+  tyn <- tyNameP
+  vals <- many litP
+  pure (LitLine tyn (Seq.fromList vals))
 
 consumeP :: P a -> P a
 consumeP p = do

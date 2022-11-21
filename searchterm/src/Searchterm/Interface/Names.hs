@@ -88,7 +88,8 @@ nlTm isKnown isBound = \case
       case isKnown a of
         Nothing -> TmFree <$> indexM isBound a
         Just n -> pure (TmKnown n)
-    TmKnownF n -> pure (TmKnown n) :: M b v (Tm b Index)
+    TmLitF l -> pure (TmLit l)
+    TmKnownF n -> pure (TmKnown n)
     TmAppF mx my -> TmApp <$> mx <*> my
     TmLamF b mbody -> TmLam b <$> local (:|> b) mbody
     TmLetF b marg mbody -> TmLet b <$> marg <*> local (:|> b) mbody
@@ -115,6 +116,7 @@ mapAlphaTm :: Tm b Index -> AlphaTm
 mapAlphaTm = AlphaTm . cata goTm where
   goTm = \case
     TmFreeF i -> TmFree i
+    TmLitF l -> TmLit l
     TmKnownF n -> TmKnown n
     TmAppF l r -> TmApp l r
     TmLamF _ x -> TmLam () x
