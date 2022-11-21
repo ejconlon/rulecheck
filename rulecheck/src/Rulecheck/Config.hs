@@ -13,6 +13,22 @@ data PackageDescription =
 
 instance FromJSON PackageDescription
 
+testBaseDir :: PackageDescription -> FilePath
+testBaseDir desc = packageTestsPrefix ++ "/" ++ name desc ++ "-test"
+
+testSrcDir :: PackageDescription -> FilePath
+testSrcDir desc = testBaseDir desc ++ "/test"
+
+testGenDir :: PackageDescription -> FilePath
+testGenDir desc = testSrcDir desc ++ "/RuleCheck/Generated"
+
+startFromPackage :: Maybe String
+startFromPackage = Nothing
+
+-- IMPORTANT! This should be a fully-qualified directory
+haskellPackagesDir :: FilePath
+haskellPackagesDir = "/Users/zgrannan/haskell-packages"
+
 packageDescriptionsFile :: FilePath
 packageDescriptionsFile = "./packageDescriptions.json"
 

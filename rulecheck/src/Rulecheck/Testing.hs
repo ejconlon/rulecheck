@@ -6,7 +6,6 @@ module Rulecheck.Testing
   , testSomeTestableRules
   ) where
 
-import GHC.Exts
 import Test.QuickCheck (Arbitrary (..), Testable (..), (===))
 import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)

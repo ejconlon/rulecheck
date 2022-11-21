@@ -8,15 +8,11 @@ module Rulecheck.Rendering
 import Control.Exception (Exception)
 import Control.Monad.Catch (MonadThrow, throwM)
 import qualified Data.Set as S
-import Debug.Trace (trace)
 import GHC.Hs.Decls (LHsDecl)
 import GHC.Hs.Extension (GhcPs)
-import GHC.Plugins (HasDynFlags (..), Origin (..), Outputable (..), PprStyle (..), SrcSpan (..),
-                    UnhelpfulSpanReason (..), alwaysQualify, neverQualify, occNameString, moduleName)
+import GHC.Plugins
 import GHC.ThToHs (convertToHsDecls)
 import GHC.Utils.Error (MsgDoc)
-import GHC.Utils.Outputable
-import GHC.Unit.Module.Name
 import Language.Haskell.TH.Syntax (Dec)
 
 -- Convert a sequence of TH declarations (abstract syntax) to HS declarations (concrete syntax)
@@ -44,10 +40,10 @@ renderSDoc importedModuleNames doc = flip fmap getDynFlags $ \dynFlags ->
       ctx = initSDocContext dynFlags sty
   in stripNulls (renderWithStyle ctx doc)
   where
-    checkName m occName | S.member (moduleNameString (moduleName m)) importedModuleNames
-                        = queryQualifyName neverQualify m occName
-    checkName m occName | otherwise =
-      trace ("Qualifying " ++ moduleNameString (moduleName m) ++ "." ++ (occNameString occName)) $ queryQualifyName alwaysQualify m occName
+    checkName m ocn | S.member (moduleNameString (moduleName m)) importedModuleNames
+                    = queryQualifyName neverQualify m ocn
+    checkName m ocn =
+      trace ("Qualifying " ++ moduleNameString (moduleName m) ++ "." ++ occNameString ocn) $ queryQualifyName alwaysQualify m ocn
 
 -- | Error encountered in conversion
 newtype ConvertErr =

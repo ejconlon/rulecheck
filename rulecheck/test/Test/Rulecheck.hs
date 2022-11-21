@@ -106,11 +106,11 @@ testRuleSideDoc = testCase "ruleSidedoc" $ do
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
     arg' <- outputString' arg -- A unique mangled name
-    let doc = ruleSideDoc rule LHS
+    let doc = ruleSideDoc (rule, 0) LHS
     tf <- outputString' doc
     let [sig, body] = lines tf
-    liftIO $ sig  @?= "fn_lhs_divzuid :: DemoDomain.Expr -> DemoDomain.Expr"
-    liftIO $ body @?= ("fn_lhs_divzuid " ++ arg' ++ " = " ++ arg' ++ " DemoDomain../ " ++ arg')
+    liftIO $ sig  @?= "fn_lhs_divzuid_0 :: DemoDomain.Expr -> DemoDomain.Expr"
+    liftIO $ body @?= ("fn_lhs_divzuid_0 " ++ arg' ++ " = " ++ arg' ++ " DemoDomain../ " ++ arg')
 
 testRulecheck :: TestTree
 testRulecheck = testGroup "Rulecheck"

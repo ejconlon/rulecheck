@@ -25,7 +25,7 @@ import GHC.Types.Basic (RuleName)
 import GHC.Types.Var
 import GHC.Types.Name (isValName, occName, occNameString)
 import GHC.Types.Name.Set
-import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), showSDocUnsafe, blankLine)
+import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), blankLine)
 import Prelude hiding ((<>))
 import Rulecheck.Monad (GhcM)
 import Rulecheck.Rendering (outputString)
@@ -100,8 +100,6 @@ ruleFromDecl decl =
     let name = getRuleName decl
     let (HsRuleRn lhsVars rhsVars) = rd_ext (unLoc decl)
     let explicitVars = unionNameSet lhsVars rhsVars
-    liftIO $ putStrLn $ showSDocUnsafe $ ppr decl
-    liftIO $ putStrLn $ showSDocUnsafe $ ppr explicitVars
     -- mapM_ (go explicitVars) args
     let valueArgs = filter (\arg -> elemNameSet (varName arg) explicitVars) args
     session <- getSession
@@ -172,11 +170,11 @@ ruleSideDoc (rule, idx) side =
     asBoxedArg :: Var -> SDoc
     asBoxedArg v | Just (BoxType _ c) <- getBoxType (varType v)
                  = parens (text c <+> ppr v)
-    asBoxedArg v | otherwise = ppr v
+    asBoxedArg v = ppr v
 
     asBoxedType :: Kind -> SDoc
     asBoxedType k | Just (BoxType c _) <- getBoxType k = text c
-    asBoxedType k | otherwise                          = ppr k
+    asBoxedType k = ppr k
 
 -- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
 rulePairDoc :: (Rule, Int) -> SDoc
@@ -222,7 +220,7 @@ ruleModuleDoc modName deps rules =
 
 testingImports :: String
 testingImports =
-  intercalate ", " $
+  intercalate ", "
     [ "SomeTestableRule(..)"
     , "TestableRule (..)"
     , "testSomeTestableRule"

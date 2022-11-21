@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
+import Control.Monad (when, unless)
 import Data.Aeson (eitherDecodeFileStrict)
 import Data.List (isInfixOf)
 import Data.List.Utils
@@ -47,16 +48,6 @@ demoGenOpts = GenerateOptions
   (Set.fromList ["DemoDomain"])
   "demo-test/test/DemoTest/Generated/DemoDomain.hs"
 
-testBaseDir :: PackageDescription -> FilePath
-testBaseDir desc = packageTestsPrefix ++ "/" ++ name desc ++ "-test"
-
-testSrcDir :: PackageDescription -> FilePath
-testSrcDir desc = testBaseDir desc ++ "/test"
-
-testGenDir :: PackageDescription -> FilePath
-testGenDir desc = testSrcDir desc ++ "/RuleCheck/Generated"
-
-
 getGenerateOptions :: FilePath -> Int -> PackageDescription -> GenerateOptions
 getGenerateOptions path num desc =
   GenerateOptions
@@ -72,10 +63,7 @@ getGenerateOptions path num desc =
 assertFileExists :: FilePath -> IO ()
 assertFileExists path = do
       exists <- doesFileExist path
-      if not exists
-        then error ("File " ++ path ++ " does not exist")
-        else return ()
-
+      unless exists $ error ("File " ++ path ++ " does not exist")
 
 shouldSkip :: FilePath -> Bool
 shouldSkip path = any (`isInfixOf` path) filesToSkip
@@ -84,9 +72,7 @@ setupTestDirectory :: PackageDescription -> IO ()
 setupTestDirectory pkg =
   do
     dirExists <- doesDirectoryExist (testBaseDir pkg)
-    if dirExists
-      then removeDirectoryRecursive (testBaseDir pkg)
-      else return ()
+    when dirExists $ removeDirectoryRecursive (testBaseDir pkg)
     createDirectoryIfMissing True (testGenDir pkg) -- This will create all intermediate dirs
     copyFile "test-template/Main.hs" (testSrcDir pkg ++ "/Main.hs")
     yamlTemplate <- readFile "test-template/package.yaml"
@@ -102,13 +88,10 @@ processPackage prefix pkg = do
   where
     go :: (FilePath, Int) -> IO ()
     go (path, _) | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
-    go (path, n) | otherwise = do
+    go (path, n) = do
       assertFileExists path
       putStrLn $ "Processing file at " ++ path
       generateFile (getGenerateOptions path n pkg)
-
-startFromPackage :: Maybe String
-startFromPackage = Nothing
 
 getPackagesToProcess :: IO [PackageDescription]
 getPackagesToProcess = do
@@ -123,10 +106,10 @@ getPackagesToProcess = do
             Nothing -> descriptions
           go packages = filter ((`elem` packages) . name) descriptions
 
-          skip package = elem (name package) packagesToSkip
+          skip package = name package `elem` packagesToSkip
 
 main :: IO ()
 main = do
   toProcess <- getPackagesToProcess
-  mapM_ (processPackage "/Users/zgrannan/haskell-packages") toProcess
+  mapM_ (processPackage haskellPackagesDir) toProcess
   putStrLn "Done"
