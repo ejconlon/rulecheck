@@ -59,6 +59,7 @@ library
     , aeson
     , base >=4.12 && <5
     , containers
+    , deepseq
     , directory
     , exceptions
     , generic-lens
@@ -117,6 +118,7 @@ executable rulecheck-exe
     , aeson
     , base >=4.12 && <5
     , containers
+    , deepseq
     , directory
     , exceptions
     , generic-lens
@@ -178,6 +180,7 @@ test-suite rulecheck-test
     , aeson
     , base >=4.12 && <5
     , containers
+    , deepseq
     , directory
     , exceptions
     , generic-lens

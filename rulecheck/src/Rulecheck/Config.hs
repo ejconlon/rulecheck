@@ -84,12 +84,6 @@ packagesToSkip =
   , "type-of-html"     -- Strange error (duplicate definition of symbol in runtime linking)
   ]
 
+-- Allows for adding additional imports, if necessary
 importsForPackage :: PackageDescription -> Set String
-importsForPackage pkg | name pkg == "fast-math" = Set.fromList [ "GHC.Exts", "GHC.Prim" ]
-importsForPackage pkg | name pkg == "Color"
-  = Set.fromList [ "Graphics.Color.Model.Internal"
-                 , "Graphics.Color.Adaptation.Internal"
-                 , "Graphics.Color.Space.Internal"
-                 , "Graphics.Color.Algebra.Elevator"
-                 ]
 importsForPackage _ = Set.fromList []

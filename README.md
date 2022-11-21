@@ -60,8 +60,9 @@ the following reasons:
 
 - The file is actually a test file (for programs that analyze Haskell code, for example)
 - The rewrite rule only applies to other version of GHC besides 9.0.2 
-- The rule isn't actually a rule at all for example it's been commented out.
-  This is possible because rule identification just uses a regex.
+- The rule isn't actually a rule at all (for example, it could been commented out).
+  This is possible because rule identification uses a regular expression and
+  could have false positives.
   
 These files can be skipped by adding an entry in `filesToSkip` in the
 `Config.hs`. Note that the `filesToSkip` entry matching is performed via an
@@ -72,13 +73,12 @@ If a whole package seems to have a problem, you can also skip it via the
 
 ### Test Suite Problems
 
-A common issue is that imports are not in scope; we haven't figured out a way to
-automatically add all relevant imports (yet). The `importsForPackage` function
-in `Config.hs` defines what imports should be added for each test file for a
-package. You can modify that function to add necessary imports and then
+It's possible that required imports are not in scope. The `importsForPackage`
+function in `Config.hs` defines what imports should be added for each test file
+for a package. You can modify that function to add necessary imports and then
 re-generate the test suite.
 
-Another possible issue is that the rules cannot be tested because their types
+Another possible issue is that the rules cannot be tested, because their types
 are not exposed. To fix this you will need to:
 
 1. modify the package under test itself (i.e. the one in `$PACKAGEDIR`) to expose the necessary modules, and
