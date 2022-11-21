@@ -4,12 +4,6 @@ module Rulecheck.Testing
   , SomeTestableRule (..)
   , testSomeTestableRule
   , testSomeTestableRules
-  , primFloatRule
-  -- , primFloatRule2
-  -- , primFloatRule3
-  , primDoubleRule
-  -- , primDoubleRule2
-  -- , primDoubleRule3
   ) where
 
 import GHC.Exts
@@ -36,16 +30,3 @@ testSomeTestableRule tn (SomeTestableRule tr) = testTestableRule tn tr
 
 testSomeTestableRules :: TestName -> [(TestName, SomeTestableRule)] -> TestTree
 testSomeTestableRules gn = testGroup gn . fmap (uncurry testSomeTestableRule)
-
--- Due to restrictions on where unboxed types can appear, we need some special cases
--- This can probably be simplified with templatehaskell or type families
-
-primFloatRule :: (Float# -> Float#) -> (Float# -> Float#) -> TestableRule Float Float
-primFloatRule f g = TestableRule (lift f) (lift g) where
-  lift :: (Float# -> Float#) -> (Float -> Float)
-  lift bf (F# x) = F# (bf x)
-
-primDoubleRule :: (Double# -> Double#) -> (Double# -> Double#) -> TestableRule Double Double
-primDoubleRule f g = TestableRule (lift f) (lift g) where
-  lift :: (Double# -> Double#) -> (Double -> Double)
-  lift bf (D# x) = D# (bf x)

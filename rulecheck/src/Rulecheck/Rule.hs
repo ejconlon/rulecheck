@@ -10,25 +10,22 @@ module Rulecheck.Rule
   , ruleModuleDoc
   ) where
 
-import Control.Monad (foldM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Char (isAlphaNum)
 import Data.Foldable (foldl', toList)
 import Data.Maybe (fromJust)
 import Data.List (intercalate)
 import Data.Set (Set)
-import Debug.Trace (trace)
 import GHC.Core.TyCon
 import GHC.Core.Type
-import GHC (GhcMonad (..), GhcTc, HsExpr, Kind, LHsExpr, LRuleDecl, RuleBndr (RuleBndr), RuleDecl (..), unLoc)
+import GHC
 import GHC.Data.FastString (fs_zenc, zString)
 import GHC.Driver.Session (HasDynFlags)
-import GHC.Hs.Decls
 import GHC.Types.Basic (RuleName)
-import GHC.Types.Var (Var, varName, varType, isId)
+import GHC.Types.Var
 import GHC.Types.Name (isValName, occName, occNameString)
 import GHC.Types.Name.Set
-import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), showSDocUnsafe)
+import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), showSDocUnsafe, blankLine)
 import Prelude hiding ((<>))
 import Rulecheck.Monad (GhcM)
 import Rulecheck.Rendering (outputString)
@@ -46,6 +43,8 @@ data Rule = Rule
 
   -- | The type of `ruleLHS`, presumably this is also the type of `ruleRHS`!
   , ruleType :: Kind
+  -- | Not strictly necessary, but useful for debugging
+  , origRule :: SDoc
   }
 
 getPrimitiveTypeName :: Kind -> Maybe String
@@ -101,12 +100,13 @@ ruleFromDecl decl =
     let name = getRuleName decl
     let (HsRuleRn lhsVars rhsVars) = rd_ext (unLoc decl)
     let explicitVars = unionNameSet lhsVars rhsVars
+    liftIO $ putStrLn $ showSDocUnsafe $ ppr decl
     liftIO $ putStrLn $ showSDocUnsafe $ ppr explicitVars
     -- mapM_ (go explicitVars) args
     let valueArgs = filter (\arg -> elemNameSet (varName arg) explicitVars) args
     session <- getSession
     lhsTyp  <- liftIO $ getType session lhs
-    return $ Rule name valueArgs (unLoc lhs) (unLoc rhs) (fromJust lhsTyp)
+    return $ Rule name valueArgs (unLoc lhs) (unLoc rhs) (fromJust lhsTyp) (ppr decl)
   -- where
   --   go explicitVars arg =
   --     liftIO $
@@ -135,20 +135,48 @@ asTuple elems = parens $ pprWithCommas ppr elems
 toSDoc :: (Functor m, HasDynFlags m) => Outputable a => Set String -> a -> m SDoc
 toSDoc importedModuleNames = fmap text . outputString importedModuleNames
 
+data BoxType = BoxType
+  {  boxedName   :: String
+  ,  constructor :: String
+  }
+
+getBoxType :: Kind -> Maybe BoxType
+getBoxType k = case getPrimitiveTypeName k of
+  Just "$tcFloat#"  -> Just $ BoxType "Float" "F#"
+  Just "$tcDouble#" -> Just $ BoxType "Double" "D#"
+  _                 -> Nothing
+
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
+--
+-- IMPORTANT! This function also does a bit of manipulation to convert boxed
+-- types into unboxed versions and back. This is kind of a hack, necessary to
+-- get around restrictions on usages of unboxed types (the type (Float#, Float#)
+-- is not allowed, for example)
 ruleSideDoc :: (Rule, Int) -> RuleSide -> SDoc
 ruleSideDoc (rule, idx) side =
   let
     prefix    = "fn_" ++ sideString side ++ "_"
     name      = prefix ++ sanitizeName (ruleName rule) idx
     args      = valArgs rule
-    body      = ppr (getSide side rule)
-    argTypes  = asTuple (map (ppr . varType) args)
-    resultTyp = ppr (ruleType rule)
-    args'     = asTuple args
+    argTypes  = asTuple (map (asBoxedType . varType) args)
+    resultTyp = asBoxedType (ruleType rule)
   in
     text name <+> text "::" <+> argTypes <+> arrow <+> resultTyp $+$
-    text name <+> args' <+> text "=" <+> body
+    text name <+> asTuple (map asBoxedArg args) <+> text "=" <+> maybeBoxedBody
+  where
+    body = getSide side rule
+    maybeBoxedBody :: SDoc
+    maybeBoxedBody = case getBoxType (ruleType rule) of
+      (Just (BoxType _ c)) -> text c <+> parens (ppr body)
+      _                    -> ppr body
+    asBoxedArg :: Var -> SDoc
+    asBoxedArg v | Just (BoxType _ c) <- getBoxType (varType v)
+                 = parens (text c <+> ppr v)
+    asBoxedArg v | otherwise = ppr v
+
+    asBoxedType :: Kind -> SDoc
+    asBoxedType k | Just (BoxType c _) <- getBoxType k = text c
+    asBoxedType k | otherwise                          = ppr k
 
 -- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
 rulePairDoc :: (Rule, Int) -> SDoc
@@ -160,13 +188,7 @@ rulePairDoc (rule, idx) =
       nameRhs = prefixRhs ++ bareName
       nameRule = "rule_" ++ bareName
   in text nameRule <+> text ":: SomeTestableRule" $+$
-     text nameRule <+> text "= SomeTestableRule" <+> parens (text ruleFunc <+> text nameLhs <+> text nameRhs)
-  where
-    ruleFunc =
-      case (map (getPrimitiveTypeName . varType) (ruleArgs rule) , getPrimitiveTypeName (ruleType rule)) of
-        ([Just "$tcFloat#"] , Just "$tcFloat#") -> primFloatRule
-        ([Just "$tcDouble#"] , Just "$tcDouble#") -> primDoubleRule
-        other -> trace ("Names were " ++ show other) "TestableRule"
+     text nameRule <+> text "= SomeTestableRule" <+> parens (text "TestableRule" <+> text nameLhs <+> text nameRhs)
 
 -- | Renders the rule test defn like "test_NAME :: TestTree \n test_NAME = ..."
 ruleTestDoc :: (Rule, Int) -> SDoc
@@ -192,8 +214,9 @@ ruleModuleDoc modName deps rules =
   foldl' (\x r -> x $+$ f r) (ruleModuleHeaderDoc modName deps) (zip rules [1..])
   where
     f :: (Rule, Int) -> SDoc
-    f r = lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r
+    f r = comment $+$ lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r $+$ blankLine $+$ blankLine
       where
+        comment = text "{- Test for Rule: " $+$ origRule (fst r) $+$ text "-}"
         lhs = ruleSideDoc r LHS
         rhs = ruleSideDoc r RHS
 
@@ -203,12 +226,4 @@ testingImports =
     [ "SomeTestableRule(..)"
     , "TestableRule (..)"
     , "testSomeTestableRule"
-    , primFloatRule
-    , primDoubleRule
     ]
-
-primFloatRule :: String
-primFloatRule = "primFloatRule"
-
-primDoubleRule :: String
-primDoubleRule = "primDoubleRule"

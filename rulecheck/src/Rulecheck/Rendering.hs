@@ -15,7 +15,7 @@ import GHC.Plugins (HasDynFlags (..), Origin (..), Outputable (..), PprStyle (..
                     UnhelpfulSpanReason (..), alwaysQualify, neverQualify, occNameString, moduleName)
 import GHC.ThToHs (convertToHsDecls)
 import GHC.Utils.Error (MsgDoc)
-import GHC.Utils.Outputable (PrintUnqualified(..), SDoc, initSDocContext, renderWithStyle, vcat)
+import GHC.Utils.Outputable
 import GHC.Unit.Module.Name
 import Language.Haskell.TH.Syntax (Dec)
 
@@ -35,12 +35,12 @@ stripNulls = filter (/= '\NUL')
 renderSDoc :: (Functor m, HasDynFlags m) => S.Set String -> SDoc -> m String
 renderSDoc importedModuleNames doc = flip fmap getDynFlags $ \dynFlags ->
   -- Uh this style seems to work...
-  let sty = PprDump (
+  let sty = mkUserStyle (
         QueryQualify
           checkName
           (queryQualifyModule neverQualify)
           (queryQualifyPackage neverQualify)
-        )
+        ) AllTheWay
       ctx = initSDocContext dynFlags sty
   in stripNulls (renderWithStyle ctx doc)
   where
