@@ -19,9 +19,9 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), TyScheme (..),
-                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials, TyName, Ty, explodeTy)
+                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials, TyName, Ty, explodeTy, Lit)
 import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
-import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..), ConsLine (..))
+import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..), ConsLine (..), LitLine (..))
 
 -- | A declared term (essentially name and type scheme)
 data Decl = Decl
@@ -50,10 +50,12 @@ data DeclSet = DeclSet
   -- ^ Map from class name to instance schemes
   , dsCons :: !(Map TyName (Seq ConSig))
   -- ^ Map from type name to constructors
+  , dsLits :: !(Map TyName (Seq Lit))
+  -- ^ Map from type name to literals
   } deriving stock (Eq, Show)
 
 emptyDeclSet :: DeclSet
-emptyDeclSet = DeclSet Map.empty Map.empty Map.empty
+emptyDeclSet = DeclSet Map.empty Map.empty Map.empty Map.empty
 
 data DeclErr =
     DeclErrNameless !(Maybe TmName) !(NamelessErr TyVar)
@@ -122,11 +124,27 @@ insertConsM tn cns = do
       sigs <- traverse prepSigM cns
       modify' (\ds -> ds { dsCons = Map.insert tn sigs cons })
 
+appendUniq :: Eq a => Seq a -> Seq a -> Seq a
+appendUniq !xs = \case
+  Empty -> xs
+  y :<| ys -> case Seq.elemIndexL y xs of
+    Nothing -> appendUniq (xs :|> y) ys
+    Just _ -> appendUniq xs ys
+
+insertLitM :: TyName -> Seq Lit -> DeclM ()
+insertLitM tyn vals = modify' $ \ds ->
+  let m = dsLits ds
+      m' = case Map.lookup tyn m of
+        Nothing -> Map.insert tyn vals m
+        Just xvals -> Map.insert tyn (appendUniq xvals vals) m
+  in ds { dsLits = m' }
+
 insertLineM :: Line -> DeclM ()
 insertLineM = \case
     LineFunc (FuncLine n ts) -> insertTmDeclM n ts
     LineInst (InstLine is) -> insertInstM is
-    LineCons (ConsLine tm cns) -> insertConsM tm cns
+    LineCons (ConsLine tmn cns) -> insertConsM tmn cns
+    LineLit (LitLine tyn vals) -> insertLitM tyn vals
     -- Do we need to add anything else to the decl set for search?
     _ -> pure ()
 
