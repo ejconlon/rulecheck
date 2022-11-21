@@ -17,6 +17,7 @@ library
       Rulecheck.Rendering
       Rulecheck.Rule
       Rulecheck.RuleExtraction
+      Rulecheck.RuleRendering
       Rulecheck.Testing
       Rulecheck.Typecheck
   other-modules:

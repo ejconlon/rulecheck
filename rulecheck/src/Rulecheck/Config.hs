@@ -1,8 +1,13 @@
 module Rulecheck.Config where
 
 import Data.Aeson (FromJSON)
+import Data.List (isSuffixOf)
 import Data.Set as Set
+import Debug.Trace (trace)
+import GHC.Data.FastString
 import GHC.Generics
+import GHC.Types.Basic (RuleName)
+import Rulecheck.Rule (RuleSide(..))
 
 data PackageDescription =
   PackageDescription
@@ -38,6 +43,13 @@ packageTestsPrefix = "package-tests"
 logFile :: FilePath
 logFile = "log.txt"
 
+overrideTypeSig :: FilePath -> RuleName -> RuleSide -> Maybe String
+overrideTypeSig fp rn LHS =
+  if "basement-0.0.15/Basement/PrimType.hs" `isSuffixOf` fp && unpackFS rn  == "offsetInAligned Bytes"
+    then Just "(Proxy Word8, Offset Word8) -> Bool"
+    else Nothing -- trace ("No hit for" ++ fp ++ unpackFS rn) Nothing
+overrideTypeSig fp rn _ = Nothing -- trace ("No hit for" ++ fp ++ unpackFS rn) Nothing
+
 filesToSkip :: [String]
 filesToSkip =
   [ "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs" -- Rules apply to a lower version
@@ -69,7 +81,8 @@ filesToSkip =
 
 packagesToSkip :: [String]
 packagesToSkip =
-  [ "clash-prelude"    -- Appears to have compilation issues
+  [ "base-compat"      -- No applicable rules
+  , "clash-prelude"    -- Appears to have compilation issues
   , "doctest"          -- Cabal unknown target
   , "doctest-parallel" -- Cabal unknown target
   , "flat"             -- cannot satisfy -package dlist-0.8.0.7
@@ -87,7 +100,9 @@ packagesToSkip =
 
 -- Allows for adding additional imports, if necessary
 importsForPackage :: PackageDescription -> Set String
-importsForPackage _ = Set.fromList []
+importsForPackage pkg | name pkg == "basement"
+                      = Set.fromList [ "Basement.Types.OffsetSize", "Data.Proxy" ]
+importsForPackage _   = Set.empty
 
 -- Given a possibly internal module, return a public version of that module with similar exports
 -- For example, many types in the private module `Data.Set.Internal` are in `Data.Set`, so the

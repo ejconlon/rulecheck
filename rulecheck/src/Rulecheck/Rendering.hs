@@ -1,3 +1,4 @@
+-- | Generic Rendering utilities
 module Rulecheck.Rendering
   ( ConvertErr (..)
   , renderSDoc

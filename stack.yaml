@@ -30,7 +30,10 @@ packages:
 - ../haskell-packages/aeson-2.0.3.0
 - ../haskell-packages/algebraic-graphs-0.6.1
 - ../haskell-packages/arithmoi-0.12.0.2
+- ../haskell-packages/basement-0.0.15
 
 # Added via ./test.sh
 - package-tests/arithmoi-test
 - package-tests/fast-math-test
+- package-tests/base-compat-test
+- package-tests/basement-test
