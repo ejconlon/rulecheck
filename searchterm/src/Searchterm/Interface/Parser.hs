@@ -3,6 +3,7 @@
 module Searchterm.Interface.Parser
   ( parseTerm
   , parseType
+  , parseLine
   , parseLines
   , parseLinesIO
   ) where
@@ -381,6 +382,9 @@ type ParseErr = ParseErrorBundle Text Void
 
 runP :: P a -> FilePath -> Text -> Either ParseErr a
 runP p = MP.runParser (unP (consumeP p))
+
+parseLine :: FilePath -> Text -> Either ParseErr Line
+parseLine = runP lineP
 
 parseLines :: FilePath -> Text -> Either ParseErr (Seq Line)
 parseLines = runP linesP
