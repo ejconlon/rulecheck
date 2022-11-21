@@ -10,7 +10,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Rulecheck.Config
 import Rulecheck.Monad (cradleGhcM)
-import Rulecheck.Rendering (outputString)
+import Rulecheck.Rendering
 import Rulecheck.Rule
 import Rulecheck.RuleExtraction
 import System.Directory
@@ -32,8 +32,19 @@ getModContents :: GenerateOptions -> IO String
 getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
     rules <- getRulesFromFile srcFile
+
+    -- `modDoc` is a "preliminary" version of the output test suite that may not
+    -- include all necessary module inputs
     let modDoc = ruleModuleDoc genModName genDeps rules
-    contents <- outputString genDeps modDoc
+
+    -- Determines the necessary module imports by identifying all of the Name's
+    -- that need to be rendered in `modDoc`
+    additionalImports <- identifyRequiredImports modDoc
+
+    -- This is the final version of the test suite, adding all of the required additional
+    -- imports
+    let modDoc' = ruleModuleDoc genModName (Set.union genDeps additionalImports) rules
+    contents <- outputString modDoc'
     return $ "-- Generated for rules in file " ++ srcFile ++ "\n" ++ contents
 
 generateFile :: GenerateOptions -> IO ()

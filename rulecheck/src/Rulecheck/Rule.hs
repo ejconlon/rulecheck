@@ -23,7 +23,7 @@ import GHC.Data.FastString (fs_zenc, zString)
 import GHC.Driver.Session (HasDynFlags)
 import GHC.Types.Basic (RuleName)
 import GHC.Types.Var
-import GHC.Types.Name (isValName, occName, occNameString)
+import GHC.Types.Name (nameModule_maybe, isValName, occName, occNameString)
 import GHC.Types.Name.Set
 import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), blankLine)
 import Prelude hiding ((<>))
@@ -130,8 +130,8 @@ asTuple [] = text "()"
 asTuple [el] = ppr el
 asTuple elems = parens $ pprWithCommas ppr elems
 
-toSDoc :: (Functor m, HasDynFlags m) => Outputable a => Set String -> a -> m SDoc
-toSDoc importedModuleNames = fmap text . outputString importedModuleNames
+toSDoc :: (Functor m, HasDynFlags m) => Outputable a => a -> m SDoc
+toSDoc = fmap text . outputString
 
 data BoxType = BoxType
   {  boxedName   :: String

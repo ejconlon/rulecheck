@@ -12,6 +12,7 @@ packages:
 - searchterm
 - rulecheck
 - demo-domain
+# - package-tests/Color-test
 
 #   Uncomment below to enable fuzz testing for the demo app
 # - demo-test

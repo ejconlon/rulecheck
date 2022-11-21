@@ -2,18 +2,23 @@ module Rulecheck.Rendering
   ( ConvertErr (..)
   , renderSDoc
   , convertAndRender
+  , identifyRequiredImports
   , outputString
   ) where
 
+import Control.DeepSeq
 import Control.Exception (Exception)
 import Control.Monad.Catch (MonadThrow, throwM)
-import qualified Data.Set as S
+import Control.Monad.IO.Class
+import Data.Set as Set (Set, empty, insert)
+import Data.IORef
 import GHC.Hs.Decls (LHsDecl)
 import GHC.Hs.Extension (GhcPs)
 import GHC.Plugins
 import GHC.ThToHs (convertToHsDecls)
 import GHC.Utils.Error (MsgDoc)
 import Language.Haskell.TH.Syntax (Dec)
+import System.IO.Unsafe
 
 -- Convert a sequence of TH declarations (abstract syntax) to HS declarations (concrete syntax)
 convertThDecls :: [Dec] -> Either MsgDoc [LHsDecl GhcPs]
@@ -27,23 +32,40 @@ renderHsDecls = vcat . fmap ppr
 stripNulls :: String -> String
 stripNulls = filter (/= '\NUL')
 
--- Render that a printable document to string
-renderSDoc :: (Functor m, HasDynFlags m) => S.Set String -> SDoc -> m String
-renderSDoc importedModuleNames doc = flip fmap getDynFlags $ \dynFlags ->
-  -- Uh this style seems to work...
-  let sty = mkUserStyle (
-        QueryQualify
-          checkName
+-- | `identifyRequiredImports doc` determines what modules should be imported
+--   to resolve all of the `Name`s in `doc`.
+--
+--   The way of doing this is a bit counter-intuitive: it attempts to generate
+--   an output string for `doc`, and attaches a handler for checking whether
+--   to qualify a given name. The handler records each name it receives into a set.
+--   The rendered document is discarded and the set is returned. Because the handler
+--   interface is pure, unsafePerformIO is required here.
+identifyRequiredImports :: (MonadIO m, HasDynFlags m) => SDoc -> m (Set String)
+identifyRequiredImports doc =
+  do
+    ref      <- liftIO $ newIORef Set.empty
+    dynFlags <- getDynFlags
+    let sty = mkUserStyle (QueryQualify
+          (checkName ref)
           (queryQualifyModule neverQualify)
-          (queryQualifyPackage neverQualify)
-        ) AllTheWay
+          (queryQualifyPackage neverQualify)) AllTheWay
+    let ctx = initSDocContext dynFlags sty
+    deepseq (renderWithStyle ctx doc) (liftIO $ readIORef ref)
+  where
+    checkName ref m occ =
+      let
+        modName = moduleNameString (moduleName m)
+        result  = queryQualifyName neverQualify m occ
+      in
+        unsafePerformIO (modifyIORef' ref (Set.insert modName) >> return result)
+
+-- Render that a printable document to string
+renderSDoc :: (Functor m, HasDynFlags m) => SDoc -> m String
+renderSDoc doc = flip fmap getDynFlags $ \dynFlags ->
+  -- Uh this style seems to work...
+  let sty = mkUserStyle neverQualify AllTheWay
       ctx = initSDocContext dynFlags sty
   in stripNulls (renderWithStyle ctx doc)
-  where
-    checkName m ocn | S.member (moduleNameString (moduleName m)) importedModuleNames
-                    = queryQualifyName neverQualify m ocn
-    checkName m ocn =
-      trace ("Qualifying " ++ moduleNameString (moduleName m) ++ "." ++ occNameString ocn) $ queryQualifyName alwaysQualify m ocn
 
 -- | Error encountered in conversion
 newtype ConvertErr =
@@ -53,12 +75,12 @@ newtype ConvertErr =
 instance Exception ConvertErr
 
 -- | Converts a sequences of TH declarations to program string
-convertAndRender :: (MonadThrow m, HasDynFlags m) => S.Set String -> [Dec] -> m String
-convertAndRender importedModuleNames thDecls = case convertThDecls thDecls of
+convertAndRender :: (MonadThrow m, HasDynFlags m) => [Dec] -> m String
+convertAndRender thDecls = case convertThDecls thDecls of
   Left errDoc -> do
-    errStr <- renderSDoc importedModuleNames errDoc
+    errStr <- renderSDoc errDoc
     throwM (ConvertErr errStr)
-  Right hsDecls -> renderSDoc importedModuleNames (renderHsDecls hsDecls)
+  Right hsDecls -> renderSDoc (renderHsDecls hsDecls)
 
-outputString :: (Functor m, HasDynFlags m, Outputable a) => S.Set String -> a -> m String
-outputString importedModuleNames = renderSDoc importedModuleNames . ppr
+outputString :: (Functor m, HasDynFlags m, Outputable a) => a -> m String
+outputString = renderSDoc . ppr
