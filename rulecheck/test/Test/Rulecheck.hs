@@ -2,9 +2,11 @@
 
 module Test.Rulecheck (testRulecheck) where
 
+import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (fromJust, isJust)
-import GHC.Plugins (unLoc, varType)
+import Data.Set as Set
+import GHC.Plugins (HasDynFlags, Outputable, unLoc, varType)
 import Language.Haskell.TH.Syntax (Body (..), Clause (..), Dec (..), Exp (..), Lit (..), Pat (..), Q, mkName, newName,
                                    runQ)
 import Rulecheck.Monad (cradleGhcM, runGhcM)
@@ -14,6 +16,12 @@ import Rulecheck.Rule (Rule (..), RuleSide (..), ruleFromDecl, ruleSideDoc)
 import Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, getTypecheckedRuleDecls, typecheck)
 import Test.Tasty (DependencyType (..), TestTree, after, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
+
+convertAndRender' :: (MonadThrow m, HasDynFlags m) => [Dec] -> m String
+convertAndRender' = convertAndRender Set.empty
+
+outputString' :: (Functor m, HasDynFlags m, Outputable a) => a -> m String
+outputString' = outputString Set.empty
 
 -- Example from here: https://markkarpov.com/tutorial/th.html
 mkFunExp :: Q Exp
@@ -33,7 +41,7 @@ testRender :: TestTree
 testRender = testCase "render" $ do
   let expectedOutput = "foo = \\ x_0 -> (x_0 + 1)"
   decls <- runQ mkFunDecls
-  actualOutput <- runGhcM (convertAndRender decls)
+  actualOutput <- runGhcM (convertAndRender' decls)
   actualOutput @?= expectedOutput
 
 testParse :: TestTree
@@ -41,7 +49,7 @@ testParse = testCase "parse" $ do
   let contents = "module Foo where foo = \\ x_0 -> (x_0 + 1)"
   _pmod <- runGhcM $ do
     pmod <- parseModule fakeFilePath contents
-    outputString pmod >>= liftIO . putStrLn
+    outputString' pmod >>= liftIO . putStrLn
     pure pmod
   -- TODO assert something about the parsed module
   pure ()
@@ -55,54 +63,54 @@ testGetParsedRuleDecls = testCase "getParsedRuleDecls" $ do
   [expected1, expected2] <- runGhcM $ do
     pmod <- parseModule fakeFilePath contents
     let rules = getParsedRuleDecls (unLoc pmod)
-    mapM outputString rules
+    mapM outputString' rules
   expected1 @?= "{-# RULES \"mul1\" forall x. x .* Const 1 = x #-}"
   expected2 @?= "{-# RULES \"div_id\" forall x. x ./ x = Const 1 #-}"
 
 testGetNameUnsafe :: TestTree
 testGetNameUnsafe = testCase "getName" $ do
-  tcm <- cradleGhcM demoDomainFile (typecheck demoDomainFile)
+  [tcm] <- cradleGhcM demoDomainFile (typecheck demoDomainFile)
   isJust (getNameUnsafe tcm ".*") @?= True
   isJust (getNameUnsafe tcm "NONEXISTANT") @?= False
 
 testGetTypeForNameUnsafe :: TestTree
 testGetTypeForNameUnsafe = testCase "getTypeForName" $ do
   expected <- cradleGhcM demoDomainFile$ do
-    tcm      <- typecheck demoDomainFile
+    [tcm]  <- typecheck demoDomainFile
     typ      <- getTypeForNameUnsafe tcm ".*"
-    outputString (fromJust typ)
-  expected @?= "main:DemoDomain.Expr\n-> main:DemoDomain.Expr -> main:DemoDomain.Expr"
+    outputString' (fromJust typ)
+  expected @?= "DemoDomain.Expr\n-> DemoDomain.Expr -> DemoDomain.Expr"
 
 testGetRule :: TestTree
 testGetRule = testCase "getRule" $ do
   cradleGhcM demoDomainFile $ do
-    tcm      <- typecheck demoDomainFile
+    [tcm]      <- typecheck demoDomainFile
     let [rule1, _] = getTypecheckedRuleDecls tcm
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
-    arg'    <- outputString arg -- A unique mangled name
-    argTyp  <- outputString (varType arg)
-    lhs'    <- outputString (ruleLHS rule)
-    rhs'    <- outputString (ruleRHS rule)
-    retType <- outputString (ruleType rule)
-    liftIO $ argTyp   @?= "main:DemoDomain.Expr"
-    liftIO $ lhs' @?= (arg' ++ " main:DemoDomain../ " ++ arg')
-    liftIO $ rhs' @?= "main:DemoDomain.Const 1"
-    liftIO $ retType @?= "main:DemoDomain.Expr"
+    arg'    <- outputString' arg -- A unique mangled name
+    argTyp  <- outputString' (varType arg)
+    lhs'    <- outputString' (ruleLHS rule)
+    rhs'    <- outputString' (ruleRHS rule)
+    retType <- outputString' (ruleType rule)
+    liftIO $ argTyp   @?= "DemoDomain.Expr"
+    liftIO $ lhs' @?= (arg' ++ " DemoDomain../ " ++ arg')
+    liftIO $ rhs' @?= "DemoDomain.Const 1"
+    liftIO $ retType @?= "DemoDomain.Expr"
 
 testRuleSideDoc :: TestTree
 testRuleSideDoc = testCase "ruleSidedoc" $ do
   cradleGhcM demoDomainFile $ do
-    tcm <- typecheck demoDomainFile
+    [tcm] <- typecheck demoDomainFile
     let [rule1, _] = getTypecheckedRuleDecls tcm
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
-    arg' <- outputString arg -- A unique mangled name
-    doc <- ruleSideDoc rule LHS
-    tf <- outputString doc
+    arg' <- outputString' arg -- A unique mangled name
+    let doc = ruleSideDoc (rule, 0) LHS
+    tf <- outputString' doc
     let [sig, body] = lines tf
-    liftIO $ sig  @?= "fn_lhs_divzuid :: DemoDomain.Expr -> DemoDomain.Expr"
-    liftIO $ body @?= ("fn_lhs_divzuid " ++ arg' ++ " = " ++ arg' ++ " DemoDomain../ " ++ arg')
+    liftIO $ sig  @?= "fn_lhs_divzuid_0 :: DemoDomain.Expr -> DemoDomain.Expr"
+    liftIO $ body @?= ("fn_lhs_divzuid_0 " ++ arg' ++ " = " ++ arg' ++ " DemoDomain../ " ++ arg')
 
 testRulecheck :: TestTree
 testRulecheck = testGroup "Rulecheck"

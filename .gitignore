@@ -7,3 +7,4 @@ dist-newstyle
 *.swo
 *.swp
 data/scratch
+package-tests/*

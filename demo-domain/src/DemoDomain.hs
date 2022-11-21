@@ -25,10 +25,10 @@ data Expr =
 (./) :: Expr -> Expr -> Expr
 (./) = Div
 
--- Good rule
+-- Bad rule 1
 {-# RULES "mul1" forall x.  x .* Const 1 = x #-}
 
--- Bad rule
+-- Bad rule 2
 {-# RULES "div_id" forall x.  x ./ x = Const 1 #-}
 
 data EvalErr =

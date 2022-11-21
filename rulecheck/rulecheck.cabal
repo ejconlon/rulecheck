@@ -11,10 +11,12 @@ build-type:     Simple
 library
   exposed-modules:
       Rulecheck
+      Rulecheck.Config
       Rulecheck.Monad
       Rulecheck.Parsing
       Rulecheck.Rendering
       Rulecheck.Rule
+      Rulecheck.RuleExtraction
       Rulecheck.Testing
       Rulecheck.Typecheck
   other-modules:
@@ -39,6 +41,7 @@ library
       GeneralizedNewtypeDeriving
       LambdaCase
       KindSignatures
+      MagicHash
       MultiParamTypeClasses
       MultiWayIf
       Rank2Types
@@ -51,9 +54,12 @@ library
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie
   build-depends:
-      QuickCheck
+      MissingH
+    , QuickCheck
+    , aeson
     , base >=4.12 && <5
     , containers
+    , directory
     , exceptions
     , generic-lens
     , ghc ==9.0.2
@@ -93,6 +99,7 @@ executable rulecheck-exe
       GeneralizedNewtypeDeriving
       LambdaCase
       KindSignatures
+      MagicHash
       MultiParamTypeClasses
       MultiWayIf
       Rank2Types
@@ -105,9 +112,12 @@ executable rulecheck-exe
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      QuickCheck
+      MissingH
+    , QuickCheck
+    , aeson
     , base >=4.12 && <5
     , containers
+    , directory
     , exceptions
     , generic-lens
     , ghc ==9.0.2
@@ -150,6 +160,7 @@ test-suite rulecheck-test
       GeneralizedNewtypeDeriving
       LambdaCase
       KindSignatures
+      MagicHash
       MultiParamTypeClasses
       MultiWayIf
       Rank2Types
@@ -162,9 +173,12 @@ test-suite rulecheck-test
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      QuickCheck
+      MissingH
+    , QuickCheck
+    , aeson
     , base >=4.12 && <5
     , containers
+    , directory
     , exceptions
     , generic-lens
     , ghc ==9.0.2

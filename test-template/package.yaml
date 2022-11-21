@@ -1,32 +1,12 @@
-name:                rulecheck
+name:                {testname}
 version:             0.1.0
 
 dependencies:
 - base >= 4.12 && < 5
-- ghc == 9.0.2
-- aeson
-- containers
-- directory
-- exceptions
-- little-rio
-- little-logger
-- text
-- generic-lens
-- unliftio-core
-- mtl
-- MissingH
-- ghc-paths
-- hie-bios
-- template-haskell
-# These are for prototyping the test interface:
-- QuickCheck
-- tasty
-- tasty-quickcheck
 
 default-extensions:
 - BangPatterns
 - ConstraintKinds
-- DataKinds
 - DeriveAnyClass
 - DeriveFunctor
 - DeriveFoldable
@@ -41,9 +21,8 @@ default-extensions:
 - GeneralizedNewtypeDeriving
 - LambdaCase
 - KindSignatures
-- MagicHash
+- MagicHash # This is necessary for FastMath, for example
 - MultiParamTypeClasses
-- MultiWayIf
 - Rank2Types
 - ScopedTypeVariables
 - StandaloneDeriving
@@ -52,6 +31,7 @@ default-extensions:
 - TypeApplications
 - TypeOperators
 - TypeFamilies
+
 
 ghc-options:
 - -Wall
@@ -65,29 +45,23 @@ ghc-options:
 - -fwrite-ide-info
 - -hiedir=.hie
 
-library:
-  source-dirs: src
-
-executables:
-  rulecheck-exe:
-    main:                Main.hs
-    source-dirs:         exe
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - rulecheck
-
 tests:
-  rulecheck-test:
+  {testname}:
     main:                Main.hs
     source-dirs:         test
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -O0
+    - -fno-enable-rewrite-rules
+    build-tools:
+      tasty-discover:tasty-discover
     dependencies:
     - rulecheck
+    - {packagename}
+    - QuickCheck
     - tasty
     - tasty-hunit
+    - tasty-quickcheck
+    - ghc-prim

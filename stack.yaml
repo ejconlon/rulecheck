@@ -12,4 +12,15 @@ packages:
 - searchterm
 - rulecheck
 - demo-domain
-- demo-test
+
+#   Uncomment below to enable fuzz testing for the demo app
+# - demo-test
+
+# Uncomment to fuzz "Color", for example
+# To run the fuzz tests use the command `stack test Color-test`
+# - package-tests/Color-test
+
+# Uncomment to use the local version of "Color", for example
+# This might be necessary if you want to make some changes to the module
+# to facilitate testing (e.g. expose a hidden module containing rewrite rules)
+# - /Users/zgrannan/haskell-packages/Color-0.3.3
