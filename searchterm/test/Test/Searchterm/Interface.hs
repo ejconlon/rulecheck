@@ -57,6 +57,13 @@ testParseTm = testCase "parseTm" $ do
       , mkPP "Right" ["z"] (TmApp (TmFree "showInt") (TmFree "z"))
       ]
 
+  assertParseTm "0" (TmLit (LitInteger 0))
+  assertParseTm "-1" (TmLit (LitInteger (-1)))
+  assertParseTm "0.1" (TmLit (LitScientific (read "0.1")))
+  assertParseTm "-0.1" (TmLit (LitScientific (read "-0.1")))
+  assertParseTm "'c'" (TmLit (LitChar 'c'))
+  assertParseTm "\"foo\"" (TmLit (LitString "foo"))
+
 assertParseLine :: Text -> Line -> IO ()
 assertParseLine expectedTxt expectedLine = do
   let actualTxt = docToText (pretty expectedLine)
