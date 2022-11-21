@@ -20,7 +20,7 @@ import Control.Monad.Except (MonadError (..))
 import Control.Monad.Logic (MonadLogic (..))
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
-import Data.Foldable (foldl', toList)
+import Data.Foldable (foldl', toList, asum)
 import Data.Functor.Foldable (cata, project)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
@@ -320,6 +320,18 @@ ctxFits goalKey = traceScopeM "Ctx fit" $ do
     _ <- traceTryM ("Align ctx fit: " ++ show candKey) (tryAlignTy goalKey candKey)
     pure (TmFree idx)
 
+-- | Find solutions by looking in the context for vars that match exactly.
+litFits :: TyUniq -> SearchM TmFound
+litFits goalKey = traceScopeM "Lit fit" $ do
+  (_, goalVal) <- lookupGoal goalKey
+  case goalVal of
+    TyConF tyn xs | Seq.null xs -> do
+      mvals <- asks (Map.lookup tyn . dsLits . envDecls)
+      case mvals of
+        Nothing -> empty
+        Just vals -> asum (fmap (pure . TmLit) vals)
+    _ -> empty
+
 -- | If the goal is a type vertex (not a meta/skolem vertex), yield it.
 lookupGoal :: TyUniq -> SearchM (TyUniq, TyUnify)
 lookupGoal goalKey = do
@@ -489,6 +501,8 @@ topSearchUniq goalKey = res where
     -- TODO Also look at partial applications of functions in the context.
     , destructFits goalKey
     -- ^ Solve a function goal by pattern matching on the argument type.
+    , litFits goalKey
+    -- ^ Solve a goal by emitting literals
     ]
   res = traceScopeM ("Key search: " ++ show (unTyUniq goalKey)) (interleaveAll fits)
 
