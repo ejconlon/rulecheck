@@ -143,6 +143,12 @@ destructDeclSrc = DeclSrcList
   , "showInt :: Int -> String"
   ]
 
+litsDeclSrc :: DeclSrc
+litsDeclSrc = DeclSrcList
+  [ "literals Int 0 -1 2"
+  , "literals Int 3"
+  ]
+
 testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
@@ -160,5 +166,9 @@ testSearch = testGroup "Search"
   , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
     ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
     ["showChar"]
+  -- TODO add to search
+  -- , testFinds "literals" litsDeclSrc "Int"
+  --   ["0", "-1", "2", "3"]
+  --   ["4"]
   -- TODO more tests!!! But the pattern is clear...
   ]

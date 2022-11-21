@@ -301,13 +301,14 @@ clsLineP = do
   keywordP "class"
   ClsLine <$> clsSchemeP
 
-tmP, tmLamP, tmAppP, tmFreeP, tmLetP, tmCaseP :: P (Tm TmVar TmVar)
+tmP, tmLamP, tmAppP, tmFreeP, tmLetP, tmCaseP, tmLitP :: P (Tm TmVar TmVar)
 tmP = foldr1 (<|>)
   [ tmLamP
   , tmAppP
   , tmFreeP
   , tmLetP
   , tmCaseP
+  , tmLitP
   ]
 tmLamP = optParensP $ do
   _ <- keywordP "\\"
@@ -337,6 +338,7 @@ tmCaseP = optParensP $ do
   pairs <- sepBy patPairP (keywordP ";")
   _ <- keywordP "}"
   pure (TmCase scrut (Seq.fromList pairs))
+tmLitP = TmLit <$> litP
 
 patPairP :: P (PatPair TmVar (Tm TmVar TmVar))
 patPairP = do
@@ -411,7 +413,7 @@ litP = foldr1 (<|>)
 
 litLineP :: P LitLine
 litLineP = do
-  keywordP "literal"
+  keywordP "literals"
   tyn <- tyNameP
   vals <- many litP
   pure (LitLine tyn (Seq.fromList vals))

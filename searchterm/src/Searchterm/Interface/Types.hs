@@ -68,7 +68,7 @@ data LitLine = LitLine
   } deriving stock (Eq, Show)
 
 instance Pretty LitLine where
-  pretty (LitLine nm vals) = P.hsep ("literal" : pretty nm : fmap pretty (toList vals))
+  pretty (LitLine nm vals) = P.hsep ("literals" : pretty nm : fmap pretty (toList vals))
 
 data Line =
     LineData !DataLine
