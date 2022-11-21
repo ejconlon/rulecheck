@@ -15,7 +15,11 @@ data TestableRule a z = TestableRule
   , trRhs :: !(a -> z)
   }
 
-instance (Arbitrary a, Show a, Eq z, Show z) => Testable (TestableRule a z) where
+instance {-# OVERLAPPING #-} (Arbitrary a, Show a, Arbitrary b, Show b, Eq c, Show c) => Testable (TestableRule a (b -> c)) where
+  property x =
+      property $ \a b -> trLhs x a b === trRhs x a b
+
+instance {-# OVERLAPPABLE #-} (Arbitrary a, Show a, Eq z, Show z) => Testable (TestableRule a z) where
   property x = property $ \a -> trLhs x a === trRhs x a
 
 testTestableRule :: (Arbitrary a, Show a, Eq z, Show z) => TestName -> TestableRule a z -> TestTree

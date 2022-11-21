@@ -156,10 +156,12 @@ ruleSideDoc (rule, idx) side =
     prefix    = "fn_" ++ sideString side ++ "_"
     name      = prefix ++ sanitizeName (ruleName rule) idx
     args      = valArgs rule
-    argTypes  = asTuple (map (asBoxedType . varType) args)
-    resultTyp = asBoxedType (ruleType rule)
+    -- argTypes  = asTuple (map (asBoxedType . varType) args)
+    -- resultTyp = asBoxedType (ruleType rule)
   in
-    text name <+> text "::" <+> argTypes <+> arrow <+> resultTyp $+$
+    -- Skip type signature, just let Haskell infer it. This version doesn't include
+    -- necessary type constraints, at least.
+    -- text name <+> text "::" <+> argTypes <+> arrow <+> resultTyp $+$
     text name <+> asTuple (map asBoxedArg args) <+> text "=" <+> maybeBoxedBody
   where
     body = getSide side rule
