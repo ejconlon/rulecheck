@@ -2,4 +2,5 @@
 
 set -euo pipefail
 
+./test.sh arithmoi
 ./test.sh fast-math

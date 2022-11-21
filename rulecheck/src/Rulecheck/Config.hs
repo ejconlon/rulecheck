@@ -42,6 +42,7 @@ filesToSkip :: [String]
 filesToSkip =
   [ "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs" -- Rules apply to a lower version
   , "aeson-2.0.3.0/tests/UnitTests.hs"                    -- We don't care about rules in tests
+  , "arithmoi-0.12.0.2/Math/NumberTheory/Moduli/SomeMod.hs" -- Applies on GADT
   , "Agda-2.6.2.2/src/full/Agda/TypeChecking/Monad/Base.hs" -- Precedence parsing error
   , "Agda-2.6.2.2/src/data/MAlonzo/src/MAlonzo/RTE.hs" -- ???
   , "blaze-builder-0.4.2.2/benchmarks/LazyByteString.hs" -- Not a source file
