@@ -1,3 +1,4 @@
+{-@ LANGUAGE NamedFieldPuns @-}
 module Rulecheck.Rule
   ( Rule(..)
   , RuleSide(..)
@@ -14,16 +15,20 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Data.Char (isAlphaNum)
 import Data.Foldable (foldl', toList)
 import Data.Maybe (fromJust)
+import Data.List (intercalate)
 import Data.Set (Set)
+import Debug.Trace (trace)
+import GHC.Core.TyCon
+import GHC.Core.Type
 import GHC (GhcMonad (..), GhcTc, HsExpr, Kind, LHsExpr, LRuleDecl, RuleBndr (RuleBndr), RuleDecl (..), unLoc)
 import GHC.Data.FastString (fs_zenc, zString)
 import GHC.Driver.Session (HasDynFlags)
 import GHC.Hs.Decls
 import GHC.Types.Basic (RuleName)
 import GHC.Types.Var (Var, varName, varType, isId)
-import GHC.Types.Name (isValName)
+import GHC.Types.Name (isValName, occName, occNameString)
 import GHC.Types.Name.Set
-import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), (<>), showSDocUnsafe)
+import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), showSDocUnsafe)
 import Prelude hiding ((<>))
 import Rulecheck.Monad (GhcM)
 import Rulecheck.Rendering (outputString)
@@ -42,6 +47,18 @@ data Rule = Rule
   -- | The type of `ruleLHS`, presumably this is also the type of `ruleRHS`!
   , ruleType :: Kind
   }
+
+getPrimitiveTypeName :: Kind -> Maybe String
+getPrimitiveTypeName ty
+  | Just (tyCon , _) <- splitTyConApp_maybe ty
+  = if isPrimTyCon tyCon
+      then
+        do
+          name <- tyConRepName_maybe tyCon
+          return $ occNameString (occName name)
+      else Nothing
+  | otherwise = Nothing
+
 
 -- Extract only the term arguments from the rule
 valArgs :: Rule -> [Var]
@@ -100,8 +117,9 @@ sanitizeString = map (\c -> if isAlphaNum c then c else '_')
 
 -- | Names can and often do contain characters that are not safe for identifiers.
 -- We just replace those characters with underscores.
-sanitizeName :: RuleName -> String
-sanitizeName = sanitizeString . zString . fs_zenc
+-- Also adds an index to the rule to ensure each name is unique
+sanitizeName :: RuleName -> Int -> String
+sanitizeName rn idx = sanitizeString (zString (fs_zenc rn)) ++ "_" ++ show idx
 
 -- | Just a string prefix for a rule side
 sideString :: RuleSide -> String
@@ -118,11 +136,11 @@ toSDoc :: (Functor m, HasDynFlags m) => Outputable a => Set String -> a -> m SDo
 toSDoc importedModuleNames = fmap text . outputString importedModuleNames
 
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
-ruleSideDoc :: Rule -> RuleSide -> SDoc
-ruleSideDoc rule side =
+ruleSideDoc :: (Rule, Int) -> RuleSide -> SDoc
+ruleSideDoc (rule, idx) side =
   let
     prefix    = "fn_" ++ sideString side ++ "_"
-    name      = prefix ++ sanitizeName (ruleName rule)
+    name      = prefix ++ sanitizeName (ruleName rule) idx
     args      = valArgs rule
     body      = ppr (getSide side rule)
     argTypes  = asTuple (map (ppr . varType) args)
@@ -133,21 +151,27 @@ ruleSideDoc rule side =
     text name <+> args' <+> text "=" <+> body
 
 -- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
-rulePairDoc :: Rule -> SDoc
-rulePairDoc rule =
+rulePairDoc :: (Rule, Int) -> SDoc
+rulePairDoc (rule, idx) =
   let prefixLhs = "fn_" ++ sideString LHS ++ "_"
       prefixRhs = "fn_" ++ sideString RHS ++ "_"
-      bareName = sanitizeName (ruleName rule)
+      bareName = sanitizeName (ruleName rule) idx
       nameLhs = prefixLhs ++ bareName
       nameRhs = prefixRhs ++ bareName
       nameRule = "rule_" ++ bareName
   in text nameRule <+> text ":: SomeTestableRule" $+$
-     text nameRule <+> text "= SomeTestableRule" <+> parens (text "TestableRule" <+> text nameLhs <+> text nameRhs)
+     text nameRule <+> text "= SomeTestableRule" <+> parens (text ruleFunc <+> text nameLhs <+> text nameRhs)
+  where
+    ruleFunc =
+      case (map (getPrimitiveTypeName . varType) (ruleArgs rule) , getPrimitiveTypeName (ruleType rule)) of
+        ([Just "$tcFloat#"] , Just "$tcFloat#") -> primFloatRule
+        ([Just "$tcDouble#"] , Just "$tcDouble#") -> primDoubleRule
+        other -> trace ("Names were " ++ show other) "TestableRule"
 
 -- | Renders the rule test defn like "test_NAME :: TestTree \n test_NAME = ..."
-ruleTestDoc :: Rule -> SDoc
-ruleTestDoc rule =
-  let bareName = sanitizeName (ruleName rule)
+ruleTestDoc :: (Rule, Int) -> SDoc
+ruleTestDoc (rule, idx) =
+  let bareName = sanitizeName (ruleName rule) idx
       nameRule = "rule_" ++ bareName
       nameTest = "test_" ++ bareName
       nameQuot = "\"" ++ bareName ++ "\""
@@ -159,16 +183,32 @@ ruleModuleHeaderDoc :: String -> Set String -> SDoc
 ruleModuleHeaderDoc modName deps =
   let start = text "module" <+> text modName <+> text "where" $+$
         text "import Test.Tasty (TestTree)" $+$
-        text "import Rulecheck.Testing (SomeTestableRule (..), TestableRule (..), testSomeTestableRule)"
+        text ("import Rulecheck.Testing(" ++ testingImports ++ ")")
   in foldl' (\x d -> x $+$ text "import" <+> text d) start (toList deps)
 
 -- | Renders the entire test module
 ruleModuleDoc :: String -> Set String -> [Rule] -> SDoc
-ruleModuleDoc modName deps =
-  foldl' (\x r -> x $+$ f r) (ruleModuleHeaderDoc modName deps)
+ruleModuleDoc modName deps rules =
+  foldl' (\x r -> x $+$ f r) (ruleModuleHeaderDoc modName deps) (zip rules [1..])
   where
-    f :: Rule -> SDoc
+    f :: (Rule, Int) -> SDoc
     f r = lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r
       where
         lhs = ruleSideDoc r LHS
         rhs = ruleSideDoc r RHS
+
+testingImports :: String
+testingImports =
+  intercalate ", " $
+    [ "SomeTestableRule(..)"
+    , "TestableRule (..)"
+    , "testSomeTestableRule"
+    , primFloatRule
+    , primDoubleRule
+    ]
+
+primFloatRule :: String
+primFloatRule = "primFloatRule"
+
+primDoubleRule :: String
+primDoubleRule = "primDoubleRule"
