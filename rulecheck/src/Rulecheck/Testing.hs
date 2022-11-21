@@ -22,11 +22,11 @@ instance {-# OVERLAPPING #-} (Arbitrary a, Show a, Arbitrary b, Show b, Eq c, Sh
 instance {-# OVERLAPPABLE #-} (Arbitrary a, Show a, Eq z, Show z) => Testable (TestableRule a z) where
   property x = property $ \a -> trLhs x a === trRhs x a
 
-testTestableRule :: (Arbitrary a, Show a, Eq z, Show z) => TestName -> TestableRule a z -> TestTree
+testTestableRule :: Testable (TestableRule a z) => TestName -> TestableRule a z -> TestTree
 testTestableRule = testProperty
 
 data SomeTestableRule where
-  SomeTestableRule :: (Arbitrary a, Show a, Eq z, Show z) => TestableRule a z -> SomeTestableRule
+  SomeTestableRule :: Testable (TestableRule a z) => TestableRule a z -> SomeTestableRule
 
 testSomeTestableRule :: TestName -> SomeTestableRule -> TestTree
 testSomeTestableRule tn (SomeTestableRule tr) = testTestableRule tn tr
