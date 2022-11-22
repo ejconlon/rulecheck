@@ -124,7 +124,7 @@ ruleModuleDoc opts rules =
     mkTest (rule, ruleNum) sigOpt =
       comment $+$ lhs $+$ rhs $+$ rulePairDoc (rule, suffix) $+$ ruleTestDoc (rule, suffix) $+$ blankLine $+$ blankLine
       where
-        testNum = fromMaybe 1 (fmap snd sigOpt)
+        testNum = maybe 1 snd sigOpt
         suffix  = TestSuffix ruleNum testNum
         comment = text "{- Test for Rule: " $+$ origRule rule
           $+$ commentArgValues

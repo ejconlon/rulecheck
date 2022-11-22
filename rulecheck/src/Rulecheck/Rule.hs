@@ -48,7 +48,7 @@ data Rule = Rule
 
 noTyVarsInSig :: Rule -> Bool
 noTyVarsInSig rule =
-  noFreeVarsOfType (ruleType rule) && all noFreeVarsOfType (map varType $ ruleArgs rule)
+  noFreeVarsOfType (ruleType rule) && all (noFreeVarsOfType . varType) (ruleArgs rule)
 
 getPrimitiveTypeName :: Kind -> Maybe String
 getPrimitiveTypeName ty
