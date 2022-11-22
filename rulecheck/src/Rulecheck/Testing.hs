@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-} -- Unsafe in general, but probably OK for testing
+{-# LANGUAGE FlexibleInstances #-} -- Unsafe in general, but probably OK for testing
 {-# LANGUAGE UndecidableInstances #-} -- Unsafe in general, but probably OK for testing
 module Rulecheck.Testing
   ( TestableRule (..)
@@ -7,8 +9,12 @@ module Rulecheck.Testing
   , testSomeTestableRules
   ) where
 
+import Basement.Block
+import Basement.Types.OffsetSize
+import Basement.Imports (PrimType, fromList)
 import Control.DeepSeq
 import Control.Exception
+import Data.Proxy
 import Test.QuickCheck (Arbitrary (..), Testable (..), (===))
 import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Tasty.QuickCheck (Property, counterexample, testProperty, ioProperty)
@@ -17,6 +23,15 @@ data TestableRule a z = TestableRule
   { trLhs :: !(a -> z)
   , trRhs :: !(a -> z)
   }
+
+instance (Arbitrary a, PrimType a) => Arbitrary (Block a) where
+  arbitrary = fmap fromList arbitrary
+
+instance NFData (CountOf a) where
+  rnf (CountOf x) = seq x ()
+
+instance NFData a => NFData (Offset a) where
+  rnf (Offset x) = seq x ()
 
 try' :: IO a -> IO (Either SomeException a)
 try' = try
@@ -30,6 +45,9 @@ x =:= y = ioProperty $ do
     (Left _, Right _)    -> counterexample "LHS raised an exception, RHS is OK" False
     (Right _,Left _)     -> counterexample "RHS raised an exception, LHS is OK" False
     (Left _, Left _)     -> property True -- Both failed. TODO: Check if they fail in the same way?
+
+instance Arbitrary a => Arbitrary (Proxy a)  where
+  arbitrary = return Proxy
 
 instance {-# OVERLAPS #-} (Num a) => Arbitrary a where
   arbitrary = fmap fromInteger arbitrary

@@ -117,4 +117,5 @@ getBoxType :: Kind -> Maybe BoxType
 getBoxType k = case getPrimitiveTypeName k of
   Just "$tcFloat#"  -> Just $ BoxType "Float" "F#"
   Just "$tcDouble#" -> Just $ BoxType "Double" "D#"
+  Just "$tcAddr#"   -> Just $ BoxType "Addr" "Ptr"
   _                 -> Nothing

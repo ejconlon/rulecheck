@@ -33,7 +33,7 @@ getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
     rules <- getRulesFromFile srcFile
 
-    let renderOpts = TestModuleRenderOpts genModName genDeps (overrideTypeSig srcFile)
+    let renderOpts = TestModuleRenderOpts genModName genDeps (overrideTypeSigs srcFile)
 
     -- `modDoc` is a "preliminary" version of the output test suite that may not
     -- include all necessary module inputs

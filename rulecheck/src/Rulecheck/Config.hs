@@ -43,12 +43,15 @@ packageTestsPrefix = "package-tests"
 logFile :: FilePath
 logFile = "log.txt"
 
-overrideTypeSig :: FilePath -> RuleName -> RuleSide -> Maybe String
-overrideTypeSig fp rn LHS =
-  if "basement-0.0.15/Basement/PrimType.hs" `isSuffixOf` fp && unpackFS rn  == "offsetInAligned Bytes"
-    then Just "(Proxy Word8, Offset Word8) -> Bool"
-    else Nothing -- trace ("No hit for" ++ fp ++ unpackFS rn) Nothing
-overrideTypeSig fp rn _ = Nothing -- trace ("No hit for" ++ fp ++ unpackFS rn) Nothing
+overrideTypeSigs :: FilePath -> RuleName -> Set String
+overrideTypeSigs fp rn
+  | "basement-0.0.15/Basement/PrimType.hs" `isSuffixOf` fp
+  = case unpackFS rn of
+      "offsetInAligned Bytes" -> Set.singleton "(Proxy Word8, Offset Word8) -> Bool"
+      "primOffsetRecast W8"   -> Set.singleton "Offset Word8 -> Offset Char"
+      "sizeRecast from Word8" -> Set.singleton "CountOf Word8 -> CountOf Char"
+      _ -> trace ("No hit! for" ++ fp ++ " " ++ unpackFS rn) Set.empty
+overrideTypeSigs fp rn = trace ("No hit for" ++ fp ++ " " ++ unpackFS rn) Set.empty
 
 filesToSkip :: [String]
 filesToSkip =

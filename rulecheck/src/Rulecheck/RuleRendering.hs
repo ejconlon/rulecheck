@@ -11,6 +11,7 @@ module Rulecheck.RuleRendering
 
 import Data.Char (isAlphaNum)
 import Data.Foldable (foldl', toList)
+import Data.Maybe (fromMaybe)
 import Data.Set as Set (Set)
 import Data.List (intercalate)
 import GHC.Core.Type
@@ -21,6 +22,8 @@ import GHC.Types.Basic (RuleName)
 import Rulecheck.Rendering
 import Rulecheck.Rule
 
+data TestSuffix =
+  TestSuffix Int Int -- RuleNum, TestNum
 
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
 --
@@ -28,7 +31,7 @@ import Rulecheck.Rule
 -- types into unboxed versions and back. This is kind of a hack, necessary to
 -- get around restrictions on usages of unboxed types (the type (Float#, Float#)
 -- is not allowed, for example)
-ruleSideDoc :: (Rule, Int) -> RuleSide -> Maybe String -> SDoc
+ruleSideDoc :: (Rule, TestSuffix) -> RuleSide -> Maybe String -> SDoc
 ruleSideDoc (rule, idx) side overrideTypeSig =
   let
     prefix    = "fn_" ++ sideString side ++ "_"
@@ -59,7 +62,7 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
     -- asBoxedType k = ppr k
 
 -- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
-rulePairDoc :: (Rule, Int) -> SDoc
+rulePairDoc :: (Rule, TestSuffix) -> SDoc
 rulePairDoc (rule, idx) =
   let prefixLhs = "fn_" ++ sideString LHS ++ "_"
       prefixRhs = "fn_" ++ sideString RHS ++ "_"
@@ -71,7 +74,7 @@ rulePairDoc (rule, idx) =
      text nameRule <+> text "= SomeTestableRule" <+> parens (text "TestableRule" <+> text nameLhs <+> text nameRhs)
 
 -- | Renders the rule test defn like "test_NAME :: TestTree \n test_NAME = ..."
-ruleTestDoc :: (Rule, Int) -> SDoc
+ruleTestDoc :: (Rule, TestSuffix) -> SDoc
 ruleTestDoc (rule, idx) =
   let bareName = sanitizeName (ruleName rule) idx
       nameRule = "rule_" ++ bareName
@@ -91,23 +94,40 @@ ruleModuleHeaderDoc modName deps =
 data TestModuleRenderOpts = TestModuleRenderOpts
   { testModName       :: String
   , testImports       :: Set String
-  , testTypeOverrides :: RuleName -> RuleSide -> Maybe String
+  , testTypeOverrides :: RuleName -> Set String
   }
 
 -- | Renders the entire test module
 ruleModuleDoc :: TestModuleRenderOpts -> [Rule] -> SDoc
 ruleModuleDoc opts rules =
-  foldl' (\x r -> x $+$ f r) headerDoc (zip rules [1..])
+  foldl' (\x r -> x $+$ testsForRule r) headerDoc (zip rules [1..])
   where
     headerDoc = ruleModuleHeaderDoc (testModName opts) (testImports opts)
-    f :: (Rule, Int) -> SDoc
-    f r = comment $+$ lhs $+$ rhs $+$ rulePairDoc r $+$ ruleTestDoc r $+$ blankLine $+$ blankLine
-      where
-        getTypeSig = testTypeOverrides opts (ruleName (fst r))
 
-        comment = text "{- Test for Rule: " $+$ origRule (fst r) $+$ text "-}"
-        lhs = ruleSideDoc r LHS (getTypeSig LHS)
-        rhs = ruleSideDoc r RHS (getTypeSig RHS)
+    -- Renders tests for a rule
+    -- Note that one rule may have multiple tests (i.e. for different typeclass instances)
+    testsForRule :: (Rule, Int) -> SDoc
+    testsForRule r =
+      case toList sigs of
+        [] -> mkTest r Nothing
+        xs -> foldl' (\x sig -> x $+$ mkTest r (Just sig)) empty (zip xs [1..])
+      where
+        sigs = testTypeOverrides opts (ruleName (fst r))
+
+    mkTest :: (Rule, Int) -> Maybe (String, Int) -> SDoc
+    mkTest (rule, ruleNum) sigOpt =
+      comment $+$ lhs $+$ rhs $+$ rulePairDoc (rule, suffix) $+$ ruleTestDoc (rule, suffix) $+$ blankLine $+$ blankLine
+      where
+        testNum = fromMaybe 1 (fmap snd sigOpt)
+        suffix  = TestSuffix ruleNum testNum
+        comment = text "{- Test for Rule: " $+$ origRule rule
+          $+$ commentArgValues
+          $+$ text "Result ::" <+> ppr (ruleType rule)
+          $+$ text "-}"
+        commentArgValues = foldl' ($+$) empty (map go (valArgs rule)) where
+          go arg =  text "Arg" <+> ppr arg <+> text "::" <+> ppr (varType arg)
+        lhs = ruleSideDoc (rule, suffix) LHS (fmap fst sigOpt)
+        rhs = ruleSideDoc (rule, suffix) RHS (fmap fst sigOpt)
 
 testingImports :: String
 testingImports =
@@ -131,8 +151,9 @@ sanitizeString = map (\c -> if isAlphaNum c then c else '_')
 -- | Names can and often do contain characters that are not safe for identifiers.
 -- We just replace those characters with underscores.
 -- Also adds an index to the rule to ensure each name is unique
-sanitizeName :: RuleName -> Int -> String
-sanitizeName rn idx = sanitizeString (zString (fs_zenc rn)) ++ "_" ++ show idx
+sanitizeName :: RuleName -> TestSuffix -> String
+sanitizeName name (TestSuffix ruleNum testNum) =
+  sanitizeString (zString (fs_zenc name)) ++ "_" ++ show ruleNum ++ "_" ++ show testNum
 
 -- | Just a string prefix for a rule side
 sideString :: RuleSide -> String
