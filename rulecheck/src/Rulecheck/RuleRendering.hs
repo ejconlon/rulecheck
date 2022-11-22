@@ -25,6 +25,7 @@ import Rulecheck.Rule
 data TestSuffix =
   TestSuffix Int Int -- RuleNum, TestNum
 
+
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
 --
 -- IMPORTANT! This function also does a bit of manipulation to convert boxed
@@ -38,14 +39,18 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
     name      = prefix ++ sanitizeName (ruleName rule) idx
     args      = valArgs rule
     def       = text name <+> asTuple (map asBoxedArg args) <+> text "=" <+> maybeBoxedBody
-    -- argTypes  = asTuple (map (asBoxedType . varType) args)
-    -- resultTyp = asBoxedType (ruleType rule)
-    -- sig = text name <+> text "::" <+> argTypes <+> arrow <+> resultTyp $+$
+
+    argTypes   = asTuple (map (asBoxedType . varType) args)
+    resultTyp  = asBoxedType (ruleType rule)
+    defaultSig = text (name ++ " ::") <+> argTypes <+> arrow <+> resultTyp
   in
     case overrideTypeSig of
       Just sig -> text (name ++ " ::") <+> text sig $+$ def
-      Nothing  -> def -- Don't include a type sig, let Haskell infer it
-                     -- Currently we don't extract necessary type constraints
+      Nothing  ->
+        if noTyVarsInSig rule
+        then defaultSig $+$ def
+        else def -- Don't include a type sig, let Haskell infer it
+                 -- Currently we don't extract necessary type constraints
   where
     body = getSide side rule
     maybeBoxedBody :: SDoc
@@ -57,9 +62,9 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
                  = parens (text c <+> ppr v)
     asBoxedArg v = ppr v
 
-    -- asBoxedType :: Kind -> SDoc
-    -- asBoxedType k | Just (BoxType c _) <- getBoxType k = text c
-    -- asBoxedType k = ppr k
+    asBoxedType :: Kind -> SDoc
+    asBoxedType k | Just (BoxType c _) <- getBoxType k = text c
+    asBoxedType k = ppr k
 
 -- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
 rulePairDoc :: (Rule, TestSuffix) -> SDoc
@@ -122,10 +127,11 @@ ruleModuleDoc opts rules =
         suffix  = TestSuffix ruleNum testNum
         comment = text "{- Test for Rule: " $+$ origRule rule
           $+$ commentArgValues
-          $+$ text "Result ::" <+> ppr (ruleType rule)
+          $+$ text "Result ::" <+> typeComment (ruleType rule)
           $+$ text "-}"
         commentArgValues = foldl' ($+$) empty (map go (valArgs rule)) where
-          go arg =  text "Arg" <+> ppr arg <+> text "::" <+> ppr (varType arg)
+          go arg =  text "Arg" <+> ppr arg <+> text "::" <+> typeComment (varType arg)
+        typeComment typ = ppr typ <+> text ("(closed: " ++ show (noFreeVarsOfType typ) ++ ")")
         lhs = ruleSideDoc (rule, suffix) LHS (fmap fst sigOpt)
         rhs = ruleSideDoc (rule, suffix) RHS (fmap fst sigOpt)
 

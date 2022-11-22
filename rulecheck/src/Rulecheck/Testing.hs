@@ -9,12 +9,15 @@ module Rulecheck.Testing
   , testSomeTestableRules
   ) where
 
+import Basement.UArray
 import Basement.Block
 import Basement.Types.OffsetSize
+import qualified Basement.From as From
 import Basement.Imports (PrimType, fromList)
 import Control.DeepSeq
 import Control.Exception
 import Data.Proxy
+import GHC.Word
 import Test.QuickCheck (Arbitrary (..), Testable (..), (===))
 import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Tasty.QuickCheck (Property, counterexample, testProperty, ioProperty)
@@ -24,8 +27,14 @@ data TestableRule a z = TestableRule
   , trRhs :: !(a -> z)
   }
 
+instance (Arbitrary a, PrimType a) => Arbitrary (UArray a) where
+  arbitrary = fmap (From.from :: Block a -> UArray a) arbitrary
+
 instance (Arbitrary a, PrimType a) => Arbitrary (Block a) where
   arbitrary = fmap fromList arbitrary
+
+instance NFData (UArray a) where
+  rnf (UArray a b _) = seq (a, b) ()
 
 instance NFData (CountOf a) where
   rnf (CountOf x) = seq x ()

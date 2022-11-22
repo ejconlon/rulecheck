@@ -6,6 +6,7 @@ module Rulecheck.Rule
   , getBoxType
   , getSide
   , ruleFromDecl
+  , noTyVarsInSig
   , valArgs
   ) where
 
@@ -44,6 +45,10 @@ data Rule = Rule
   -- | Not strictly necessary, but useful for debugging
   , origRule :: SDoc
   }
+
+noTyVarsInSig :: Rule -> Bool
+noTyVarsInSig rule =
+  noFreeVarsOfType (ruleType rule) && all noFreeVarsOfType (map varType $ ruleArgs rule)
 
 getPrimitiveTypeName :: Kind -> Maybe String
 getPrimitiveTypeName ty
@@ -117,5 +122,5 @@ getBoxType :: Kind -> Maybe BoxType
 getBoxType k = case getPrimitiveTypeName k of
   Just "$tcFloat#"  -> Just $ BoxType "Float" "F#"
   Just "$tcDouble#" -> Just $ BoxType "Double" "D#"
-  Just "$tcAddr#"   -> Just $ BoxType "Addr" "Ptr"
+  Just "$tcAddr#"   -> Just $ BoxType "Ptr ()" "Ptr"
   _                 -> Nothing

@@ -1,7 +1,7 @@
 module Rulecheck.Config where
 
 import Data.Aeson (FromJSON)
-import Data.List (isSuffixOf)
+import Data.List (isSuffixOf, isInfixOf)
 import Data.Set as Set
 import Debug.Trace (trace)
 import GHC.Data.FastString
@@ -45,9 +45,8 @@ logFile = "log.txt"
 
 overrideTypeSigs :: FilePath -> RuleName -> Set String
 overrideTypeSigs fp rn
-  | "basement-0.0.15/Basement/PrimType.hs" `isSuffixOf` fp
+  | "basement-0.0.15/Basement" `isInfixOf` fp
   = case unpackFS rn of
-      "offsetInAligned Bytes" -> Set.singleton "(Proxy Word8, Offset Word8) -> Bool"
       "primOffsetRecast W8"   -> Set.singleton "Offset Word8 -> Offset Char"
       "sizeRecast from Word8" -> Set.singleton "CountOf Word8 -> CountOf Char"
       _ -> trace ("No hit! for" ++ fp ++ " " ++ unpackFS rn) Set.empty
