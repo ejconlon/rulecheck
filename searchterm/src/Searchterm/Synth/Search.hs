@@ -150,7 +150,10 @@ data StFwd = StFwd
   -- ^ Next available unique term var binder
   } deriving stock (Eq, Show)
 
-type StBwd = TyGraph
+newtype StBwd = StBwd
+  { stBwdTyGraph :: TyGraph
+  -- ^ The type unification graph
+  } deriving stock (Eq, Show)
 
 type St = TrackSt StFwd StBwd
 
@@ -199,7 +202,8 @@ lookupCtx i = do
 -- | Instantiate the type variables and return their ids.
 insertTyVars :: MonadState St m => (TyVar -> TyVert) -> Seq TyVar -> m (Seq TyUniq)
 insertTyVars onVar tvs = res where
-  insertRaw v (TrackSt (StFwd srcx zz) umx) = (srcx, TrackSt (StFwd (srcx + 1) zz) (UM.insert srcx v umx))
+  insertRaw v (TrackSt (StFwd srcx zz) (StBwd umx)) =
+    (srcx, TrackSt (StFwd (srcx + 1) zz) (StBwd (UM.insert srcx v umx)))
   acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
   res = state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
 
@@ -240,7 +244,8 @@ insertTyScheme onVar _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
 -- | Used in 'insertScheme' to do the type insertion.
 insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
 insertTy ctx ty = res where
-  insertRaw v (TrackSt (StFwd srcx zz) umx) = (srcx, TrackSt (StFwd (srcx + 1) zz) (UM.insert srcx v umx))
+  insertRaw v (TrackSt (StFwd srcx zz) (StBwd umx)) =
+    (srcx, TrackSt (StFwd (srcx + 1) zz) (StBwd (UM.insert srcx v umx)))
   insert v = fmap (,v) (state (insertRaw (TyVertNode v)))
   onTy = \case
     TyFreeF i -> do
@@ -305,11 +310,11 @@ freshTmBinder = state $ \st ->
 -- otherwise yield nothing.
 tryAlignTy :: TyUniq -> TyUniq -> SearchM TyUniq
 tryAlignTy goalKey candKey = do
-  tyMap <- gets tsBwd
-  case recAlignTys goalKey candKey tyMap of
+  tyGraph <- gets (stBwdTyGraph . tsBwd)
+  case recAlignTys goalKey candKey tyGraph of
     Left e -> traceEmptyM ("Failed to align: " ++ show e)
-    Right (u, tyMap') -> do
-      modify' (\st -> st { tsBwd = tyMap' })
+    Right (u, tyGraph') -> do
+      modify' (\st -> st { tsBwd = (tsBwd st) { stBwdTyGraph = tyGraph' } })
       pure u
 
 -- | Find solutions by looking in the context for vars that match exactly.
@@ -335,12 +340,12 @@ litFits goalKey = traceScopeM "Lit fit" $ do
 -- | If the goal is a type vertex (not a meta/skolem vertex), yield it.
 lookupGoal :: TyUniq -> SearchM (TyUniq, TyUnify)
 lookupGoal goalKey = do
-  um <- gets tsBwd
-  let (mp, um') = UM.find goalKey um
+  tyGraph <- gets (stBwdTyGraph . tsBwd)
+  let (mp, tyGraph') = UM.find goalKey tyGraph
   case mp of
     Nothing -> traceEmptyM ("Goal not found: " ++ show goalKey)
     Just (newKey, vert) -> do
-      modify' (\st -> st { tsBwd = um' })
+      modify' (\st -> st { tsBwd = (tsBwd st) { stBwdTyGraph = tyGraph' } })
       case vert of
         TyVertNode val -> pure (newKey, val)
         _ -> traceEmptyM ("Goal not node: " ++ show goalKey ++ " " ++ show vert)
@@ -556,7 +561,7 @@ data SearchConfig = SearchConfig
 initEnvSt :: SearchConfig -> (Env, St)
 initEnvSt (SearchConfig decls _ depthLim) =
   let env = Env decls Seq.empty depthLim
-      st = TrackSt (StFwd 0 0) UM.empty
+      st = TrackSt (StFwd 0 0) (StBwd UM.empty)
   in (env, st)
 
 -- | A "suspended" search for incremental consumption
