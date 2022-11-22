@@ -104,7 +104,7 @@ testFinds n src tyStr yesTmStrs noTmStrs = testCase n $ do
   noCtms <- traverse (rethrow . closeAlphaTm isKnown) noTms
   let yesTmSet = Set.fromList yesCtms
       noTmSet = Set.fromList noCtms
-      conf = SearchConfig ds ts maxSearchDepth
+      conf = SearchConfig ds ts maxSearchDepth True
       susp = runSearchSusp conf
   findAll maxSearchResults yesTmSet noTmSet susp
 

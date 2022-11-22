@@ -541,9 +541,10 @@ recUnifyStraint :: StraintUniq -> SearchM ()
 recUnifyStraint = decDepth . topUnifyStraint
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
-searchScheme :: TyScheme Index -> SearchM TmFound
-searchScheme scheme = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
-  (goalStraints, _, goalKey, _) <- insertTyScheme TyVertSkolem scheme
+searchScheme :: TyScheme Index -> Bool -> SearchM TmFound
+searchScheme scheme useSkolem = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
+  let mkVert = if useSkolem then TyVertSkolem else TyVertMeta
+  (goalStraints, _, goalKey, _) <- insertTyScheme mkVert scheme
   fairTraverse_ topUnifyStraint goalStraints
   topSearchUniq goalKey
 
@@ -555,14 +556,16 @@ data SearchConfig = SearchConfig
   -- ^ Search goal
   , scDepthLim :: !Int
   -- ^ Recursion depth limit
+  , scUseSkolem :: !Bool
+  -- ^ True if want to use skolem vars at top level
   } deriving stock (Eq, Show)
 
 -- | Initialize the search environment
-initEnvSt :: SearchConfig -> (Env, St)
-initEnvSt (SearchConfig decls _ depthLim) =
+initEnvSt :: SearchConfig -> (Env, St, Bool)
+initEnvSt (SearchConfig decls _ depthLim useSkolem) =
   let env = Env decls Seq.empty depthLim
       st = TrackSt (StFwd 0 0) (StBwd UM.empty)
-  in (env, st)
+  in (env, st, useSkolem)
 
 -- | A "suspended" search for incremental consumption
 data SearchSusp a = SearchSusp
@@ -600,11 +603,11 @@ takeSearchResults = go [] where
 -- | Search for terms of the goal type with incremental consumption.
 runSearchSusp :: SearchConfig -> SearchSusp TmFound
 runSearchSusp sc =
-  let (env, st) = initEnvSt sc
-  in SearchSusp env st (searchScheme (scTarget sc))
+  let (env, st, useSkolem) = initEnvSt sc
+  in SearchSusp env st (searchScheme (scTarget sc) useSkolem)
 
 -- | Search for up to N terms of the goal type.
 runSearchN :: SearchConfig -> Int -> Either SearchErr [TmFound]
 runSearchN sc n =
-  let (env, st) = initEnvSt sc
-  in fmap fst (runManyTrack n (unSearchM (searchScheme (scTarget sc))) env st)
+  let (env, st, useSkolem) = initEnvSt sc
+  in fmap fst (runManyTrack n (unSearchM (searchScheme (scTarget sc) useSkolem)) env st)

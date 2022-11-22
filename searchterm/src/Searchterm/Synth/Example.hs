@@ -32,13 +32,13 @@ exampleSearch :: Int -> IO [TmFound]
 exampleSearch n = do
   let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
-  either throwIO pure (runSearchN (SearchConfig decls scheme 5) n)
+  either throwIO pure (runSearchN (SearchConfig decls scheme 5 True) n)
 
 -- | Search for N terms matching the "Int" type (with incremental searching)
 exampleSearchSusp :: Int -> IO ([TmFound], Maybe SearchErr)
 exampleSearchSusp n = do
   let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
-  let susp = runSearchSusp (SearchConfig decls scheme 5)
+  let susp = runSearchSusp (SearchConfig decls scheme 5 True)
       (tms, ea) = takeSearchResults susp n
   pure (tms, either Just (const Nothing) ea)
