@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-} -- Unsafe in general, but probably OK for testing
 {-# LANGUAGE FlexibleInstances #-} -- Unsafe in general, but probably OK for testing
 {-# LANGUAGE UndecidableInstances #-} -- Unsafe in general, but probably OK for testing
+{-# LANGUAGE IncoherentInstances #-} -- Unsafe in general, but probably OK for testing
 module Rulecheck.Testing
   ( TestableRule (..)
   , testTestableRule
@@ -12,11 +13,13 @@ module Rulecheck.Testing
 import Basement.UArray
 import Basement.Block
 import Basement.Types.OffsetSize
-import qualified Basement.From as From
-import Basement.Imports (PrimType, fromList)
+import qualified Basement.From
+import qualified Basement.Imports
+import qualified Basement.UTF8.Base
 import Control.DeepSeq
 import Control.Exception
 import Data.Proxy
+import Foreign.Ptr
 import GHC.Word
 import Test.QuickCheck (Arbitrary (..), Testable (..), (===))
 import Test.Tasty (TestName, TestTree, testGroup)
@@ -27,11 +30,21 @@ data TestableRule a z = TestableRule
   , trRhs :: !(a -> z)
   }
 
+instance Arbitrary Basement.Imports.String where
+  arbitrary = fmap Basement.Imports.fromString arbitrary
+
+instance NFData Basement.Imports.String where
+  rnf (Basement.UTF8.Base.String a) = seq a ()
+
+-- instance Arbitrary (Ptr ()) where
+--   arbitrary = return nullPtr
+
 instance (Arbitrary a, PrimType a) => Arbitrary (UArray a) where
-  arbitrary = fmap (From.from :: Block a -> UArray a) arbitrary
+  arbitrary = fmap (Basement.From.from :: Block a -> UArray a) arbitrary
 
 instance (Arbitrary a, PrimType a) => Arbitrary (Block a) where
-  arbitrary = fmap fromList arbitrary
+  arbitrary = fmap Basement.Imports.fromList arbitrary
+
 
 instance NFData (UArray a) where
   rnf (UArray a b _) = seq (a, b) ()
@@ -58,6 +71,7 @@ x =:= y = ioProperty $ do
 instance Arbitrary a => Arbitrary (Proxy a)  where
   arbitrary = return Proxy
 
+-- TODO: This rule is probably bad, remove it eventually
 instance {-# OVERLAPS #-} (Num a) => Arbitrary a where
   arbitrary = fmap fromInteger arbitrary
 

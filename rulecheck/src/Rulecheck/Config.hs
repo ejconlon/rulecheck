@@ -49,8 +49,15 @@ overrideTypeSigs fp rn
   = case unpackFS rn of
       "primOffsetRecast W8"   -> Set.singleton "Offset Word8 -> Offset Char"
       "sizeRecast from Word8" -> Set.singleton "CountOf Word8 -> CountOf Char"
-      _ -> trace ("No hit! for" ++ fp ++ " " ++ unpackFS rn) Set.empty
-overrideTypeSigs fp rn = trace ("No hit for" ++ fp ++ " " ++ unpackFS rn) Set.empty
+      _ -> Set.empty
+overrideTypeSigs fp rn = Set.empty
+
+skipRule :: FilePath -> RuleName -> Bool
+skipRule fp rn | "basement-0.0.15/Basement" `isInfixOf` fp
+  = case unpackFS rn of
+      "String sFromList" -> True -- This rule uses raw pointers, skip for now
+      _ -> False
+skipRule _ _ = False
 
 filesToSkip :: [String]
 filesToSkip =

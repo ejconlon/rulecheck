@@ -169,5 +169,12 @@ testSearch = testGroup "Search"
   , testFinds "literals" litsDeclSrc "Int"
     ["0", "-1", "2", "3"]
     ["4"]
+  -- , testFinds "GenString"
+  --     (DeclSrcList
+  --      [ "instance IsString String"
+  --      , "fromString :: IsString c => String0 -> c"
+  --      , "primString :: String0"
+  --      ]
+  --     ) "String" ["(fromString primString)"] []
   -- TODO more tests!!! But the pattern is clear...
   ]

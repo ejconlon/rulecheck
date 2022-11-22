@@ -7,6 +7,7 @@ module Rulecheck.RuleRendering
   , ruleModuleHeaderDoc
   , ruleModuleDoc
   , TestModuleRenderOpts(..)
+  , TestSuffix(..)
   ) where
 
 import Data.Char (isAlphaNum)

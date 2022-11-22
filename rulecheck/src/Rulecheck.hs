@@ -11,6 +11,7 @@ import qualified Data.Set as Set
 import Rulecheck.Config
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering
+import Rulecheck.Rule
 import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
 import System.Directory
@@ -31,7 +32,8 @@ data GenerateOptions =
 getModContents :: GenerateOptions -> IO String
 getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
-    rules <- getRulesFromFile srcFile
+    rulesInFile <- getRulesFromFile srcFile
+    let rules = filter (not . skipRule srcFile . ruleName) rulesInFile
 
     let renderOpts = TestModuleRenderOpts genModName genDeps (overrideTypeSigs srcFile)
 
