@@ -17,6 +17,7 @@ library
       Rulecheck.Rendering
       Rulecheck.Rule
       Rulecheck.RuleExtraction
+      Rulecheck.RuleRendering
       Rulecheck.Testing
       Rulecheck.Typecheck
   other-modules:
@@ -58,6 +59,7 @@ library
     , QuickCheck
     , aeson
     , base >=4.12 && <5
+    , basement
     , containers
     , deepseq
     , directory
@@ -117,6 +119,7 @@ executable rulecheck-exe
     , QuickCheck
     , aeson
     , base >=4.12 && <5
+    , basement
     , containers
     , deepseq
     , directory
@@ -179,6 +182,7 @@ test-suite rulecheck-test
     , QuickCheck
     , aeson
     , base >=4.12 && <5
+    , basement
     , containers
     , deepseq
     , directory

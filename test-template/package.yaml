@@ -65,3 +65,4 @@ tests:
     - tasty-hunit
     - tasty-quickcheck
     - ghc-prim
+    - containers # Required for algebraic-graphs

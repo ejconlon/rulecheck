@@ -1,8 +1,13 @@
 module Rulecheck.Config where
 
 import Data.Aeson (FromJSON)
+import Data.List (isSuffixOf, isInfixOf)
 import Data.Set as Set
+import Debug.Trace (trace)
+import GHC.Data.FastString
 import GHC.Generics
+import GHC.Types.Basic (RuleName)
+import Rulecheck.Rule (RuleSide(..))
 
 data PackageDescription =
   PackageDescription
@@ -38,10 +43,27 @@ packageTestsPrefix = "package-tests"
 logFile :: FilePath
 logFile = "log.txt"
 
+overrideTypeSigs :: FilePath -> RuleName -> Set String
+overrideTypeSigs fp rn
+  | "basement-0.0.15/Basement" `isInfixOf` fp
+  = case unpackFS rn of
+      "primOffsetRecast W8"   -> Set.singleton "Offset Word8 -> Offset Char"
+      "sizeRecast from Word8" -> Set.singleton "CountOf Word8 -> CountOf Char"
+      _ -> Set.empty
+overrideTypeSigs fp rn = Set.empty
+
+skipRule :: FilePath -> RuleName -> Bool
+skipRule fp rn | "basement-0.0.15/Basement" `isInfixOf` fp
+  = case unpackFS rn of
+      "String sFromList" -> True -- This rule uses raw pointers, skip for now
+      _ -> False
+skipRule _ _ = False
+
 filesToSkip :: [String]
 filesToSkip =
-  [ -- Only rules are for lower version, ignore for now
-    "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs"
+  [ "aeson-2.0.3.0/src/Data/Aeson/Internal/ByteString.hs" -- Rules apply to a lower version
+  , "aeson-2.0.3.0/tests/UnitTests.hs"                    -- We don't care about rules in tests
+  , "arithmoi-0.12.0.2/Math/NumberTheory/Moduli/SomeMod.hs" -- Applies on GADT
   , "Agda-2.6.2.2/src/full/Agda/TypeChecking/Monad/Base.hs" -- Precedence parsing error
   , "Agda-2.6.2.2/src/data/MAlonzo/src/MAlonzo/RTE.hs" -- ???
   , "blaze-builder-0.4.2.2/benchmarks/LazyByteString.hs" -- Not a source file
@@ -68,7 +90,8 @@ filesToSkip =
 
 packagesToSkip :: [String]
 packagesToSkip =
-  [ "clash-prelude"    -- Appears to have compilation issues
+  [ "base-compat"      -- No applicable rules
+  , "clash-prelude"    -- Appears to have compilation issues
   , "doctest"          -- Cabal unknown target
   , "doctest-parallel" -- Cabal unknown target
   , "flat"             -- cannot satisfy -package dlist-0.8.0.7
@@ -86,4 +109,14 @@ packagesToSkip =
 
 -- Allows for adding additional imports, if necessary
 importsForPackage :: PackageDescription -> Set String
-importsForPackage _ = Set.fromList []
+importsForPackage pkg | name pkg == "basement"
+                      = Set.fromList [ "Basement.Types.OffsetSize", "Data.Proxy" ]
+importsForPackage _   = Set.empty
+
+-- Given a possibly internal module, return a public version of that module with similar exports
+-- For example, many types in the private module `Data.Set.Internal` are in `Data.Set`, so the
+-- latter can be used instead.
+-- This is used as a workaround for limitations in automatic import detection.
+internalToPublicMod :: String -> String
+internalToPublicMod "Data.Set.Internal" = "Data.Set"
+internalToPublicMod s = s

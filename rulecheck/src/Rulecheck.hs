@@ -12,6 +12,7 @@ import Rulecheck.Config
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering
 import Rulecheck.Rule
+import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
 import System.Directory
 import System.Environment (getArgs)
@@ -31,19 +32,24 @@ data GenerateOptions =
 getModContents :: GenerateOptions -> IO String
 getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
-    rules <- getRulesFromFile srcFile
+    rulesInFile <- getRulesFromFile srcFile
+    let rules = filter (not . skipRule srcFile . ruleName) rulesInFile
+
+    let renderOpts = TestModuleRenderOpts genModName genDeps (overrideTypeSigs srcFile)
 
     -- `modDoc` is a "preliminary" version of the output test suite that may not
     -- include all necessary module inputs
-    let modDoc = ruleModuleDoc genModName genDeps rules
+    let modDoc = ruleModuleDoc renderOpts rules
 
     -- Determines the necessary module imports by identifying all of the Name's
     -- that need to be rendered in `modDoc`
-    additionalImports <- identifyRequiredImports modDoc
+    additionalImports <- Set.map internalToPublicMod <$> identifyRequiredImports modDoc
 
-    -- This is the final version of the test suite, adding all of the required additional
-    -- imports
-    let modDoc' = ruleModuleDoc genModName (Set.union genDeps additionalImports) rules
+    -- Incorporate additional imports for re-render
+    let renderOpts' = renderOpts{testImports = Set.union genDeps additionalImports}
+
+    -- Final version of the test suite, with additional imports
+    let modDoc' = ruleModuleDoc renderOpts' rules
     contents <- outputString modDoc'
     return $ "-- Generated for rules in file " ++ srcFile ++ "\n" ++ contents
 

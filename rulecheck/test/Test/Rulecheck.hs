@@ -10,7 +10,8 @@ import Language.Haskell.TH.Syntax (Body (..), Clause (..), Dec (..), Exp (..), L
 import Rulecheck.Monad (cradleGhcM, runGhcM)
 import Rulecheck.Parsing (fakeFilePath, getParsedRuleDecls, parseModule)
 import Rulecheck.Rendering (convertAndRender, outputString)
-import Rulecheck.Rule (Rule (..), RuleSide (..), ruleFromDecl, ruleSideDoc)
+import Rulecheck.Rule (Rule (..), RuleSide (..), ruleFromDecl)
+import Rulecheck.RuleRendering
 import Rulecheck.Typecheck (getNameUnsafe, getTypeForNameUnsafe, getTypecheckedRuleDecls, typecheck)
 import Test.Tasty (DependencyType (..), TestTree, after, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
@@ -85,10 +86,10 @@ testGetRule = testCase "getRule" $ do
     lhs'    <- outputString (ruleLHS rule)
     rhs'    <- outputString (ruleRHS rule)
     retType <- outputString (ruleType rule)
-    liftIO $ argTyp   @?= "Expr"
-    liftIO $ lhs' @?= (arg' ++ " ./ " ++ arg')
-    liftIO $ rhs' @?= "Const 1"
-    liftIO $ retType @?= "Expr"
+    liftIO $ argTyp   @?= "DemoDomain.Expr"
+    liftIO $ lhs' @?= (arg' ++ " DemoDomain../ " ++ arg')
+    liftIO $ rhs' @?= "DemoDomain.Const 1"
+    liftIO $ retType @?= "DemoDomain.Expr"
 
 testRuleSideDoc :: TestTree
 testRuleSideDoc = testCase "ruleSidedoc" $ do
@@ -98,11 +99,11 @@ testRuleSideDoc = testCase "ruleSidedoc" $ do
     rule <- ruleFromDecl rule1
     let [arg] = ruleArgs rule
     arg' <- outputString arg -- A unique mangled name
-    let doc = ruleSideDoc (rule, 0) LHS
+    let doc = ruleSideDoc (rule, TestSuffix 0 0 ) LHS Nothing
     tf <- outputString doc
     let [sig, body] = lines tf
-    liftIO $ sig  @?= "fn_lhs_divzuid_0 :: Expr -> Expr"
-    liftIO $ body @?= ("fn_lhs_divzuid_0 " ++ arg' ++ " = " ++ arg' ++ " ./ " ++ arg')
+    liftIO $ sig  @?= "fn_lhs_divzuid_0_0 :: DemoDomain.Expr -> DemoDomain.Expr"
+    liftIO $ body @?= ("fn_lhs_divzuid_0_0 " ++ arg' ++ " = " ++ arg' ++ " DemoDomain../ " ++ arg')
 
 testRulecheck :: TestTree
 testRulecheck = testGroup "Rulecheck"
