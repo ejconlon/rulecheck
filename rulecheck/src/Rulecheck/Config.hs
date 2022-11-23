@@ -8,6 +8,7 @@ import GHC.Data.FastString
 import GHC.Generics
 import GHC.Types.Basic (RuleName)
 import Rulecheck.Rule (RuleSide(..))
+import System.Directory
 
 data PackageDescription =
   PackageDescription
@@ -18,6 +19,25 @@ data PackageDescription =
 
 instance FromJSON PackageDescription
 
+testTemplateFile :: String -> FilePath
+testTemplateFile f = testTemplateDir ++ "/" ++ f
+
+arbitraryInstanceFile :: PackageDescription -> IO FilePath
+arbitraryInstanceFile desc = do
+  useS <- doesFileExist specializedF
+  return $ if useS
+    then specializedF
+    else defaultF
+ where
+    specializedF = testTemplateFile ("extra-arbitrary-instances/" ++ (name desc) ++ ".hs")
+    defaultF     = testTemplateFile "extra-arbitrary-instances/Default.hs"
+
+testTemplateDir :: FilePath
+testTemplateDir = "test-template"
+
+packageDir :: PackageDescription -> FilePath
+packageDir desc = haskellPackagesDir ++ "/" ++ name desc ++ "-" ++ version desc
+
 testBaseDir :: PackageDescription -> FilePath
 testBaseDir desc = packageTestsPrefix ++ "/" ++ name desc ++ "-test"
 
@@ -25,7 +45,7 @@ testSrcDir :: PackageDescription -> FilePath
 testSrcDir desc = testBaseDir desc ++ "/test"
 
 testGenDir :: PackageDescription -> FilePath
-testGenDir desc = testSrcDir desc ++ "/RuleCheck/Generated"
+testGenDir desc = testSrcDir desc ++ "/Rulecheck/Generated"
 
 startFromPackage :: Maybe String
 startFromPackage = Nothing

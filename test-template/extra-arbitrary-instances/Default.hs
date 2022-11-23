@@ -1,0 +1,1 @@
+module Rulecheck.Generated.ArbitraryInstances where

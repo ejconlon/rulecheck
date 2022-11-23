@@ -69,7 +69,7 @@ getGenerateOptions :: FilePath -> Int -> PackageDescription -> GenerateOptions
 getGenerateOptions path num desc =
   GenerateOptions
     path
-    ("RuleCheck.Generated.Test" ++ show num)
+    ("Rulecheck.Generated.Test" ++ show num)
     (Set.union (importsForPackage desc) defaultImports)
     (testGenDir desc ++ "/Test" ++ show num ++ ".hs")
   where
@@ -85,16 +85,27 @@ assertFileExists path = do
 shouldSkip :: FilePath -> Bool
 shouldSkip path = any (`isInfixOf` path) filesToSkip
 
+
+copyTemplateFile :: PackageDescription -> FilePath -> IO ()
+copyTemplateFile desc path = do
+    yamlTemplate <- readFile (testTemplateFile path)
+    let contents =
+          replace "{testname}" (name desc ++ "-test") $
+          replace "{packagename}" (name desc) $
+          replace "{packagedir}"(packageDir desc) yamlTemplate
+    writeFile (testBaseDir desc ++ "/" ++ path) contents
+
 setupTestDirectory :: PackageDescription -> IO ()
 setupTestDirectory pkg =
   do
     dirExists <- doesDirectoryExist (testBaseDir pkg)
     when dirExists $ removeDirectoryRecursive (testBaseDir pkg)
     createDirectoryIfMissing True (testGenDir pkg) -- This will create all intermediate dirs
-    copyFile "test-template/Main.hs" (testSrcDir pkg ++ "/Main.hs")
-    yamlTemplate <- readFile "test-template/package.yaml"
-    let packageYaml = replace "{testname}" (name pkg ++ "-test") (replace "{packagename}" (name pkg) yamlTemplate)
-    writeFile (testBaseDir pkg ++ "/package.yaml") packageYaml
+    copyFile (testTemplateFile "Main.hs") (testSrcDir pkg ++ "/Main.hs")
+    copyTemplateFile pkg "package.yaml"
+    copyTemplateFile pkg "stack.yaml"
+    instancesFilename <- arbitraryInstanceFile pkg
+    copyFile instancesFilename (testGenDir pkg ++ "/ArbitraryInstances.hs")
 
 
 processPackage :: String -> PackageDescription -> IO ()

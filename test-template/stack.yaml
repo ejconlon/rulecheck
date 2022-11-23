@@ -3,12 +3,11 @@ resolver: lts-19.27
 ghc-options:
   "$everything": -haddock
 
+packages:
+- .
 extra-deps:
 - little-logger-1.0.1
 - little-rio-1.0.1
 - int-like-0.1.1
-
-packages:
-- searchterm
-- rulecheck
-- demo-domain
+- ../../rulecheck
+- {packagedir}
