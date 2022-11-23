@@ -1,5 +1,6 @@
 module Searchterm.Interface.Names
-  ( indexSeqWith
+  ( toListWithIndex
+  , indexSeqWith
   , indexSeq
   , unsafeIndexSeqWith
   , unsafeIndexSeq
@@ -13,7 +14,7 @@ module Searchterm.Interface.Names
   , AlphaTm (..)
   , mapAlphaTm
   , closeAlphaTm
-  , AlphaTyScheme
+  , AlphaTyScheme (..)
   , closeAlphaTyScheme
   ) where
 
@@ -29,7 +30,12 @@ import Searchterm.Interface.Core (Forall (..), Index (..), Inst (..), InstScheme
 import Control.Monad (void)
 import Data.Maybe (fromMaybe)
 import GHC.Stack (HasCallStack)
-import Prettyprinter (Pretty)
+import Data.Foldable (toList)
+
+toListWithIndex :: Seq a -> [(a, Index)]
+toListWithIndex ss =
+  let len = Seq.length ss
+  in zip (toList ss) (fmap (\i -> Index (len - i - 1)) [0..])
 
 indexSeqWith :: (b -> a -> Bool) -> Seq a -> b -> Maybe Index
 indexSeqWith f s a = fmap (\lvl -> Index (Seq.length s - lvl - 1)) (Seq.findIndexR (f a) s)
@@ -113,7 +119,7 @@ namelessClosedTerm isKnown tm =
 
 newtype AlphaTm = AlphaTm { unAlphaTm :: Tm () Index }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
+  deriving newtype (Eq, Ord)
 
 mapAlphaTm :: Tm b Index -> AlphaTm
 mapAlphaTm = AlphaTm . cata goTm where
@@ -132,7 +138,7 @@ closeAlphaTm isKnown = fmap mapAlphaTm . namelessClosedTerm isKnown
 
 newtype AlphaTyScheme = AlphaTyScheme { unAlphaTyScheme :: Forall () (Strained Index (Ty Index)) }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
+  deriving newtype (Eq, Ord)
 
 closeAlphaTyScheme :: TyScheme TyVar -> Either (NamelessErr TyVar) AlphaTyScheme
 closeAlphaTyScheme = fmap forget . namelessType where

@@ -10,11 +10,11 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..))
+import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..))
 import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
-import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme)
+import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme (..), toListWithIndex)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
-import Searchterm.Interface.Printer (printTerm)
+import Searchterm.Interface.Printer (printTerm, printType)
 import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
@@ -25,6 +25,7 @@ import Data.Maybe (fromMaybe)
 import Data.Functor.Foldable (cata)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import qualified Data.Sequence as Seq
 
 rethrow :: Exception e => Either e a -> IO a
 rethrow = either throwIO pure
@@ -49,6 +50,12 @@ maxSearchResults = 1000
 
 printAlphaTm :: AlphaTm -> Text
 printAlphaTm = printTerm . fmap (TmVar . T.pack . ("?" ++) . show . unIndex) . unAlphaTm
+
+printAlphaTy :: AlphaTyScheme -> Text
+printAlphaTy (AlphaTyScheme (Forall bs st)) =
+  let bs' = Seq.fromList (fmap (TyVar . T.pack . ("?" ++) . show . unIndex . snd) (toListWithIndex bs))
+      sc' = TyScheme (Forall bs' st)
+  in printType sc'
 
 reportMissing :: Map AlphaTm AlphaTyScheme -> IO ()
 reportMissing tms =
@@ -91,7 +98,9 @@ findAll !lim !yesTms !noTms !susp =
             then reportIllegal tm'
             else do
               -- TODO check type before removing
-              let tms' = Map.delete tm' yesTms
+              tms' <- case Map.lookup tm' yesTms of
+                Nothing -> pure yesTms
+                Just _ -> pure (Map.delete tm' yesTms)
               findAll (lim - 1) tms' noTms susp'
 
 data Match = Match
@@ -165,7 +174,7 @@ litsDeclSrc = DeclSrcList
 testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
-    [ "(\\x -> x)"]
+    ["(\\x -> x)"]
     []
   , testFinds "basic" basicDeclSrc "Int"
     ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]

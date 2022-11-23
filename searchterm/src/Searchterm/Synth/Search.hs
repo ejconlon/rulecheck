@@ -41,7 +41,7 @@ import Searchterm.Interface.ParenPretty (prettyShow)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Control.Monad (unless, void)
-import Searchterm.Interface.Names (unsafeIndexSeqWith)
+import Searchterm.Interface.Names (unsafeIndexSeqWith, toListWithIndex)
 -- import qualified Debug.Trace as DT
 -- import Text.Pretty.Simple (pShow)
 -- import qualified Data.Text as T
@@ -105,12 +105,6 @@ fairTraverse_ f = go . toList where
   go = \case
     [] -> pure ()
     a : as -> f a >>- \_ -> go as
-
--- boilerplate
-toListWithIndex :: Seq a -> [(a, Index)]
-toListWithIndex ss =
-  let len = Seq.length ss
-  in zip (toList ss) (fmap (\i -> Index (len - i - 1)) [0..])
 
 -- | A unique binder for enumerated lambdas
 newtype TmUniq = TmUniq { unTmUniq :: Int }
