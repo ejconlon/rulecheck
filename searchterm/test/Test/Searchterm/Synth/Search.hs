@@ -5,18 +5,17 @@ module Test.Searchterm.Synth.Search (testSearch) where
 import Control.Exception (Exception, throwIO)
 import Control.Monad (unless)
 import Data.Foldable (for_, toList)
-import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..))
+import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), TyScheme, TyVar)
 import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
 import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm)
-import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq)
+import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.Tasty.Providers (TestName)
@@ -24,6 +23,8 @@ import Control.Monad.Reader (runReader, asks, MonadReader (..), Reader)
 import Data.Sequence (Seq(..))
 import Data.Maybe (fromMaybe)
 import Data.Functor.Foldable (cata)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 
 rethrow :: Exception e => Either e a -> IO a
 rethrow = either throwIO pure
@@ -49,12 +50,12 @@ maxSearchResults = 1000
 printAlphaTm :: AlphaTm -> Text
 printAlphaTm = printTerm . fmap (TmVar . T.pack . ("?" ++) . show . unIndex) . unAlphaTm
 
-reportMissing :: Set AlphaTm -> IO ()
+reportMissing :: Map AlphaTm (TyScheme TyVar) -> IO ()
 reportMissing tms =
   unless (null tms) $ do
     putStrLn "Did not find terms:"
-    for_ (toList tms) (TIO.putStrLn . printAlphaTm)
-    fail ("Missing " ++ show (Set.size tms) ++ " terms")
+    for_ (Map.keys tms) (TIO.putStrLn . printAlphaTm)
+    fail ("Missing " ++ show (Map.size tms) ++ " terms")
 
 reportIllegal :: AlphaTm -> IO ()
 reportIllegal tm = fail ("Found illegal term: " ++ T.unpack (printAlphaTm tm))
@@ -73,9 +74,9 @@ inlineLets = flip runReader Empty . cata goTm where
     TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
     TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse sequence pairs
 
-findAll :: Int -> Set AlphaTm -> Set AlphaTm -> SearchSusp Found -> IO ()
+findAll :: Int -> Map AlphaTm (TyScheme TyVar) -> Set AlphaTm -> SearchSusp Found -> IO ()
 findAll !lim !yesTms !noTms !susp =
-  if lim <= 0 || Set.null yesTms
+  if lim <= 0 || Map.null yesTms
     then reportMissing yesTms
     else do
       mx <- rethrow (nextSearchResult susp)
@@ -89,24 +90,36 @@ findAll !lim !yesTms !noTms !susp =
           if Set.member tm' noTms
             then reportIllegal tm'
             else do
-              let tms' = Set.delete tm' yesTms
+              -- TODO check type before removing
+              let tms' = Map.delete tm' yesTms
               findAll (lim - 1) tms' noTms susp'
 
-testFinds :: TestName -> DeclSrc -> Text -> [Text] -> [Text] -> TestTree
-testFinds n src tyStr yesTmStrs noTmStrs = testCase n $ do
+data Match = Match
+  { matchTm :: !Text
+  , matchTy :: !Text
+  } deriving stock (Eq, Show)
+
+testFindsRaw :: TestName -> UseSkolem -> DeclSrc -> Text -> [Match] -> [Text] -> TestTree
+testFindsRaw n useSkolem src tyStr yesMatchStrs noTmStrs = testCase n $ do
   ds <- loadDecls src
   tsNamed <- rethrow (parseType tyStr)
   ts <- rethrow (namelessType tsNamed)
-  yesTms <- traverse (rethrow . parseTerm) yesTmStrs
+  yesTms <- traverse (rethrow . parseTerm . matchTm) yesMatchStrs
+  yesTys <- traverse (rethrow . parseType . matchTy) yesMatchStrs
   noTms <- traverse (rethrow . parseTerm) noTmStrs
   let isKnown (TmVar v) = let k = TmName v in if Map.member k (dsMap ds) then Just k else Nothing
   yesCtms <- traverse (rethrow . closeAlphaTm isKnown) yesTms
   noCtms <- traverse (rethrow . closeAlphaTm isKnown) noTms
-  let yesTmSet = Set.fromList yesCtms
+  let yesTmMap = Map.fromList (zip yesCtms yesTys)
       noTmSet = Set.fromList noCtms
-      conf = SearchConfig ds ts maxSearchDepth True
+      conf = SearchConfig ds ts maxSearchDepth useSkolem
       susp = runSearchSusp conf
-  findAll maxSearchResults yesTmSet noTmSet susp
+  findAll maxSearchResults yesTmMap noTmSet susp
+
+testFinds :: TestName -> DeclSrc -> Text -> [Text] -> [Text] -> TestTree
+testFinds n src tyStr yesTmStrs noTmStrs =
+  let yesTmMatches = fmap (`Match` tyStr) yesTmStrs
+  in testFindsRaw n UseSkolemYes src tyStr yesTmMatches noTmStrs
 
 basicDeclSrc :: DeclSrc
 basicDeclSrc = DeclSrcList
@@ -152,7 +165,7 @@ litsDeclSrc = DeclSrcList
 testSearch :: TestTree
 testSearch = testGroup "Search"
   [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
-    ["(\\x -> x)"]
+    [ "(\\x -> x)"]
     []
   , testFinds "basic" basicDeclSrc "Int"
     ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]

@@ -14,7 +14,7 @@ import Control.Exception (throwIO)
 import Data.Sequence (Seq (..))
 import Searchterm.Interface.Core (Forall (..), Strained (..), Ty (..), TyScheme (..))
 import Searchterm.Interface.Decl (DeclErr, DeclSet, mkDecls)
-import Searchterm.Synth.Search (SearchConfig (..), SearchErr, runSearchN, runSearchSusp, takeSearchResults, Found)
+import Searchterm.Synth.Search (SearchConfig (..), SearchErr, runSearchN, runSearchSusp, takeSearchResults, Found, UseSkolem (..))
 
 -- | Some declarations - here just some "Int" constants and addition.
 exampleDecls :: Either DeclErr DeclSet
@@ -32,13 +32,13 @@ exampleSearch :: Int -> IO [Found]
 exampleSearch n = do
   let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
-  either throwIO pure (runSearchN (SearchConfig decls scheme 5 True) n)
+  either throwIO pure (runSearchN (SearchConfig decls scheme 5 UseSkolemYes) n)
 
 -- | Search for N terms matching the "Int" type (with incremental searching)
 exampleSearchSusp :: Int -> IO ([Found], Maybe SearchErr)
 exampleSearchSusp n = do
   let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
-  let susp = runSearchSusp (SearchConfig decls scheme 5 True)
+  let susp = runSearchSusp (SearchConfig decls scheme 5 UseSkolemYes)
       (tms, ea) = takeSearchResults susp n
   pure (tms, either Just (const Nothing) ea)

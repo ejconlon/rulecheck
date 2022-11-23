@@ -8,6 +8,7 @@ module Searchterm.Synth.Search
   , TyFound
   , Found (..)
   , SearchErr (..)
+  , UseSkolem (..)
   , SearchConfig (..)
   , SearchSusp
   , nextSearchResult
@@ -569,14 +570,17 @@ resolveTy tyuRoot = res where
         TyVertNode tf -> embed (fmap (expand tyGraph) tf)
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
-searchScheme :: TyScheme Index -> Bool -> SearchM Found
+searchScheme :: TyScheme Index -> UseSkolem -> SearchM Found
 searchScheme scheme useSkolem = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
-  let mkVert = if useSkolem then TyVertSkolem else TyVertMeta
+  let mkVert = if useSkolem == UseSkolemYes then TyVertSkolem else TyVertMeta
   (goalStraints, _, goalKey, _) <- insertTyScheme mkVert scheme
   fairTraverse_ topUnifyStraint goalStraints
   tm <- topSearchUniq goalKey
   ty <- resolveTy goalKey
   pure (Found tm ty)
+
+data UseSkolem = UseSkolemYes | UseSkolemNo
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 -- | General search parameters
 data SearchConfig = SearchConfig
@@ -586,7 +590,7 @@ data SearchConfig = SearchConfig
   -- ^ Search goal
   , scDepthLim :: !Int
   -- ^ Recursion depth limit
-  , scUseSkolem :: !Bool
+  , scUseSkolem :: !UseSkolem
   -- ^ True if want to use skolem vars at top level -
   -- this means that outermost type variables remain opaque.
   -- False means use regular meta vars - this means that
@@ -595,7 +599,7 @@ data SearchConfig = SearchConfig
   } deriving stock (Eq, Show)
 
 -- | Initialize the search environment
-initEnvSt :: SearchConfig -> (Env, St, Bool)
+initEnvSt :: SearchConfig -> (Env, St, UseSkolem)
 initEnvSt (SearchConfig decls _ depthLim useSkolem) =
   let env = Env decls Seq.empty depthLim
       st = TrackSt (StFwd 0 0) (StBwd UM.empty)
