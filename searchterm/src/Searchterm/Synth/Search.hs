@@ -362,20 +362,20 @@ ctxFits goalKey = traceScopeM "Ctx fit" $ do
 -- | Find solutions by looking in the context for vars that match exactly.
 litFits :: TyUniq -> SearchM PreFound
 litFits goalKey = traceScopeM "Lit fit" $ do
-  (goalKey', goalVal) <- lookupGoal goalKey
+  (_, goalVal) <- lookupGoal goalKey
   case goalVal of
     TyConF tyn xs | Seq.null xs -> do
       mvals <- asks (Map.lookup tyn . dsLits . envDecls)
       case mvals of
         Nothing -> empty
-        Just vals -> asum (fmap (\val -> pure (PreFound (TmLit val) goalKey')) vals)
+        Just vals -> asum (fmap (\val -> pure (PreFound (TmLit val) goalKey)) vals)
     _ -> empty
 
 -- | Find solutions by instantiating decls and matching the goal exactly.
 exactDeclFits :: TyUniq -> SearchM PreFound
 exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
   decls <- asks envDecls
-  (goalKey', goalVal) <- lookupGoal goalKey
+  (_, goalVal) <- lookupGoal goalKey
   traceM ("Exact decl goal val: " ++ prettyShow goalVal)
   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
     -- Do a cheap check on the outside to see if it might align
@@ -385,13 +385,13 @@ exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
       (candStraints, _, candKey, _) <- insertMetaScheme (declType decl)
       fairTraverse_ topUnifyStraint candStraints
       _ <- tryAlignTy goalKey candKey
-      pure (PreFound (TmKnown name) goalKey')
+      pure (PreFound (TmKnown name) goalKey)
 
 -- | Find solutions to function-type goals by adding args to context and searching with the result type.
 funIntroFits :: TyUniq -> SearchM PreFound
 funIntroFits goalKey = traceScopeM "Fun intro fit" $ do
   guardDepth
-  (goalKey', goalVal) <- lookupGoal goalKey
+  (_, goalVal) <- lookupGoal goalKey
   case goalVal of
     TyFunF argKey retKey -> do
       -- If the goal looks like a function, try adding the arg to the context and searching for a match.
@@ -399,8 +399,50 @@ funIntroFits goalKey = traceScopeM "Fun intro fit" $ do
       PreFound retTm _ <- local (\env -> env { envCtx = envCtx env :|> (x, argKey) }) (recSearchUniq retKey)
       -- Success - allocate a fresh binder and return a lambda.
       b <- freshTmBinder
-      pure (PreFound (TmLam b retTm) goalKey')
+      pure (PreFound (TmLam b retTm) goalKey)
     _ -> traceEmptyM "Non fun in fun intro"
+
+-- | Find solutions by instantiating decl functions with matching return type
+funElimFits :: TyUniq -> SearchM PreFound
+funElimFits goalKey = traceScopeM "Fun elim fit" $ do
+  guardDepth
+  decls <- asks envDecls
+  (_, goalVal) <- lookupGoal goalKey
+  choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
+    -- Partials are defined for any curried lambda - args will be nonempty
+    choose (declPartials decl) $ \part@(Partial _ retTy) -> do
+      let candVal = project retTy
+      -- Do a cheap check for possible alignment on the result type
+      whenAlt (mightAlign goalVal candVal) $ do
+        traceM ("Possible partial align: " ++ prettyShow part)
+        ctx <- asks envCtx
+        traceM ("Current ctx: " ++ show ctx)
+        -- Now really check that the result type unifies:
+        -- Insert the partial to get vars for args and returned function
+        (straints, addlCtx, candKey, _) <- insertPartial (declType decl) part
+        -- Unify the returned function with the goal (first, to help constraint search)
+        _ <- traceTryM "Align partial" (tryAlignTy goalKey candKey)
+        -- Unify constraints (second, to help argument search)
+        fairTraverse_ topUnifyStraint straints
+        -- It unifies. Now we know that if we can find args we can satsify the goal.
+        searchLetApp goalKey (TmKnown name) addlCtx
+
+-- | Search for an application of the given types.
+-- We search left to right, adding arguments to the context (in let binds) in the hope that
+-- it's possible to re-use some elements of the context to solve later args.
+searchLetApp :: TyUniq -> TmFound -> Seq TyUniq -> SearchM PreFound
+searchLetApp goalKey fnTm us = go id Empty (toList us) where
+  go !outFn !argNames = \case
+    [] -> do
+      ctx <- asks envCtx
+      let tm = outFn (mkApp fnTm (fmap (TmFree . unsafeIndexSeqWith (\x (b, _) -> b == x) ctx) argNames))
+      pure (PreFound tm goalKey)
+    a:rest -> do
+      traceM ("SLA search for " ++ show a)
+      recSearchUniq a >>- \(PreFound b _) -> do
+        x <- freshTmBinder
+        traceM ("SLA found " ++ show b ++ " as " ++ show x)
+        local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (outFn . TmLet x b) (argNames :|> x) rest)
 
 -- | Helper to return a multi-arg application
 mkApp :: TmFound -> Seq TmFound -> TmFound
@@ -409,49 +451,6 @@ mkApp = go where
     Empty -> t
     s :<| ss -> go (TmApp t s) ss
 
--- TODO adapt
--- -- | Find solutions by instantiating decl functions with matching return type
--- funElimFits :: TyUniq -> SearchM PreFound
--- funElimFits goalKey = traceScopeM "Fun elim fit" $ do
---   guardDepth
---   decls <- asks envDecls
---   (_, goalVal) <- lookupGoal goalKey
---   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
---     -- Partials are defined for any curried lambda - args will be nonempty
---     choose (declPartials decl) $ \part@(Partial _ retTy) -> do
---       let candVal = project retTy
---       -- Do a cheap check for possible alignment on the result type
---       whenAlt (mightAlign goalVal candVal) $ do
---         traceM ("Possible partial align: " ++ prettyShow part)
---         ctx <- asks envCtx
---         traceM ("Current ctx: " ++ show ctx)
---         -- Now really check that the result type unifies:
---         -- Insert the partial to get vars for args and returned function
---         (straints, addlCtx, candKey, _) <- insertPartial (declType decl) part
---         -- Unify the returned function with the goal (first, to help constraint search)
---         _ <- traceTryM "Align partial" (tryAlignTy goalKey candKey)
---         -- Unify constraints (second, to help argument search)
---         fairTraverse_ topUnifyStraint straints
---         -- It unifies. Now we know that if we can find args we can satsify the goal.
---         searchLetApp (TmKnown name) addlCtx
-
--- | Search for an application of the given types.
--- We search left to right, adding arguments to the context (in let binds) in the hope that
--- it's possible to re-use some elements of the context to solve later args.
-searchLetApp :: TmFound -> Seq TyUniq -> SearchM TmFound
-searchLetApp fnTm us = go id Empty (toList us) where
-  go !outFn !argNames = \case
-    [] -> do
-      ctx <- asks envCtx
-      pure (outFn (mkApp fnTm (fmap (TmFree . unsafeIndexSeqWith (\x (b, _) -> b == x) ctx) argNames)))
-    a:rest -> do
-      traceM ("SLA search for " ++ show a)
-      recSearchUniq a >>- \(PreFound b _) -> do
-        x <- freshTmBinder
-        traceM ("SLA found " ++ show b ++ " as " ++ show x)
-        local (\env -> env { envCtx = envCtx env :|> (x, a) }) (go (outFn . TmLet x b) (argNames :|> x) rest)
-
--- TODO adapt
 -- -- Generates a lambdacase expression
 -- destructFits :: TyUniq -> SearchM PreFound
 -- destructFits goalKey = traceScopeM "Destruct fit" $ do
@@ -527,7 +526,7 @@ topSearchUniq goalKey = res where
     -- for a term of the return type.
     , exactDeclFits goalKey
     -- ^ Solve with a known term
-    -- , funElimFits goalKey
+    , funElimFits goalKey
     -- ^ Solve by looking at partial applications of known terms s.t.
     -- the return type matches the goal, then search for args for the application.
     -- TODO Also look at partial applications of functions in the context.
@@ -580,8 +579,9 @@ resolveTy tyuRoot = res where
         TyVertSkolem _ -> TyFree tyu
         TyVertNode tf -> embed (fmap (expand tyGraph) tf)
 
-resolveFound :: PreFound -> SearchM Found
-resolveFound (PreFound tm tyu) = Found tm <$> resolveTy tyu
+-- TODO rip out the prefound stuff and just use the goal key here
+resolveFound :: TyUniq -> PreFound -> SearchM Found
+resolveFound tyu (PreFound tm _) = Found tm <$> resolveTy tyu
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
 searchScheme :: TyScheme Index -> Bool -> SearchM Found
@@ -590,7 +590,7 @@ searchScheme scheme useSkolem = traceScopeM ("Scheme search: " ++ prettyShow sch
   (goalStraints, _, goalKey, _) <- insertTyScheme mkVert scheme
   fairTraverse_ topUnifyStraint goalStraints
   preFound <- topSearchUniq goalKey
-  resolveFound preFound
+  resolveFound goalKey preFound
 
 -- | General search parameters
 data SearchConfig = SearchConfig

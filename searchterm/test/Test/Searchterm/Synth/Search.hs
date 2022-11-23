@@ -154,15 +154,15 @@ testSearch = testGroup "Search"
   [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
     ["(\\x -> x)"]
     []
-  -- , testFinds "basic" basicDeclSrc "Int"
-  --   ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
-  --   ["(plus zero)", "plus", "(zero plus)"]
-  -- , testFinds "strain simple" strainSimpleDeclSrc "Int"
-  --   ["(quux foo bar)"]
-  --   ["foo"]
-  -- , testFinds "strain rec" strainRecDeclSrc "Int"
-  --   ["(quux foo)"]
-  --   ["(quux bar)"]
+  , testFinds "basic" basicDeclSrc "Int"
+    ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
+    ["(plus zero)", "plus", "(zero plus)"]
+  , testFinds "strain simple" strainSimpleDeclSrc "Int"
+    ["(quux foo bar)"]
+    ["foo"]
+  , testFinds "strain rec" strainRecDeclSrc "Int"
+    ["(quux foo)"]
+    ["(quux bar)"]
   -- , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
   --   ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
   --   ["showChar"]
