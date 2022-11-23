@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Searchterm.Synth.Search where -- (testSearch) where
+module Test.Searchterm.Synth.Search (testSearch) where
 
 import Control.Exception (Exception, throwIO)
 import Control.Monad (unless)
@@ -16,7 +16,7 @@ import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
 import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm)
-import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, TmFound, nextSearchResult, runSearchSusp, TmUniq)
+import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.Tasty.Providers (TestName)
@@ -73,7 +73,7 @@ inlineLets = flip runReader Empty . cata goTm where
     TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
     TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse sequence pairs
 
-findAll :: Int -> Set AlphaTm -> Set AlphaTm -> SearchSusp TmFound -> IO ()
+findAll :: Int -> Set AlphaTm -> Set AlphaTm -> SearchSusp Found -> IO ()
 findAll !lim !yesTms !noTms !susp =
   if lim <= 0 || Set.null yesTms
     then reportMissing yesTms
@@ -81,7 +81,7 @@ findAll !lim !yesTms !noTms !susp =
       mx <- rethrow (nextSearchResult susp)
       case mx of
         Nothing -> reportMissing yesTms
-        Just (tm, susp') -> do
+        Just (Found tm _, susp') -> do
           -- TIO.putStrLn (docToText (pretty tm))
           let tmNoLet = inlineLets tm
           let tm' = mapAlphaTm tmNoLet
@@ -154,21 +154,21 @@ testSearch = testGroup "Search"
   [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
     ["(\\x -> x)"]
     []
-  , testFinds "basic" basicDeclSrc "Int"
-    ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
-    ["(plus zero)", "plus", "(zero plus)"]
-  , testFinds "strain simple" strainSimpleDeclSrc "Int"
-    ["(quux foo bar)"]
-    ["foo"]
-  , testFinds "strain rec" strainRecDeclSrc "Int"
-    ["(quux foo)"]
-    ["(quux bar)"]
-  , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
-    ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
-    ["showChar"]
-  , testFinds "literals" litsDeclSrc "Int"
-    ["0", "-1", "2", "3"]
-    ["4"]
+  -- , testFinds "basic" basicDeclSrc "Int"
+  --   ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
+  --   ["(plus zero)", "plus", "(zero plus)"]
+  -- , testFinds "strain simple" strainSimpleDeclSrc "Int"
+  --   ["(quux foo bar)"]
+  --   ["foo"]
+  -- , testFinds "strain rec" strainRecDeclSrc "Int"
+  --   ["(quux foo)"]
+  --   ["(quux bar)"]
+  -- , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
+  --   ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
+  --   ["showChar"]
+  -- , testFinds "literals" litsDeclSrc "Int"
+  --   ["0", "-1", "2", "3"]
+  --   ["4"]
   -- , testFinds "GenString"
   --     (DeclSrcList
   --      [ "instance IsString String"
