@@ -163,9 +163,9 @@ testSearch = testGroup "Search"
   , testFinds "strain rec" strainRecDeclSrc "Int"
     ["(quux foo)"]
     ["(quux bar)"]
-  -- , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
-  --   ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
-  --   ["showChar"]
+  , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
+    ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
+    ["showChar"]
   , testFinds "literals" litsDeclSrc "Int"
     ["0", "-1", "2", "3"]
     ["4"]
