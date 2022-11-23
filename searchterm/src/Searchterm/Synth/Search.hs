@@ -371,22 +371,21 @@ litFits goalKey = traceScopeM "Lit fit" $ do
         Just vals -> asum (fmap (\val -> pure (PreFound (TmLit val) goalKey')) vals)
     _ -> empty
 
--- TODO adapt
--- -- | Find solutions by instantiating decls and matching the goal exactly.
--- exactDeclFits :: TyUniq -> SearchM PreFound
--- exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
---   decls <- asks envDecls
---   (_, goalVal) <- lookupGoal goalKey
---   traceM ("Exact decl goal val: " ++ prettyShow goalVal)
---   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
---     -- Do a cheap check on the outside to see if it might align
---     let candVal = project (tySchemeBody (declType decl))
---     whenAlt (mightAlign goalVal candVal) $ do
---       -- Ok, it might align. Add the type to the local search env and see if it really does.
---       (candStraints, _, candKey, _) <- insertMetaScheme (declType decl)
---       fairTraverse_ topUnifyStraint candStraints
---       _ <- tryAlignTy goalKey candKey
---       pure (TmKnown name)
+-- | Find solutions by instantiating decls and matching the goal exactly.
+exactDeclFits :: TyUniq -> SearchM PreFound
+exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
+  decls <- asks envDecls
+  (goalKey', goalVal) <- lookupGoal goalKey
+  traceM ("Exact decl goal val: " ++ prettyShow goalVal)
+  choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
+    -- Do a cheap check on the outside to see if it might align
+    let candVal = project (tySchemeBody (declType decl))
+    whenAlt (mightAlign goalVal candVal) $ do
+      -- Ok, it might align. Add the type to the local search env and see if it really does.
+      (candStraints, _, candKey, _) <- insertMetaScheme (declType decl)
+      fairTraverse_ topUnifyStraint candStraints
+      _ <- tryAlignTy goalKey candKey
+      pure (PreFound (TmKnown name) goalKey')
 
 -- | Find solutions to function-type goals by adding args to context and searching with the result type.
 funIntroFits :: TyUniq -> SearchM PreFound
@@ -526,7 +525,7 @@ topSearchUniq goalKey = res where
     , funIntroFits goalKey
     -- ^ Solve a function goal by adding arg to context and searching
     -- for a term of the return type.
-    -- , exactDeclFits goalKey
+    , exactDeclFits goalKey
     -- ^ Solve with a known term
     -- , funElimFits goalKey
     -- ^ Solve by looking at partial applications of known terms s.t.

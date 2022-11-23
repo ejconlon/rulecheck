@@ -166,9 +166,9 @@ testSearch = testGroup "Search"
   -- , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
   --   ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
   --   ["showChar"]
-  -- , testFinds "literals" litsDeclSrc "Int"
-  --   ["0", "-1", "2", "3"]
-  --   ["4"]
+  , testFinds "literals" litsDeclSrc "Int"
+    ["0", "-1", "2", "3"]
+    ["4"]
   -- , testFinds "GenString"
   --     (DeclSrcList
   --      [ "instance IsString String"
