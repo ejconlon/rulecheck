@@ -143,6 +143,9 @@ testFinds n src tyStr yesTmStrs noTmStrs =
   let yesTmMatches = fmap (`Match` tyStr) yesTmStrs
   in testFindsRaw n UseSkolemYes src tyStr yesTmMatches noTmStrs
 
+testFindsTy :: TestName -> DeclSrc -> Text -> [Match] -> [Text] -> TestTree
+testFindsTy n = testFindsRaw n UseSkolemNo
+
 basicDeclSrc :: DeclSrc
 basicDeclSrc = DeclSrcList
   [ "zero :: Int"
@@ -204,6 +207,18 @@ testSearch = testGroup "Search"
   , testFinds "literals" litsDeclSrc "Int"
     ["0", "-1", "2", "3"]
     ["4"]
+  -- , testFindsTy "polyret"
+  --     (DeclSrcList
+  --       [ "forget :: Pair a b -> Pair b b"
+  --       , "something :: Pair Int b"
+  --       ]
+  --     )
+  --     "Pair b b"
+  --     [ Match "something" "Pair Int Int"
+  --     -- Don't know if this one will even work...
+  --     -- , Match "(forget something)" "Pair Int Int"
+  --     ]
+  --     []
   -- , testFinds "GenString"
   --     (DeclSrcList
   --      [ "instance IsString String"
