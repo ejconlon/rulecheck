@@ -207,18 +207,20 @@ testSearch = testGroup "Search"
   , testFinds "literals" litsDeclSrc "Int"
     ["0", "-1", "2", "3"]
     ["4"]
-  -- , testFindsTy "polyret"
-  --     (DeclSrcList
-  --       [ "forget :: Pair a b -> Pair b b"
-  --       , "something :: Pair Int b"
-  --       ]
-  --     )
-  --     "Pair b b"
-  --     [ Match "something" "Pair Int Int"
-  --     -- Don't know if this one will even work...
-  --     -- , Match "(forget something)" "Pair Int Int"
-  --     ]
-  --     []
+  , testFindsTy "polyret"
+      (DeclSrcList
+        [ "forget :: Pair a b -> Pair a a"
+        , "thing1 :: Pair Int b"
+        , "thing2 :: Pair b Int"
+        ]
+      )
+      "Pair a a"
+      [ Match "thing1" "Pair Int Int"
+      , Match "thing2" "Pair Int Int"
+      , Match "(forget thing1)" "Pair Int Int"
+      , Match "(forget thing2)" "Pair a a"
+      ]
+      []
   -- , testFinds "GenString"
   --     (DeclSrcList
   --      [ "instance IsString String"

@@ -42,7 +42,7 @@ import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Control.Monad (unless, void)
 import Searchterm.Interface.Names (unsafeIndexSeqWith, toListWithIndex, namelessStrained)
-import qualified Data.Set as Set
+import Data.List (nub)
 -- import qualified Debug.Trace as DT
 -- import Text.Pretty.Simple (pShow)
 -- import qualified Data.Text as T
@@ -69,10 +69,10 @@ traceEmptyM _ = empty
 
 -- | Log on success/failure
 traceTryM :: MonadLogic m => String -> m a -> m a
--- traceTryM ctx act = ifte act
---   (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
---   (traceM ("Try failed: " ++ ctx) *> empty)
-traceTryM _ = id
+traceTryM ctx act = ifte act
+  (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
+  (traceM ("Try failed: " ++ ctx) *> empty)
+-- traceTryM _ = id
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -552,17 +552,17 @@ recUnifyStraint :: StraintUniq -> SearchM ()
 recUnifyStraint = decDepth . topUnifyStraint
 
 resolveTy :: UseSkolem -> Seq TyUniq -> TyUniq -> SearchM TyFoundScheme
-resolveTy useSkolem outerVars tyuRoot = res where
+resolveTy _useSkolem _outerVars tyuRoot = res where
   res = do
     tyGraph <- gets (stBwdTyGraph . tsBwd)
     let tyBody = expand tyGraph tyuRoot
-        ovSet = Set.fromList (toList outerVars)
-        bodyVars = Seq.fromList [v | v <- toList tyBody, not (Set.member v ovSet)]
-        finalVars = if useSkolem == UseSkolemYes then outerVars <> bodyVars else bodyVars
+        finalVars = Seq.fromList (nub (toList tyBody))
         -- TODO actually carry constraints along
         fv = Forall finalVars (Strained Empty tyBody)
     case namelessStrained fv of
-      Left e -> error ("Type resolution error: " ++ show e)
+      Left e -> do
+        -- traceM ("Graph " ++ T.unpack (TL.toStrict (pShow tyGraph)))
+        error ("Type resolution error: " ++ show e)
       Right a -> pure (TyFoundScheme a)
   expand :: TyGraph -> TyUniq -> Ty TyUniq
   expand tyGraph tyu =

@@ -75,5 +75,4 @@ instance MonadLogic (Track r x y e) where
 -- instance MonadLogic (Track r x y e) where
 --   msplit x = Track (fmap (fmap (second Track)) (msplit (unTrack x)))
 --   interleave = (<|>)
---   (>>-) :: Track r x y e a -> (a -> Track r x y e b) -> Track r x y e b
 --   (>>-) = (>>=)
