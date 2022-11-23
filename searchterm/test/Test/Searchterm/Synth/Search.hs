@@ -3,7 +3,7 @@
 module Test.Searchterm.Synth.Search (testSearch) where
 
 import Control.Exception (Exception, throwIO)
-import Control.Monad ((<=<), unless)
+import Control.Monad ((<=<), unless, void)
 import Data.Foldable (for_, toList)
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -15,7 +15,7 @@ import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
 import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme (..), toListWithIndex)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
-import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..))
+import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..), TyFoundScheme (..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import Test.Tasty.Providers (TestName)
@@ -67,6 +67,12 @@ reportMissing tms =
 reportIllegal :: AlphaTm -> IO ()
 reportIllegal tm = fail ("Found illegal term: " ++ T.unpack (printAlphaTm tm))
 
+reportMismatch :: AlphaTm -> AlphaTyScheme -> AlphaTyScheme -> IO a
+reportMismatch tm tyExp tyAct = fail $
+  "Found term with type mismatch: " ++ T.unpack (printAlphaTm tm) ++
+  " | expected: " ++ T.unpack (printAlphaTy tyExp) ++
+  " | actual: " ++ T.unpack (printAlphaTy tyAct)
+
 inlineLets :: TmFound -> TmFound
 inlineLets = flip runReader Empty . cata goTm where
   goTm :: TmF TmUniq Index (Reader (Seq (Maybe TmFound)) TmFound) -> Reader (Seq (Maybe TmFound)) TmFound
@@ -89,7 +95,7 @@ findAll !lim !yesTms !noTms !susp =
       mx <- rethrow (nextSearchResult susp)
       case mx of
         Nothing -> reportMissing yesTms
-        Just (Found tm _, susp') -> do
+        Just (Found tm ty, susp') -> do
           -- TIO.putStrLn (docToText (pretty tm))
           let tmNoLet = inlineLets tm
           let tm' = mapAlphaTm tmNoLet
@@ -100,8 +106,15 @@ findAll !lim !yesTms !noTms !susp =
               -- TODO check type before removing
               tms' <- case Map.lookup tm' yesTms of
                 Nothing -> pure yesTms
-                Just _ -> pure (Map.delete tm' yesTms)
+                Just tyExpected -> do
+                  let tyActual = forgetTyScheme ty
+                  if tyActual == tyExpected
+                    then pure (Map.delete tm' yesTms)
+                    else reportMismatch tm' tyExpected tyActual
               findAll (lim - 1) tms' noTms susp'
+
+forgetTyScheme :: TyFoundScheme -> AlphaTyScheme
+forgetTyScheme (TyFoundScheme (Forall bs st)) = AlphaTyScheme (Forall (void bs) st)
 
 data Match = Match
   { matchTm :: !Text

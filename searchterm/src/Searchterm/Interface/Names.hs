@@ -7,6 +7,7 @@ module Searchterm.Interface.Names
   , lookupSeq
   , unsafeLookupSeq
   , NamelessErr (..)
+  , namelessStrained
   , namelessType
   , namelessInst
   , namelessTerm
@@ -60,7 +61,7 @@ newtype NamelessErr v = NamelessErrMissing (Seq v)
 
 instance (Show v, Typeable v) => Exception (NamelessErr v)
 
-namelessStrained :: Traversable f => Forall TyVar (Strained TyVar (f TyVar)) -> Either (NamelessErr TyVar) (Forall TyVar (Strained Index (f Index)))
+namelessStrained :: (Traversable f, Eq v) => Forall v (Strained v (f v)) -> Either (NamelessErr v) (Forall v (Strained Index (f Index)))
 namelessStrained (Forall tvs x) = Forall tvs <$> bindStr x where
   bindStr (Strained cons fy) = Strained <$> traverse bindCon cons <*> traverse bind fy
   bind a = maybe (Left (NamelessErrMissing (Seq.singleton a))) Right (indexSeq tvs a)

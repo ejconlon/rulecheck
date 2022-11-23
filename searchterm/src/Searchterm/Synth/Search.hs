@@ -5,7 +5,7 @@
 module Searchterm.Synth.Search
   ( TmUniq (..)
   , TmFound
-  , TyFound
+  , TyFoundScheme (..)
   , Found (..)
   , SearchErr (..)
   , UseSkolem (..)
@@ -41,7 +41,8 @@ import Searchterm.Interface.ParenPretty (prettyShow)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Control.Monad (unless, void)
-import Searchterm.Interface.Names (unsafeIndexSeqWith, toListWithIndex)
+import Searchterm.Interface.Names (unsafeIndexSeqWith, toListWithIndex, namelessStrained)
+import qualified Data.Set as Set
 -- import qualified Debug.Trace as DT
 -- import Text.Pretty.Simple (pShow)
 -- import qualified Data.Text as T
@@ -127,11 +128,13 @@ instance Pretty StraintUniq where
 type TmFound = Tm TmUniq Index
 
 -- | Search will yield closed type schemes with globally unique binders
-type TyFound = Ty TyUniq
+newtype TyFoundScheme = TyFoundScheme { unTyFoundScheme :: Forall TyUniq (Strained Index (Ty Index)) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
 
 data Found = Found
   { foundTm :: !TmFound
-  , foundTy :: !TyFound
+  , foundTy :: !TyFoundScheme
   } deriving stock (Eq, Show)
 
 instance Pretty Found where
@@ -548,11 +551,19 @@ topUnifyStraint su@(StraintUniq cn ts) = traceScopeM ("Straint unify: " ++ prett
 recUnifyStraint :: StraintUniq -> SearchM ()
 recUnifyStraint = decDepth . topUnifyStraint
 
-resolveTy :: TyUniq -> SearchM TyFound
-resolveTy tyuRoot = res where
+resolveTy :: UseSkolem -> Seq TyUniq -> TyUniq -> SearchM TyFoundScheme
+resolveTy useSkolem outerVars tyuRoot = res where
   res = do
     tyGraph <- gets (stBwdTyGraph . tsBwd)
-    pure (expand tyGraph tyuRoot)
+    let tyBody = expand tyGraph tyuRoot
+        ovSet = Set.fromList (toList outerVars)
+        bodyVars = Seq.fromList [v | v <- toList tyBody, not (Set.member v ovSet)]
+        finalVars = if useSkolem == UseSkolemYes then outerVars <> bodyVars else bodyVars
+        -- TODO actually carry constraints along
+        fv = Forall finalVars (Strained Empty tyBody)
+    case namelessStrained fv of
+      Left e -> error ("Type resolution error: " ++ show e)
+      Right a -> pure (TyFoundScheme a)
   expand :: TyGraph -> TyUniq -> Ty TyUniq
   expand tyGraph tyu =
     let (mp, _) = UM.find tyu tyGraph
@@ -567,10 +578,10 @@ resolveTy tyuRoot = res where
 searchScheme :: TyScheme Index -> UseSkolem -> SearchM Found
 searchScheme scheme useSkolem = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
   let mkVert = if useSkolem == UseSkolemYes then TyVertSkolem else TyVertMeta
-  (goalStraints, _, goalKey, _) <- insertTyScheme mkVert scheme
+  (goalStraints, outerVars, goalKey, _) <- insertTyScheme mkVert scheme
   fairTraverse_ topUnifyStraint goalStraints
   tm <- topSearchUniq goalKey
-  ty <- resolveTy goalKey
+  ty <- resolveTy useSkolem outerVars goalKey
   pure (Found tm ty)
 
 data UseSkolem = UseSkolemYes | UseSkolemNo
