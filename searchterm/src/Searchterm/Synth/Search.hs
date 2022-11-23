@@ -69,10 +69,10 @@ traceEmptyM _ = empty
 
 -- | Log on success/failure
 traceTryM :: MonadLogic m => String -> m a -> m a
-traceTryM ctx act = ifte act
-  (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
-  (traceM ("Try failed: " ++ ctx) *> empty)
--- traceTryM _ = id
+-- traceTryM ctx act = ifte act
+--   (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
+--   (traceM ("Try failed: " ++ ctx) *> empty)
+traceTryM _ = id
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -399,6 +399,7 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
   decls <- asks envDecls
   (_, goalVal) <- lookupGoal goalKey
   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
+    traceM $ "CONSIDERING: " ++ show name ++ " " ++ show decl
     -- Partials are defined for any curried lambda - args will be nonempty
     choose (declPartials decl) $ \part@(Partial _ retTy) -> do
       let candVal = project retTy

@@ -221,12 +221,12 @@ testSearch = testGroup "Search"
       , Match "(forget thing2)" "Pair a a"
       ]
       []
-  -- , testFinds "GenString"
-  --     (DeclSrcList
-  --      [ "instance IsString String"
-  --      , "fromString :: IsString c => String0 -> c"
-  --      , "primString :: String0"
-  --      ]
-  --     ) "String" ["(fromString primString)"] []
+  , testFinds "GenString"
+      (DeclSrcList
+       [ "instance IsString String"
+       , "fromString :: IsString c => String0 -> c"
+       , "primString :: String0"
+       ]
+      ) "String" ["(fromString primString)"] []
   -- TODO more tests!!! But the pattern is clear...
   ]

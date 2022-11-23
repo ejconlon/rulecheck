@@ -49,7 +49,8 @@ alignTys one two =
 mightAlign :: TyF x a -> TyF y b -> Bool
 mightAlign one two =
   case (one, two) of
-    (TyFreeF _, TyFreeF _) -> True
+    (TyFreeF _, _) -> True
+    (_, TyFreeF _) -> True
     (TyConF n as, TyConF m bs) -> n == m && Seq.length as == Seq.length bs
     (TyFunF _ _, TyFunF _ _) -> True
     _ -> False
