@@ -3,16 +3,16 @@
 module Test.Searchterm.Synth.Search (testSearch) where
 
 import Control.Exception (Exception, throwIO)
-import Control.Monad (unless)
+import Control.Monad ((<=<), unless)
 import Data.Foldable (for_, toList)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), TyScheme, TyVar)
+import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..))
 import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
-import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq)
+import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm)
 import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..))
@@ -50,7 +50,7 @@ maxSearchResults = 1000
 printAlphaTm :: AlphaTm -> Text
 printAlphaTm = printTerm . fmap (TmVar . T.pack . ("?" ++) . show . unIndex) . unAlphaTm
 
-reportMissing :: Map AlphaTm (TyScheme TyVar) -> IO ()
+reportMissing :: Map AlphaTm AlphaTyScheme -> IO ()
 reportMissing tms =
   unless (null tms) $ do
     putStrLn "Did not find terms:"
@@ -74,7 +74,7 @@ inlineLets = flip runReader Empty . cata goTm where
     TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
     TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse sequence pairs
 
-findAll :: Int -> Map AlphaTm (TyScheme TyVar) -> Set AlphaTm -> SearchSusp Found -> IO ()
+findAll :: Int -> Map AlphaTm AlphaTyScheme -> Set AlphaTm -> SearchSusp Found -> IO ()
 findAll !lim !yesTms !noTms !susp =
   if lim <= 0 || Map.null yesTms
     then reportMissing yesTms
@@ -105,7 +105,7 @@ testFindsRaw n useSkolem src tyStr yesMatchStrs noTmStrs = testCase n $ do
   tsNamed <- rethrow (parseType tyStr)
   ts <- rethrow (namelessType tsNamed)
   yesTms <- traverse (rethrow . parseTerm . matchTm) yesMatchStrs
-  yesTys <- traverse (rethrow . parseType . matchTy) yesMatchStrs
+  yesTys <- traverse ((rethrow . closeAlphaTyScheme) <=< ((rethrow . parseType) . matchTy)) yesMatchStrs
   noTms <- traverse (rethrow . parseTerm) noTmStrs
   let isKnown (TmVar v) = let k = TmName v in if Map.member k (dsMap ds) then Just k else Nothing
   yesCtms <- traverse (rethrow . closeAlphaTm isKnown) yesTms

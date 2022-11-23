@@ -13,6 +13,8 @@ module Searchterm.Interface.Names
   , AlphaTm (..)
   , mapAlphaTm
   , closeAlphaTm
+  , AlphaTyScheme
+  , closeAlphaTyScheme
   ) where
 
 import Control.Exception (Exception)
@@ -23,10 +25,11 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Typeable (Typeable)
 import Searchterm.Interface.Core (Forall (..), Index (..), Inst (..), InstScheme (..), Strained (..), Tm (..), TmF (..),
-                                 TmName (..), TyScheme (..), TyVar, PatPair (..), Pat (..), ConPat (..))
+                                 TmName (..), TyScheme (..), TyVar, PatPair (..), Pat (..), ConPat (..), Ty)
 import Control.Monad (void)
 import Data.Maybe (fromMaybe)
 import GHC.Stack (HasCallStack)
+import Prettyprinter (Pretty)
 
 indexSeqWith :: (b -> a -> Bool) -> Seq a -> b -> Maybe Index
 indexSeqWith f s a = fmap (\lvl -> Index (Seq.length s - lvl - 1)) (Seq.findIndexR (f a) s)
@@ -110,7 +113,7 @@ namelessClosedTerm isKnown tm =
 
 newtype AlphaTm = AlphaTm { unAlphaTm :: Tm () Index }
   deriving stock (Show)
-  deriving newtype (Eq, Ord)
+  deriving newtype (Eq, Ord, Pretty)
 
 mapAlphaTm :: Tm b Index -> AlphaTm
 mapAlphaTm = AlphaTm . cata goTm where
@@ -126,3 +129,11 @@ mapAlphaTm = AlphaTm . cata goTm where
 
 closeAlphaTm :: Eq v => (v -> Maybe TmName) -> Tm v v -> Either (NamelessErr v) AlphaTm
 closeAlphaTm isKnown = fmap mapAlphaTm . namelessClosedTerm isKnown
+
+newtype AlphaTyScheme = AlphaTyScheme { unAlphaTyScheme :: Forall () (Strained Index (Ty Index)) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Pretty)
+
+closeAlphaTyScheme :: TyScheme TyVar -> Either (NamelessErr TyVar) AlphaTyScheme
+closeAlphaTyScheme = fmap forget . namelessType where
+  forget (TyScheme (Forall bs st)) = AlphaTyScheme (Forall (void bs) st)
