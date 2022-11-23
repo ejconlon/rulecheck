@@ -19,6 +19,17 @@ where `$LISTINGFILE` is a temporary file to store the package information from
 hackage. `$PACKAGEDIR` is where the packages will be downloaded, and
 `$RULESFILE` contains information on packages containing rewrite rules. 
 
+__IMPORTANT__ Current we expect `$PACKAGEDIR` to be named `haskell-packages` and
+placed adjacent to this directory (i.e. `../haskell-packages`). __AND__ you need
+to put the full path in `haskellPackagesDir` in `Config.hs`.
+
+### Generating and Running the Test Suites
+
+You can automatically generate and run test suites for modules we now how to
+fuzz by running the script `./test-all-working.sh`
+
+## Generating New Test Suites
+
 ### Generating a test suite for package(s)
 
 The `rulecheck` project is responsible for generating a test suite for the
@@ -41,11 +52,30 @@ stack run
 
 ### Running a fuzzing test suite for a package
 
-After generating a test suite for `$PACKAGENAME`, you can run the test suite by
-taking two steps:
+After generating a test suite for `$PACKAGENAME`, the appropriate tests will be
+created in `package-tests/$PACKAGENAME-test`.
 
-1. Add the package `package-tests/$PACKAGENAME-test` to `rulecheck/stack.yaml`
-2. Run the command `stack test $PACKAGENAME-test`
+You can then easily run the fuzz test by running `stack test` from inside the
+generated directory.
+
+### Generating and running
+
+The above two steps can be done at once with the command `./test.sh $PACKAGENAME`
+
+### Adding a suite to the set of working tests  
+
+Just edit `./test-all-working.sh`, it should be straightforward
+
+### Adding custom `Arbitrary` instances
+
+This can be done by adding a file in
+`test-template/extra-arbitrary-instances/$PACKAGENAME.hs`. 
+
+### Modifying the library
+
+You may want to do this to expose additional modules, functions, etc.
+This can be done by putting modified versions of the file in the `vendored`
+directory. The script `./apply-vendored-patches.sh` will apply the patches.
 
 ## Debugging
 
@@ -77,16 +107,6 @@ It's possible that required imports are not in scope. The `importsForPackage`
 function in `Config.hs` defines what imports should be added for each test file
 for a package. You can modify that function to add necessary imports and then
 re-generate the test suite.
-
-Another possible issue is that the rules cannot be tested, because their types
-are not exposed. To fix this you will need to:
-
-1. modify the package under test itself (i.e. the one in `$PACKAGEDIR`) to expose the necessary modules, and
-2. instruct rulecheck to use the modified package.
-
-(1) should only require modifying the .cabal file to expose the module. (2) can
-be done by modifying `stack.yaml` to include the directory for that package, so
-the one from Hackage is not used.
 
 ## Pre-submit checks
 

@@ -93,6 +93,7 @@ ruleTestDoc (rule, idx) =
 ruleModuleHeaderDoc :: String -> Set String -> SDoc
 ruleModuleHeaderDoc modName deps =
   let start = text "module" <+> text modName <+> text "where" $+$
+        text "import Rulecheck.Generated.ArbitraryInstances" $+$
         text "import Test.Tasty (TestTree)" $+$
         text ("import Rulecheck.Testing(" ++ testingImports ++ ")")
   in foldl' (\x d -> x $+$ text "import" <+> text d) start (toList deps)

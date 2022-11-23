@@ -65,4 +65,7 @@ tests:
     - tasty-hunit
     - tasty-quickcheck
     - ghc-prim
+                 # Extra deps for specific modules
+                 # If this causes a problem, setup per-module package.yaml
     - containers # Required for algebraic-graphs
+    - deepseq    # Required for basement
