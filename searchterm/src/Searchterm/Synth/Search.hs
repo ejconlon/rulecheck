@@ -6,6 +6,8 @@ module Searchterm.Synth.Search
   ( TmUniq (..)
   , TmFound
   , TyFoundScheme (..)
+  , fillTyScheme
+  , constFillTyScheme
   , Found (..)
   , SearchErr (..)
   , UseSkolem (..)
@@ -41,7 +43,7 @@ import Searchterm.Interface.ParenPretty (prettyShow)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Control.Monad (unless, void)
-import Searchterm.Interface.Names (unsafeIndexSeqWith, toListWithIndex, namelessStrained)
+import Searchterm.Interface.Names (unsafeIndexSeqWith, toListWithIndex, namelessStrained, NamedErr, namedStrained)
 import Data.List (nub)
 -- import qualified Debug.Trace as DT
 -- import Text.Pretty.Simple (pShow)
@@ -131,6 +133,16 @@ type TmFound = Tm TmUniq Index
 newtype TyFoundScheme = TyFoundScheme { unTyFoundScheme :: Forall TyUniq (Strained Index (Ty Index)) }
   deriving stock (Show)
   deriving newtype (Eq, Ord, Pretty)
+
+-- | Fill the unique vars of the found type scheme with the given named vars
+-- Possible error if the scheme is not well formed (but it *should* be well formed
+-- by construction if you get it out of search - just error out).
+fillTyScheme :: Seq TyVar -> TyFoundScheme -> Either NamedErr (TyScheme TyVar)
+fillTyScheme ws (TyFoundScheme x) = fmap TyScheme (namedStrained ws x)
+
+-- | Fill all unique vars of the found type scheme with a constant var
+constFillTyScheme :: TyVar -> TyFoundScheme -> Either NamedErr (TyScheme TyVar)
+constFillTyScheme w s@(TyFoundScheme (Forall vs _)) = fillTyScheme (Seq.replicate (Seq.length vs) w) s
 
 data Found = Found
   { foundTm :: !TmFound

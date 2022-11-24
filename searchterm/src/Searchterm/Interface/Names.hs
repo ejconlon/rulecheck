@@ -6,6 +6,8 @@ module Searchterm.Interface.Names
   , unsafeIndexSeq
   , lookupSeq
   , unsafeLookupSeq
+  , NamedErr (..)
+  , namedStrained
   , NamelessErr (..)
   , namelessStrained
   , namelessType
@@ -55,6 +57,24 @@ lookupSeq s (Index i) = Seq.lookup (Seq.length s - i - 1) s
 
 unsafeLookupSeq :: HasCallStack => Seq a -> Index -> a
 unsafeLookupSeq s ix = fromMaybe (error "unsafeLookupSeq") (lookupSeq s ix)
+
+data NamedErr =
+    NamedErrMissing !Index
+  | NamedErrMismatch !Int !Int
+  deriving stock (Eq, Ord, Show)
+
+instance Exception NamedErr
+
+namedStrained :: Seq w -> Forall v (Strained Index (Ty Index)) -> Either NamedErr (Forall w (Strained w (Ty w)))
+namedStrained ws (Forall vs (Strained is ty)) = res where
+  res =
+    let wl = Seq.length ws
+        vl = Seq.length vs
+    in if wl /= vl
+      then Left (NamedErrMismatch wl vl)
+      else Forall ws <$> (Strained <$> traverse namedInst is <*> namedTy ty)
+  namedInst (Inst cn tys) = Inst cn <$> traverse namedTy tys
+  namedTy = traverse (\i -> maybe (Left (NamedErrMissing i)) Right (lookupSeq ws i))
 
 newtype NamelessErr v = NamelessErrMissing (Seq v)
   deriving stock (Eq, Ord, Show)

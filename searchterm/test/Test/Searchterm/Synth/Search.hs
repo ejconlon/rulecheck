@@ -10,14 +10,14 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..))
+import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..), Strained (..), Ty (..))
 import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
 import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme (..), toListWithIndex)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
-import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..), TyFoundScheme (..))
+import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..), TyFoundScheme (..), constFillTyScheme)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit (testCase)
+import Test.Tasty.HUnit ((@?=), testCase)
 import Test.Tasty.Providers (TestName)
 import Control.Monad.Reader (runReader, asks, MonadReader (..), Reader)
 import Data.Sequence (Seq(..))
@@ -188,8 +188,8 @@ litsDeclSrc = DeclSrcList
   , "literals Int 3"
   ]
 
-testSearch :: TestTree
-testSearch = testGroup "Search"
+testSearchFinds :: TestTree
+testSearchFinds = testGroup "finds"
   [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
     ["(\\x -> x)"]
     []
@@ -240,5 +240,30 @@ testSearch = testGroup "Search"
       [ Match "tm" "Pair Int b"
       ]
       []
+  -- NOTE(ejconlon): You would expect this to work but it doesn't.
+  -- This is because of how we're searching for constraints by
+  -- eagerly instantiating type vars with concrete(ish) types
+  -- gathered from instance declarations. Use non-skolem search.
+  -- , testFinds "returns constraints"
+  --     (DeclSrcList
+  --       [ "class Foo a"
+  --       , "tm :: Foo a => Bar a"
+  --       ]
+  --     )
+  --     "Foo a => Bar a"
+  --     ["tm"]
+  --     []
   -- TODO more tests!!! But the pattern is clear...
+  ]
+
+testSubst :: TestTree
+testSubst = testCase "subst" $ do
+  let s = TyFoundScheme (Forall (Seq.fromList [42]) (Strained Empty (TyFree 0)))
+      s' = TyScheme (Forall (Seq.fromList ["a"]) (Strained Empty (TyFree "a")))
+  Right s' @?= constFillTyScheme "a" s
+
+testSearch :: TestTree
+testSearch = testGroup "Search"
+  [ testSearchFinds
+  , testSubst
   ]
