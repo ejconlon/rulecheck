@@ -29,7 +29,7 @@ arbitraryInstanceFile desc = do
     then specializedF
     else defaultF
  where
-    specializedF = testTemplateFile ("extra-arbitrary-instances/" ++ (name desc) ++ ".hs")
+    specializedF = testTemplateFile ("extra-arbitrary-instances/" ++ name desc ++ ".hs")
     defaultF     = testTemplateFile "extra-arbitrary-instances/Default.hs"
 
 testTemplateDir :: FilePath
