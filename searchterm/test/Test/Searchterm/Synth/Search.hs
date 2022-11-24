@@ -108,6 +108,7 @@ findAll !lim !yesTms !noTms !susp =
                 Nothing -> pure yesTms
                 Just tyExpected -> do
                   let tyActual = forgetTyScheme ty
+                  -- TIO.putStrLn (printAlphaTy tyActual)
                   if tyActual == tyExpected
                     then pure (Map.delete tm' yesTms)
                     else reportMismatch tm' tyExpected tyActual
@@ -207,7 +208,7 @@ testSearch = testGroup "Search"
   , testFinds "literals" litsDeclSrc "Int"
     ["0", "-1", "2", "3"]
     ["4"]
-  , testFindsTy "polyret"
+  , testFindsTy "without skolem"
       (DeclSrcList
         [ "forget :: Pair a b -> Pair a a"
         , "thing1 :: Pair Int b"
@@ -228,5 +229,16 @@ testSearch = testGroup "Search"
        , "primString :: String0"
        ]
       ) "String" ["(fromString primString)"] []
+  , testFindsTy "solve constraints"
+      (DeclSrcList
+        [ "class Foo a"
+        , "instance Foo Int"
+        , "tm :: Foo a => Pair a b"
+        ]
+      )
+      "Pair a b"
+      [ Match "tm" "Pair Int b"
+      ]
+      []
   -- TODO more tests!!! But the pattern is clear...
   ]
