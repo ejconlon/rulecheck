@@ -4,7 +4,7 @@ module Test.Searchterm.Synth.Search (testSearch) where
 
 import Control.Exception (Exception, throwIO)
 import Control.Monad ((<=<), unless, void)
-import Data.Foldable (for_, toList)
+import Data.Foldable (for_, toList, foldl')
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
@@ -57,11 +57,13 @@ printAlphaTy (AlphaTyScheme (Forall bs st)) =
       sc' = TyScheme (Forall bs' st)
   in printType sc'
 
-reportMissing :: Map AlphaTm AlphaTyScheme -> IO ()
+reportMissing :: Map AlphaTm (Set AlphaTyScheme) -> IO ()
 reportMissing tms =
   unless (null tms) $ do
     putStrLn "Did not find terms:"
-    for_ (Map.keys tms) (TIO.putStrLn . printAlphaTm)
+    for_ (Map.toList tms) $ \(x, ys) -> do
+      TIO.putStrLn (printAlphaTm x)
+      for_ ys (TIO.putStrLn . (":: " <>) . printAlphaTy)
     fail ("Missing " ++ show (Map.size tms) ++ " terms")
 
 reportIllegal :: AlphaTm -> IO ()
@@ -87,7 +89,20 @@ inlineLets = flip runReader Empty . cata goTm where
     TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
     TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse sequence pairs
 
-findAll :: Int -> Map AlphaTm AlphaTyScheme -> Set AlphaTm -> SearchSusp Found -> IO ()
+type TmMap = Map AlphaTm (Set AlphaTyScheme)
+
+removeMatch :: AlphaTm -> AlphaTyScheme -> TmMap -> Maybe TmMap
+removeMatch tm tyActual m =
+  case Map.lookup tm m of
+    Nothing -> Nothing
+    Just tyExpecteds -> do
+      if Set.member tyActual tyExpecteds
+        then Just $ if Set.size tyExpecteds == 1
+          then Map.delete tm m
+          else Map.insert tm (Set.delete tyActual tyExpecteds) m
+        else Nothing
+
+findAll :: Int -> TmMap -> Set AlphaTm -> SearchSusp Found -> IO ()
 findAll !lim !yesTms !noTms !susp =
   if lim <= 0 || Map.null yesTms
     then reportMissing yesTms
@@ -99,18 +114,14 @@ findAll !lim !yesTms !noTms !susp =
           -- TIO.putStrLn (docToText (pretty tm))
           let tmNoLet = inlineLets tm
           let tm' = mapAlphaTm tmNoLet
-          -- TIO.putStrLn (printAlphaTm tm')
           if Set.member tm' noTms
             then reportIllegal tm'
             else do
               -- TODO check type before removing
-              tms' <- case Map.lookup tm' yesTms of
-                Nothing -> pure yesTms
-                Just tyExpected -> do
-                  let tyActual = forgetTyScheme ty
-                  if tyActual == tyExpected
-                    then pure (Map.delete tm' yesTms)
-                    else reportMismatch tm' tyExpected tyActual
+              let tyActual = forgetTyScheme ty
+                  tms' = fromMaybe yesTms (removeMatch tm' tyActual yesTms)
+              TIO.putStrLn (printAlphaTm tm')
+              TIO.putStrLn (printAlphaTy tyActual)
               findAll (lim - 1) tms' noTms susp'
 
 forgetTyScheme :: TyFoundScheme -> AlphaTyScheme
@@ -120,6 +131,13 @@ data Match = Match
   { matchTm :: !Text
   , matchTy :: !Text
   } deriving stock (Eq, Show)
+
+mkMultiMap :: (Ord x, Ord y) => [(x, y)] -> Map x (Set y)
+mkMultiMap = foldl' acc Map.empty where
+  acc m (x, y) =
+    (\zs -> Map.insert x zs m) $ case Map.lookup x m of
+      Nothing -> Set.singleton y
+      Just ys -> Set.insert y ys
 
 testFindsRaw :: TestName -> UseSkolem -> DeclSrc -> Text -> [Match] -> [Text] -> TestTree
 testFindsRaw n useSkolem src tyStr yesMatchStrs noTmStrs = testCase n $ do
@@ -132,7 +150,7 @@ testFindsRaw n useSkolem src tyStr yesMatchStrs noTmStrs = testCase n $ do
   let isKnown (TmVar v) = let k = TmName v in if Map.member k (dsMap ds) then Just k else Nothing
   yesCtms <- traverse (rethrow . closeAlphaTm isKnown) yesTms
   noCtms <- traverse (rethrow . closeAlphaTm isKnown) noTms
-  let yesTmMap = Map.fromList (zip yesCtms yesTys)
+  let yesTmMap = mkMultiMap (zip yesCtms yesTys)
       noTmSet = Set.fromList noCtms
       conf = SearchConfig ds ts maxSearchDepth useSkolem
       susp = runSearchSusp conf
@@ -207,7 +225,7 @@ testSearch = testGroup "Search"
   , testFinds "literals" litsDeclSrc "Int"
     ["0", "-1", "2", "3"]
     ["4"]
-  , testFindsTy "polyret"
+  , testFindsTy "toplevel meta"
       (DeclSrcList
         [ "forget :: Pair a b -> Pair a a"
         , "thing1 :: Pair Int b"
