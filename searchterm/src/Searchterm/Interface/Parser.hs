@@ -149,7 +149,7 @@ symP = lexP $ do
   pure (T.pack ("(" ++ T.unpack ms ++ xs ++ ")"))
 
 tyNameP :: P TyName
-tyNameP = fmap TyName upperP
+tyNameP = fmap TyName (upperP <|> symP)
 
 tmNameP :: P TmName
 tmNameP = fmap TmName (identP <|> symP)

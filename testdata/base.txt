@@ -1,21 +1,22 @@
 -- A reasonable Prelude for experimenting with synthesis
 -- Some things have been changed for easier parsing (just to bootstrap)
--- (a, b) -> Base.Tuple.Tuple a b, [a] -> Base.List.List a
+-- (a, b) -> (,) a b, [a] -> ([]) a
 -- Constructors are marked as such (for destruct tactics)
 -- Everything exists in one namespace, so names should be fully qualified
+-- (Tuple and list types/ctors are exceptions because I don't think they can be qualified.)
 
 module Base.Tuple
-data Base.Tuple.Tuple a b
-Base.Tuple.MkModTuple :: a -> b -> Base.Tuple.Tuple a b
-constructors Base.Tuple.Tuple Base.Tuple.MkModTuple
-instance (Base.Eq.Eq a, Base.Eq.Eq b) => Base.Eq.Eq (Base.Tuple.Tuple a b)
-instance (Base.Ord.Ord a, Base.Ord.Ord b) => Base.Ord.Ord (Base.Tuple.Tuple a b)
-instance (Base.Show.Show a, Base.Show.Show b) => Base.Show.Show (Base.Tuple.Tuple a b)
-Base.Tuple.fst :: Base.Tuple.Tuple a b -> a
-Base.Tuple.snd :: Base.Tuple.Tuple a b -> b
-Base.Tuple.curry :: (Base.Tuple.Tuple a b -> c) -> a -> b -> c
-Base.Tuple.uncurry :: (a -> b -> c) -> Base.Tuple.Tuple a b -> c
-Base.Tuple.swap :: Base.Tuple.Tuple a b -> Base.Tuple.Tuple b a
+data (,) a b
+(,) :: a -> b -> (,) a b
+constructors (,) (,)
+instance (Base.Eq.Eq a, Base.Eq.Eq b) => Base.Eq.Eq ((,) a b)
+instance (Base.Ord.Ord a, Base.Ord.Ord b) => Base.Ord.Ord ((,) a b)
+instance (Base.Show.Show a, Base.Show.Show b) => Base.Show.Show ((,) a b)
+Base.Tuple.fst :: (,) a b -> a
+Base.Tuple.snd :: (,) a b -> b
+Base.Tuple.curry :: ((,) a b -> c) -> a -> b -> c
+Base.Tuple.uncurry :: (a -> b -> c) -> (,) a b -> c
+Base.Tuple.swap :: (,) a b -> (,) b a
 
 module Base.Bool
 data Base.Bool.Bool
@@ -48,62 +49,62 @@ Base.Maybe.isJust :: Base.Maybe.Maybe a -> Base.Bool.Bool
 Base.Maybe.isNothing :: Base.Maybe.Maybe a -> Base.Bool.Bool
 Base.Maybe.fromJust :: Base.Maybe.Maybe a -> a
 Base.Maybe.fromMaybe :: a -> Base.Maybe.Maybe a -> a
-Base.Maybe.listToMaybe :: Base.List.List a -> Base.Maybe.Maybe a
-Base.Maybe.maybeToBase :: Base.Maybe.Maybe a -> Base.List.List a
-Base.Maybe.catMaybes :: Base.List.List (Base.Maybe.Maybe a) -> Base.List.List a
-Base.Maybe.mapMaybe :: (a -> Base.Maybe.Maybe b) -> Base.List.List a -> Base.List.List b
+Base.Maybe.listToMaybe :: ([]) a -> Base.Maybe.Maybe a
+Base.Maybe.maybeToBase :: Base.Maybe.Maybe a -> ([]) a
+Base.Maybe.catMaybes :: ([]) (Base.Maybe.Maybe a) -> ([]) a
+Base.Maybe.mapMaybe :: (a -> Base.Maybe.Maybe b) -> ([]) a -> ([]) b
 
 module Base.List
-data Base.List.List a
-Base.List.Nil :: Base.List.List a
-Base.List.Cons :: a -> Base.List.List a -> Base.List.List a
-constructors Base.List.List Base.List.Nil Base.List.Cons
-instance Base.Eq.Eq a => Base.Eq.Eq (Base.List.List a)
-instance Base.Ord.Ord a => Base.Ord.Ord (Base.List.List a)
-instance Base.Show.Show a => Base.Show.Show (Base.List.List a)
-Base.List.map :: (a -> b) -> Base.List.List a -> Base.List.List b
-(Base.List.++) :: Base.List.List a -> Base.List.List a -> Base.List.List a
-Base.List.filter :: (a -> Base.Bool.Bool) -> Base.List.List a -> Base.List.List a
-Base.List.concat :: Base.List.List (Base.List.List a) -> Base.List.List a
-Base.List.head :: Base.List.List a -> a
-Base.List.last :: Base.List.List a -> a
-Base.List.tail :: Base.List.List a -> Base.List.List a
-Base.List.init :: Base.List.List a -> Base.List.List a
-Base.List.uncons :: Base.List.List a -> Base.Maybe.Maybe (Base.Tuple.Tuple a (Base.List.List a))
-Base.List.null :: Base.List.List a -> Base.Bool.Bool
-Base.List.length :: Base.List.List a -> Int
-(Base.List.!!) :: Base.List.List a -> Int -> a
-Base.List.foldl :: (b -> a -> b) -> b -> Base.List.List a -> b
-Base.List.scanl :: (b -> a -> b) -> b -> Base.List.List a -> Base.List.List b
-Base.List.foldr :: (a -> b -> b) -> b -> Base.List.List a -> b
-Base.List.scanr :: (a -> b -> b) -> b -> Base.List.List a -> Base.List.List b
-Base.List.iterate :: (a -> a) -> a -> Base.List.List a
-Base.List.repeat :: a -> Base.List.List a
-Base.List.replicate :: Int -> a -> Base.List.List a
-Base.List.cycle :: Base.List.List a -> Base.List.List a
-Base.List.take :: Int -> Base.List.List a -> Base.List.List a
-Base.List.drop :: Int -> Base.List.List a -> Base.List.List a
-Base.List.sum :: Num a => Base.List.List a -> Int
-Base.List.product :: Num a => Base.List.List a -> Int
-Base.List.maximum :: Base.Ord.Ord a => Base.List.List a -> a
-Base.List.minimum :: Base.Ord.Ord a => Base.List.List a -> a
-Base.List.splitAt :: Int -> Base.List.List a -> Base.Tuple.Tuple (Base.List.List a) (Base.List.List a)
-Base.List.takeWhile :: (a -> Base.Bool.Bool) -> Base.List.List a -> Base.List.List a
-Base.List.dropWhile :: (a -> Base.Bool.Bool) -> Base.List.List a -> Base.List.List a
-Base.List.span :: (a -> Base.Bool.Bool) -> Base.List.List a -> Base.Tuple.Tuple (Base.List.List a) (Base.List.List a)
-Base.List.break :: (a -> Base.Bool.Bool) -> Base.List.List a -> Base.Tuple.Tuple (Base.List.List a) (Base.List.List a)
-Base.List.reverse :: Base.List.List a -> Base.List.List a
-Base.List.and :: Base.List.List Base.Bool.Bool -> Base.Bool.Bool
-Base.List.or :: Base.List.List Base.Bool.Bool -> Base.Bool.Bool
-Base.List.any :: (a -> Base.Bool.Bool) -> Base.List.List a -> Base.Bool.Bool
-Base.List.all :: (a -> Base.Bool.Bool) -> Base.List.List a -> Base.Bool.Bool
-Base.List.elem :: Base.Eq.Eq a => a -> Base.List.List a -> Base.Bool.Bool
-Base.List.notElem :: Base.Eq.Eq a => a -> Base.List.List a -> Base.Bool.Bool
-Base.List.lookup :: Base.Eq.Eq a => a -> Base.List.List (Base.Tuple.Tuple a b) -> Base.Maybe.Maybe b
-Base.List.concatMap :: (a -> Base.List.List b) -> Base.List.List a -> Base.List.List b
-Base.List.zip :: Base.List.List a -> Base.List.List b -> Base.List.List (Base.Tuple.Tuple a b)
-Base.List.zipWith :: (a -> b -> c) -> Base.List.List a -> Base.List.List b -> Base.List.List c
-Base.List.unzip :: Base.List.List (Base.Tuple.Tuple a b) -> Base.Tuple.Tuple (Base.List.List a) (Base.List.List b)
+data ([]) a
+([]) :: ([]) a
+(:) :: a -> ([]) a -> ([]) a
+constructors ([]) ([]) (:)
+instance Base.Eq.Eq a => Base.Eq.Eq (([]) a)
+instance Base.Ord.Ord a => Base.Ord.Ord (([]) a)
+instance Base.Show.Show a => Base.Show.Show (([]) a)
+Base.List.map :: (a -> b) -> ([]) a -> ([]) b
+(Base.List.++) :: ([]) a -> ([]) a -> ([]) a
+Base.List.filter :: (a -> Base.Bool.Bool) -> ([]) a -> ([]) a
+Base.List.concat :: ([]) (([]) a) -> ([]) a
+Base.List.head :: ([]) a -> a
+Base.List.last :: ([]) a -> a
+Base.List.tail :: ([]) a -> ([]) a
+Base.List.init :: ([]) a -> ([]) a
+Base.List.uncons :: ([]) a -> Base.Maybe.Maybe ((,) a (([]) a))
+Base.List.null :: ([]) a -> Base.Bool.Bool
+Base.List.length :: ([]) a -> Int
+(Base.List.!!) :: ([]) a -> Int -> a
+Base.List.foldl :: (b -> a -> b) -> b -> ([]) a -> b
+Base.List.scanl :: (b -> a -> b) -> b -> ([]) a -> ([]) b
+Base.List.foldr :: (a -> b -> b) -> b -> ([]) a -> b
+Base.List.scanr :: (a -> b -> b) -> b -> ([]) a -> ([]) b
+Base.List.iterate :: (a -> a) -> a -> ([]) a
+Base.List.repeat :: a -> ([]) a
+Base.List.replicate :: Int -> a -> ([]) a
+Base.List.cycle :: ([]) a -> ([]) a
+Base.List.take :: Int -> ([]) a -> ([]) a
+Base.List.drop :: Int -> ([]) a -> ([]) a
+Base.List.sum :: Num a => ([]) a -> Int
+Base.List.product :: Num a => ([]) a -> Int
+Base.List.maximum :: Base.Ord.Ord a => ([]) a -> a
+Base.List.minimum :: Base.Ord.Ord a => ([]) a -> a
+Base.List.splitAt :: Int -> ([]) a -> (,) (([]) a) (([]) a)
+Base.List.takeWhile :: (a -> Base.Bool.Bool) -> ([]) a -> ([]) a
+Base.List.dropWhile :: (a -> Base.Bool.Bool) -> ([]) a -> ([]) a
+Base.List.span :: (a -> Base.Bool.Bool) -> ([]) a -> (,) (([]) a) (([]) a)
+Base.List.break :: (a -> Base.Bool.Bool) -> ([]) a -> (,) (([]) a) (([]) a)
+Base.List.reverse :: ([]) a -> ([]) a
+Base.List.and :: ([]) Base.Bool.Bool -> Base.Bool.Bool
+Base.List.or :: ([]) Base.Bool.Bool -> Base.Bool.Bool
+Base.List.any :: (a -> Base.Bool.Bool) -> ([]) a -> Base.Bool.Bool
+Base.List.all :: (a -> Base.Bool.Bool) -> ([]) a -> Base.Bool.Bool
+Base.List.elem :: Base.Eq.Eq a => a -> ([]) a -> Base.Bool.Bool
+Base.List.notElem :: Base.Eq.Eq a => a -> ([]) a -> Base.Bool.Bool
+Base.List.lookup :: Base.Eq.Eq a => a -> ([]) ((,) a b) -> Base.Maybe.Maybe b
+Base.List.concatMap :: (a -> ([]) b) -> ([]) a -> ([]) b
+Base.List.zip :: ([]) a -> ([]) b -> ([]) ((,) a b)
+Base.List.zipWith :: (a -> b -> c) -> ([]) a -> ([]) b -> ([]) c
+Base.List.unzip :: ([]) ((,) a b) -> (,) (([]) a) (([]) b)
 
 module Base.Either
 data Base.Either.Either a b
@@ -114,13 +115,13 @@ instance (Base.Eq.Eq a, Base.Eq.Eq b) => Base.Eq.Eq (Base.Either.Either a b)
 instance (Base.Ord.Ord a, Base.Ord.Ord b) => Base.Ord.Ord (Base.Either.Either a b)
 instance (Base.Show.Show a, Base.Show.Show b) => Base.Show.Show (Base.Either.Either a b)
 Base.Either.either :: (a -> c) -> (b -> c) -> Base.Either.Either a b -> c
-Base.Either.lefts :: Base.List.List (Base.Either.Either a b) -> Base.List.List a
-Base.Either.rights :: Base.List.List (Base.Either.Either a b) -> Base.List.List b
+Base.Either.lefts :: ([]) (Base.Either.Either a b) -> ([]) a
+Base.Either.rights :: ([]) (Base.Either.Either a b) -> ([]) b
 Base.Either.isLeft :: Base.Either.Either a b -> Base.Bool.Bool
 Base.Either.isRight :: Base.Either.Either a b -> Base.Bool.Bool
 Base.Either.fromLeft :: a -> Base.Either.Either a b -> a
 Base.Either.fromRight :: b -> Base.Either.Either a b -> b
-Base.Either.partitionEithers :: Base.List.List (Base.Either.Either a b) -> Base.Tuple.Tuple (Base.List.List a) (Base.List.List b)
+Base.Either.partitionEithers :: ([]) (Base.Either.Either a b) -> (,) (([]) a) (([]) b)
 
 module Base.Num
 class Base.Num.Num a
