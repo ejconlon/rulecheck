@@ -240,6 +240,16 @@ testSearchFinds = testGroup "finds"
       [ Match "tm" "Pair Int b"
       ]
       []
+  -- TODO(ejconlon) Support applying functions found in the context so this passes
+  -- , testFinds "apply fns in context"
+  --     (DeclSrcList
+  --       [ "isEven :: Int -> Bool"
+  --       ]
+  --     )
+  --     "(String -> Int) -> String -> Bool"
+  --     [ "(\\f -> (\\s -> (isEven (f s))))"
+  --     ]
+  --     []
   -- NOTE(ejconlon): You would expect this to work but it doesn't.
   -- This is because of how we're searching for constraints by
   -- eagerly instantiating type vars with concrete(ish) types

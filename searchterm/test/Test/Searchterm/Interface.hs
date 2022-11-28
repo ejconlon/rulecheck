@@ -57,6 +57,9 @@ testParseTm = testCase "parseTm" $ do
       , mkPP "Right" ["z"] (TmApp (TmFree "showInt") (TmFree "z"))
       ]
 
+  assertParseTm "(\\f -> (\\s -> (isEven (f s))))" $
+    TmLam "f" (TmLam "s" (TmApp (TmFree "isEven") (TmApp (TmFree "f") (TmFree "s"))))
+
   assertParseTm "0" (TmLit (LitInteger 0))
   assertParseTm "-1" (TmLit (LitInteger (-1)))
   assertParseTm "0.1" (TmLit (LitScientific (read "0.1")))
