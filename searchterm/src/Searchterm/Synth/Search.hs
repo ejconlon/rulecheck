@@ -276,7 +276,8 @@ insertTy ctx ty = res where
       pure (u, TyFreeF u)
     TyConF tn ps -> do
       us <- fmap (fmap fst) (sequence ps)
-      insert (TyConF tn us)
+      tn' <- traverse lookupCtx tn
+      insert (TyConF tn' us)
     TyFunF am bm -> do
       au <- fmap fst am
       bu <- fmap fst bm
@@ -366,7 +367,8 @@ litFits :: TyUniq -> SearchM TmFound
 litFits goalKey = traceScopeM "Lit fit" $ do
   (_, goalVal) <- lookupGoal goalKey
   case goalVal of
-    TyConF tyn xs | Seq.null xs -> do
+    -- Match with known con head and no args only - like all literal types (Int, String)
+    TyConF (Left tyn) xs | Seq.null xs -> do
       mvals <- asks (Map.lookup tyn . dsLits . envDecls)
       case mvals of
         Nothing -> empty
@@ -463,8 +465,8 @@ destructFits goalKey = traceScopeM "Destruct fit" $ do
     TyFunF argKey retKey -> do
       (_, argVal) <- lookupGoal argKey
       case argVal of
-        -- Can only destruct type constructors
-        TyConF tn _ -> do
+        -- Can only destruct type constructors, and those with known heads
+        TyConF (Left tn) _ -> do
           decls <- asks envDecls
           case Map.lookup tn (dsCons decls) of
             -- And can only destruct if we know the data constructors

@@ -114,7 +114,7 @@ instance Pretty Lit where
 -- | Type with a hole for variables (can later be filled in with indices)
 data Ty a =
     TyFree !a
-  | TyCon !TyName !(Seq (Ty a))
+  | TyCon !(Either TyName a) !(Seq (Ty a))
   | TyFun (Ty a) (Ty a)
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -163,14 +163,14 @@ deriving instance (Show a, Show b, Show r) => Show (TmF a b r)
 bitraverseTyF :: Applicative m => (w -> m v) -> TyF w w -> m (TyF v v)
 bitraverseTyF f = \case
   TyFreeF w -> fmap TyFreeF (f w)
-  TyConF tn ws -> fmap (TyConF tn) (traverse f ws)
+  TyConF cn ws -> TyConF <$> traverse f cn <*> traverse f ws
   TyFunF wl wr -> TyFunF <$> f wl <*> f wr
 
 instance (Pretty a, ParenPretty r) => ParenPretty (TyF a r) where
   parenPretty s = res where
     res = \case
       TyFreeF w -> parenAtom w
-      TyConF tn ws -> parenList isSubCon (parenAtom tn : fmap (parenPretty (Just "app":s)) (toList ws))
+      TyConF cn ws -> parenList isSubCon (either parenAtom parenAtom cn : fmap (parenPretty (Just "app":s)) (toList ws))
       TyFunF wl wr -> parenList isLhsFun [parenPretty (Just "funl":s) wl, "->", parenPretty (Just "funr":s) wr]
     isSubCon = case s of
       Just "app" : _ -> True

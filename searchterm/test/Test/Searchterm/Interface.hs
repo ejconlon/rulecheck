@@ -5,21 +5,23 @@ module Test.Searchterm.Interface (testInterface) where
 import Control.Exception (throwIO)
 import Data.Foldable (for_)
 import qualified Data.Sequence as Seq
-import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseLine)
+import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseLine, parseType)
 import Searchterm.Interface.Printer (printLines)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Data.Text (Text)
-import Searchterm.Interface.Core (TmVar, Tm (..), TmName, PatPair (..), ConPat (..), Pat (..), Lit (..))
+import Searchterm.Interface.Core (TmVar, Tm (..), TmName, PatPair (..), ConPat (..), Pat (..), Lit (..), TyVar, TyScheme (..), Ty (..), Inst, Strained (..), Forall (..))
 import Prettyprinter (pretty)
 import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Types (Line (..), LitLine (..))
+import Data.Sequence (Seq(..))
 
 testInterface :: TestTree
 testInterface = testGroup "interface"
-  [ testBaseTxt
-  , testParseTm
+  [ testParseTm
+  , testParseTy
   , testParseLine
+  , testBaseTxt
   ]
 
 testBaseTxt :: TestTree
@@ -66,6 +68,26 @@ testParseTm = testCase "parseTm" $ do
   assertParseTm "-0.1" (TmLit (LitScientific (read "-0.1")))
   assertParseTm "'c'" (TmLit (LitChar 'c'))
   assertParseTm "\"foo\"" (TmLit (LitString "foo"))
+
+assertParseTy :: Text -> TyScheme TyVar -> IO ()
+assertParseTy expectedTxt expectedAst = do
+  let actualTxt = docToText (pretty expectedAst)
+  actualTxt @?= expectedTxt
+  actualAst <- either throwIO pure (parseType expectedTxt)
+  actualAst @?= expectedAst
+
+mkS :: [TyVar] -> [Inst TyVar] -> Ty TyVar -> TyScheme TyVar
+mkS tvs insts body = TyScheme (Forall (Seq.fromList tvs) (Strained (Seq.fromList insts) body))
+
+testParseTy :: TestTree
+testParseTy = testCase "parseTy" $ do
+  assertParseTy "Int" (mkS [] [] (TyCon (Left "Int") Empty))
+  assertParseTy "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
+    TyFun
+      (TyFun (TyFree "a") (TyFree "b"))
+      (TyFun
+        (TyCon (Right "q") (Seq.singleton (TyFree "a")))
+        (TyCon (Right "q") (Seq.singleton (TyFree "b"))))
 
 assertParseLine :: Text -> Line -> IO ()
 assertParseLine expectedTxt expectedLine = do

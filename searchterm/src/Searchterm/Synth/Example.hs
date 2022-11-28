@@ -19,7 +19,7 @@ import Searchterm.Synth.Search (SearchConfig (..), SearchErr, runSearchN, runSea
 -- | Some declarations - here just some "Int" constants and addition.
 exampleDecls :: Either DeclErr DeclSet
 exampleDecls = res where
-  tyInt = TyCon "Int" Empty
+  tyInt = TyCon (Left "Int") Empty
   tyIntFun2 = TyFun tyInt (TyFun tyInt tyInt)
   res = mkDecls
     [ ("0", TyScheme (Forall Empty (Strained Empty tyInt)))
@@ -30,14 +30,14 @@ exampleDecls = res where
 -- | Search for N terms matching the "Int" type.
 exampleSearch :: Int -> IO [Found]
 exampleSearch n = do
-  let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
+  let scheme = TyScheme (Forall Empty (Strained Empty (TyCon (Left "Int") mempty)))
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
   either throwIO pure (runSearchN (SearchConfig decls scheme 5 UseSkolemYes) n)
 
 -- | Search for N terms matching the "Int" type (with incremental searching)
 exampleSearchSusp :: Int -> IO ([Found], Maybe SearchErr)
 exampleSearchSusp n = do
-  let scheme = TyScheme (Forall Empty (Strained Empty (TyCon "Int" mempty)))
+  let scheme = TyScheme (Forall Empty (Strained Empty (TyCon (Left "Int") mempty)))
   decls <- either (\p -> fail ("Decl err: " ++ show p)) pure exampleDecls
   let susp = runSearchSusp (SearchConfig decls scheme 5 UseSkolemYes)
       (tms, ea) = takeSearchResults susp n

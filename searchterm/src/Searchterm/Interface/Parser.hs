@@ -160,9 +160,12 @@ tyVarP = fmap TyVar lowerP
 tmVarP :: P TmVar
 tmVarP = fmap TmVar lowerP
 
+tyConHeadP :: P (Either TyName TyVar)
+tyConHeadP = (Left <$> tyNameP) <|> (Right <$> tyVarP)
+
 tyConP :: P (Ty TyVar)
 tyConP = do
-  cn <- tyNameP
+  cn <- tyConHeadP
   as <- some (tyP True True)
   pure (TyCon cn (Seq.fromList as))
 
@@ -178,7 +181,7 @@ innerTyP :: P (Ty TyVar)
 innerTyP = fmap TyFree tyVarP <|> tyConP
 
 singleTyP :: P (Ty TyVar)
-singleTyP = fmap TyFree tyVarP <|> fmap (`TyCon` Empty) tyNameP
+singleTyP = fmap TyFree tyVarP <|> fmap (`TyCon` Empty) tyConHeadP
 
 tyP :: Bool -> Bool -> P (Ty TyVar)
 tyP conNeedParen arrNeedParen =

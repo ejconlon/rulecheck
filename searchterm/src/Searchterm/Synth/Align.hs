@@ -13,12 +13,13 @@ import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
 import Prettyprinter (Pretty (..))
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom)
+import Data.Either (isRight)
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =
     AlignTyErrConHead !TyName !TyName
   -- ^ They mismatch on constructor head
-  | AlignTyErrConArity !TyName !Int !Int
+  | AlignTyErrConArity !(Maybe TyName) !Int !Int
   -- ^ They mismatch on constructor arity
   | AlignTyErrMismatch
   -- ^ They totally mismatch on type shape (e.g. fun vs con vs var)
@@ -26,20 +27,31 @@ data AlignTyErr =
 
 instance Exception AlignTyErr
 
+-- | Align two ty con heads
+alignConHead :: Either TyName a -> Either TyName b -> Either AlignTyErr (Either TyName (a, b))
+alignConHead ea eb =
+  case ea of
+    Left na ->
+      case eb of
+        Left nb -> if na == nb then Right (Left na) else Left (AlignTyErrConHead na nb)
+        Right _ -> Right (Left na)
+    Right va ->
+      case eb of
+        Left nb -> Right (Left nb)
+        Right vb -> Right (Right (va, vb))
+
 -- | Align (match) two types by lining up all the holes
 alignTys :: TyF x a -> TyF y b -> Either AlignTyErr (TyF (x, y) (a, b))
 alignTys one two =
   case (one, two) of
     (TyFreeF x, TyFreeF y) -> Right (TyFreeF (x, y))
-    (TyConF n as, TyConF m bs) ->
-      if n == m
-        then
-          let la = Seq.length as
-              lb = Seq.length bs
-          in if la == lb
-            then Right (TyConF n (Seq.zip as bs))
-            else Left (AlignTyErrConArity n la lb)
-        else Left (AlignTyErrConHead n m)
+    (TyConF n as, TyConF m bs) -> do
+      hd <- alignConHead n m
+      let la = Seq.length as
+          lb = Seq.length bs
+      if la == lb
+        then Right (TyConF hd (Seq.zip as bs))
+        else Left (AlignTyErrConArity (either pure (const Nothing) hd) la lb)
     (TyFunF q1 r1, TyFunF q2 r2) -> Right (TyFunF (q1, q2) (r1, r2))
     _ -> Left AlignTyErrMismatch
 
@@ -51,7 +63,7 @@ mightAlign one two =
   case (one, two) of
     (TyFreeF _, _) -> True
     (_, TyFreeF _) -> True
-    (TyConF n as, TyConF m bs) -> n == m && Seq.length as == Seq.length bs
+    (TyConF n as, TyConF m bs) -> isRight (alignConHead n m) && Seq.length as == Seq.length bs
     (TyFunF _ _, TyFunF _ _) -> True
     _ -> False
 
