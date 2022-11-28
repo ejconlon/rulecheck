@@ -12,9 +12,9 @@ module Rulecheck.RuleRendering
 
 import Data.Char (isAlphaNum)
 import Data.Foldable (foldl', toList)
-import Data.Maybe (fromMaybe)
 import Data.Set as Set (Set)
 import Data.List (intercalate)
+import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
 import GHC.Core.Type
 import GHC.Data.FastString (fs_zenc, zString)
 import GHC.Driver.Session (HasDynFlags)
@@ -39,11 +39,18 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
     prefix    = "fn_" ++ sideString side ++ "_"
     name      = prefix ++ sanitizeName (ruleName rule) idx
     args      = valArgs rule
-    def       = text name <+> asTuple (map asBoxedArg args) <+> text "=" <+> maybeBoxedBody
 
-    argTypes   = asTuple (map (asBoxedType . varType) args)
+    maybeBoxedArgs =
+      case nonEmpty (map asBoxedArg args) of
+        Just boxedArgs' -> asTuple boxedArgs'
+        Nothing         -> empty
+    def       = text name <+> maybeBoxedArgs <+> text "=" <+> maybeBoxedBody
+
     resultTyp  = asBoxedType (ruleType rule)
-    defaultSig = text (name ++ " ::") <+> argTypes <+> arrow <+> resultTyp
+    defaultSig =
+      case nonEmpty (map (asBoxedType . varType) args) of
+        Just argTypes -> text (name ++ " ::") <+> (asTuple argTypes) <+> arrow <+> resultTyp
+        Nothing       -> text (name ++ " ::") <+> resultTyp
   in
     case overrideTypeSig of
       Just sig -> text (name ++ " ::") <+> text sig $+$ def
@@ -53,6 +60,11 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
         else def -- Don't include a type sig, let Haskell infer it
                  -- Currently we don't extract necessary type constraints
   where
+
+    asTuple :: Outputable a => NonEmpty a -> SDoc
+    asTuple (el :| [])    = ppr el
+    asTuple (el :| rest)  = parens $ pprWithCommas ppr (el : rest)
+
     body = getSide side rule
     maybeBoxedBody :: SDoc
     maybeBoxedBody = case getBoxType (ruleType rule) of
@@ -145,10 +157,6 @@ testingImports =
     , "testSomeTestableRule"
     ]
 
-asTuple :: Outputable a => [a] -> SDoc
-asTuple [] = text "()"
-asTuple [el] = ppr el
-asTuple elems = parens $ pprWithCommas ppr elems
 
 toSDoc :: (Functor m, HasDynFlags m) => Outputable a => a -> m SDoc
 toSDoc = fmap text . outputString

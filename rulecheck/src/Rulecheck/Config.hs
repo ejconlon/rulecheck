@@ -1,13 +1,11 @@
 module Rulecheck.Config where
 
 import Data.Aeson (FromJSON)
-import Data.List (isSuffixOf, isInfixOf)
+import Data.List (isInfixOf, isSuffixOf)
 import Data.Set as Set
-import Debug.Trace (trace)
 import GHC.Data.FastString
 import GHC.Generics
 import GHC.Types.Basic (RuleName)
-import Rulecheck.Rule (RuleSide(..))
 import System.Directory
 
 data PackageDescription =
@@ -63,14 +61,23 @@ packageTestsPrefix = "package-tests"
 logFile :: FilePath
 logFile = "log.txt"
 
+-- Override type signatures for a given rule / path combo. This is typically
+-- useful if the rule is defined in terms of a class constraint, and you want
+-- to test the rule for certain instances
 overrideTypeSigs :: FilePath -> RuleName -> Set String
 overrideTypeSigs fp rn
+  | "ListLike/UTF8.hs" `isSuffixOf` fp
+  = case unpackFS rn of
+      -- See https://hackage.haskell.org/package/ListLike-4.7.7/docs/Data-ListLike.html#g:4
+      -- TODO: Consider more
+      "fromListLike/a" -> Set.singleton "[Int] -> [Int]"
+      _                -> Set.empty
   | "basement-0.0.15/Basement" `isInfixOf` fp
   = case unpackFS rn of
       "primOffsetRecast W8"   -> Set.singleton "Offset Word8 -> Offset Char"
       "sizeRecast from Word8" -> Set.singleton "CountOf Word8 -> CountOf Char"
-      _ -> Set.empty
-overrideTypeSigs fp rn = Set.empty
+      _                       -> Set.empty
+overrideTypeSigs _ _ = Set.empty
 
 skipRule :: FilePath -> RuleName -> Bool
 skipRule fp rn | "basement-0.0.15/Basement" `isInfixOf` fp

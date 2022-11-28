@@ -11,21 +11,15 @@ module Rulecheck.Rule
   ) where
 
 import Control.Monad.IO.Class (MonadIO (..))
-import Data.Char (isAlphaNum)
-import Data.Foldable (foldl', toList)
 import Data.Maybe (fromJust)
-import Data.List (intercalate)
-import Data.Set (Set)
 import GHC.Core.TyCon
 import GHC.Core.Type
 import GHC
-import GHC.Data.FastString (fs_zenc, zString)
-import GHC.Driver.Session (HasDynFlags)
 import GHC.Types.Basic (RuleName)
 import GHC.Types.Var
-import GHC.Types.Name (nameModule_maybe, isValName, occName, occNameString)
+import GHC.Types.Name (isValName, occName, occNameString)
 import GHC.Types.Name.Set
-import GHC.Utils.Outputable (Outputable (..), SDoc, arrow, parens, pprWithCommas, text, ($+$), (<+>), blankLine)
+import GHC.Utils.Outputable
 import Prelude hiding ((<>))
 import Rulecheck.Monad (GhcM)
 import Rulecheck.Typecheck (getType)
