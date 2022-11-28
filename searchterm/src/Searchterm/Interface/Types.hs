@@ -10,13 +10,13 @@ import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Searchterm.Interface.Core (ClsScheme, InstScheme, ModName, Rule, TmName, TmVar, TyName, TyScheme (..), TyVar, Lit)
 
-data DataLine = DataLine
-  { dlName :: !TyName
-  , dlVars :: !(Seq TyVar)
+data TypeLine = TypeLine
+  { tlName :: !TyName
+  , tlVars :: !(Seq TyVar)
   } deriving stock (Eq, Show)
 
-instance Pretty DataLine where
-  pretty (DataLine tn tvs) = P.hsep ("data" : pretty tn : fmap pretty (toList tvs))
+instance Pretty TypeLine where
+  pretty (TypeLine tn tvs) = P.hsep ("type" : pretty tn : fmap pretty (toList tvs))
 
 data ConsLine = ConsLine
   { clName :: !TyName
@@ -71,7 +71,7 @@ instance Pretty LitLine where
   pretty (LitLine nm vals) = P.hsep ("literals" : pretty nm : fmap pretty (toList vals))
 
 data Line =
-    LineData !DataLine
+    LineType !TypeLine
   | LineCons !ConsLine
   | LineInst !InstLine
   | LineFunc !FuncLine
@@ -83,7 +83,7 @@ data Line =
 
 instance Pretty Line where
   pretty = \case
-    LineData dl -> pretty dl
+    LineType tl -> pretty tl
     LineCons cl -> pretty cl
     LineInst il -> pretty il
     LineFunc fl -> pretty fl

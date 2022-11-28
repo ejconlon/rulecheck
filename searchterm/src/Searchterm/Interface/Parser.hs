@@ -23,7 +23,7 @@ import Data.Void (Void)
 import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), Forall (..), Inst (..), InstScheme (..),
                                  ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..),
                                  TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars, PatPair (..), ConPat (..), Pat (..), Lit (..))
-import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), DataLine (..), FuncLine (..), InstLine (..), Line (..),
+import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), TypeLine (..), FuncLine (..), InstLine (..), Line (..),
                                   ModLine (..), RuleLine (..), LitLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
@@ -254,7 +254,7 @@ instSchemeP = fmap InstScheme (forallStrainedP instP)
 lineP :: P Line
 lineP = moreLexP $ foldr1 (<|>)
   [ LineMod <$> modLineP
-  , LineData <$> dataLineP
+  , LineType <$> typeLineP
   , LineCons <$> consLineP
   , LineFunc <$> funcLineP
   , LineCls <$> clsLineP
@@ -271,12 +271,12 @@ modLineP = do
   keywordP "module"
   ModLine <$> modNameP
 
-dataLineP :: P DataLine
-dataLineP = do
-  keywordP "data"
+typeLineP :: P TypeLine
+typeLineP = do
+  keywordP "type"
   tn <- tyNameP
   vs <- many tyVarP
-  pure (DataLine tn (Seq.fromList vs))
+  pure (TypeLine tn (Seq.fromList vs))
 
 consLineP :: P ConsLine
 consLineP = do

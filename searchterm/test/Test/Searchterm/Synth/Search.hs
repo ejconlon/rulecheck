@@ -174,7 +174,7 @@ strainRecDeclSrc = DeclSrcList
 
 destructDeclSrc :: DeclSrc
 destructDeclSrc = DeclSrcList
-  [ "data Either a b"
+  [ "type Either a b"
   , "Left :: a -> Either a b"
   , "Right :: b -> Either a b"
   , "constructors Either Left Right"

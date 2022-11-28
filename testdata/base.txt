@@ -6,7 +6,7 @@
 -- (Tuple and list types/ctors are exceptions because I don't think they can be qualified.)
 
 module Base.Tuple
-data (,) a b
+type (,) a b
 (,) :: a -> b -> (,) a b
 constructors (,) (,)
 instance (Base.Eq.Eq a, Base.Eq.Eq b) => Base.Eq.Eq ((,) a b)
@@ -19,7 +19,7 @@ Base.Tuple.uncurry :: (a -> b -> c) -> (,) a b -> c
 Base.Tuple.swap :: (,) a b -> (,) b a
 
 module Base.Bool
-data Base.Bool.Bool
+type Base.Bool.Bool
 Base.Bool.False :: Base.Bool.Bool
 Base.Bool.True :: Base.Bool.Bool
 constructors Base.Bool.Bool Base.Bool.False Base.Bool.True
@@ -37,7 +37,7 @@ class Base.Eq.Eq a
 (Base.Eq./=) :: Base.Eq.Eq a => a -> a -> Base.Bool.Bool
 
 module Base.Maybe
-data Base.Maybe.Maybe a
+type Base.Maybe.Maybe a
 Base.Maybe.Nothing :: Base.Maybe.Maybe a
 Base.Maybe.Just :: a -> Base.Maybe.Maybe a
 constructors Base.Maybe.Maybe Base.Maybe.Nothing Base.Maybe.Just
@@ -55,7 +55,7 @@ Base.Maybe.catMaybes :: ([]) (Base.Maybe.Maybe a) -> ([]) a
 Base.Maybe.mapMaybe :: (a -> Base.Maybe.Maybe b) -> ([]) a -> ([]) b
 
 module Base.List
-data ([]) a
+type ([]) a
 ([]) :: ([]) a
 (:) :: a -> ([]) a -> ([]) a
 constructors ([]) ([]) (:)
@@ -107,7 +107,7 @@ Base.List.zipWith :: (a -> b -> c) -> ([]) a -> ([]) b -> ([]) c
 Base.List.unzip :: ([]) ((,) a b) -> (,) (([]) a) (([]) b)
 
 module Base.Either
-data Base.Either.Either a b
+type Base.Either.Either a b
 Base.Either.Left :: a -> Base.Either.Either a b
 Base.Either.Right :: b -> Base.Either.Either a b
 constructors Base.Either.Either Base.Either.Left Base.Either.Right
@@ -133,14 +133,14 @@ Base.Num.abs :: Base.Num.Num a => a -> a
 Base.Num.signum :: Base.Num.Num a => a -> a
 
 module Base.Int
-data Base.Int
+type Base.Int
 instance Base.Eq.Eq Base.Int
 instance Base.Ord.Ord Base.Int
 instance Base.Show.Show Base.Int
 instance Num Base.Int
 
 module Base.Ordering
-data Base.Ordering.Ordering
+type Base.Ordering.Ordering
 Base.Ordering.LT :: Base.Ordering.Ordering
 Base.Ordering.EQ :: Base.Ordering.Ordering
 Base.Ordering.GT :: Base.Ordering.Ordering
@@ -164,7 +164,7 @@ class Base.Show.Show a
 Base.Show.show :: Base.Show.Show a => a -> String
 
 module Base.String
-data Base.String
+type Base.String
 instance Base.Eq.Eq Base.String
 instance Base.Ord.Ord Base.String
 instance Base.Show.Show Base.String
