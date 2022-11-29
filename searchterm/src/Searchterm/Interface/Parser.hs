@@ -22,7 +22,7 @@ import qualified Data.Text.IO as TIO
 import Data.Void (Void)
 import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), Forall (..), Inst (..), InstScheme (..),
                                  ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..),
-                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars, PatPair (..), ConPat (..), Pat (..), Lit (..))
+                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars, PatPair (..), ConPat (..), Pat (..), Lit (..), ConTy (..))
 import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), TypeLine (..), FuncLine (..), InstLine (..), Line (..),
                                   ModLine (..), RuleLine (..), LitLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
@@ -160,12 +160,12 @@ tyVarP = fmap TyVar lowerP
 tmVarP :: P TmVar
 tmVarP = fmap TmVar lowerP
 
-tyConHeadP :: P (Either TyName TyVar)
-tyConHeadP = (Left <$> tyNameP) <|> (Right <$> tyVarP)
+conTyP :: P (ConTy TyVar)
+conTyP = (ConTyKnown <$> tyNameP) <|> (ConTyFree <$> tyVarP)
 
 tyConP :: P (Ty TyVar)
 tyConP = do
-  cn <- tyConHeadP
+  cn <- conTyP
   as <- some (tyP True True)
   pure (TyCon cn (Seq.fromList as))
 
@@ -181,7 +181,7 @@ innerTyP :: P (Ty TyVar)
 innerTyP = fmap TyFree tyVarP <|> tyConP
 
 singleTyP :: P (Ty TyVar)
-singleTyP = fmap TyFree tyVarP <|> fmap (`TyCon` Empty) tyConHeadP
+singleTyP = fmap TyFree tyVarP <|> fmap (`TyCon` Empty) conTyP
 
 tyP :: Bool -> Bool -> P (Ty TyVar)
 tyP conNeedParen arrNeedParen =

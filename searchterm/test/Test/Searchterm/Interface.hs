@@ -10,7 +10,7 @@ import Searchterm.Interface.Printer (printLines)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Data.Text (Text)
-import Searchterm.Interface.Core (TmVar, Tm (..), TmName, PatPair (..), ConPat (..), Pat (..), Lit (..), TyVar, TyScheme (..), Ty (..), Inst, Strained (..), Forall (..))
+import Searchterm.Interface.Core (TmVar, Tm (..), TmName, PatPair (..), ConPat (..), Pat (..), Lit (..), TyVar, TyScheme (..), Ty (..), Inst, Strained (..), Forall (..), ConTy (..))
 import Prettyprinter (pretty)
 import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Types (Line (..), LitLine (..))
@@ -81,13 +81,13 @@ mkS tvs insts body = TyScheme (Forall (Seq.fromList tvs) (Strained (Seq.fromList
 
 testParseTy :: TestTree
 testParseTy = testCase "parseTy" $ do
-  assertParseTy "Int" (mkS [] [] (TyCon (Left "Int") Empty))
+  assertParseTy "Int" (mkS [] [] (TyCon (ConTyKnown "Int") Empty))
   assertParseTy "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
     TyFun
       (TyFun (TyFree "a") (TyFree "b"))
       (TyFun
-        (TyCon (Right "q") (Seq.singleton (TyFree "a")))
-        (TyCon (Right "q") (Seq.singleton (TyFree "b"))))
+        (TyCon (ConTyFree "q") (Seq.singleton (TyFree "a")))
+        (TyCon (ConTyFree "q") (Seq.singleton (TyFree "b"))))
 
 assertParseLine :: Text -> Line -> IO ()
 assertParseLine expectedTxt expectedLine = do

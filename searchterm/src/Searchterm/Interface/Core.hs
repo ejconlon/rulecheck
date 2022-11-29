@@ -12,6 +12,7 @@ module Searchterm.Interface.Core
   , ModName (..)
   , RuleName (..)
   , Lit (..)
+  , ConTy (..)
   , Ty (..)
   , ConPat (..)
   , Pat (..)
@@ -111,10 +112,21 @@ instance Pretty Lit where
     LitChar c -> pretty (show c)
     LitString txt -> pretty (show txt)
 
+-- | Type constructor (known/var)
+data ConTy a =
+    ConTyKnown !TyName
+  | ConTyFree !a
+  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Pretty a => Pretty (ConTy a) where
+  pretty = \case
+    ConTyKnown tn -> pretty tn
+    ConTyFree a -> pretty a
+
 -- | Type with a hole for variables (can later be filled in with indices)
 data Ty a =
     TyFree !a
-  | TyCon !(Either TyName a) !(Seq (Ty a))
+  | TyCon !(ConTy a) !(Seq (Ty a))
   | TyFun (Ty a) (Ty a)
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -170,7 +182,7 @@ instance (Pretty a, ParenPretty r) => ParenPretty (TyF a r) where
   parenPretty s = res where
     res = \case
       TyFreeF w -> parenAtom w
-      TyConF cn ws -> parenList isSubCon (either parenAtom parenAtom cn : fmap (parenPretty (Just "app":s)) (toList ws))
+      TyConF ct ws -> parenList isSubCon (parenAtom ct : fmap (parenPretty (Just "app":s)) (toList ws))
       TyFunF wl wr -> parenList isLhsFun [parenPretty (Just "funl":s) wl, "->", parenPretty (Just "funr":s) wr]
     isSubCon = case s of
       Just "app" : _ -> True

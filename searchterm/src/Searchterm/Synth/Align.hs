@@ -7,7 +7,7 @@ import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
 import qualified Data.Sequence as Seq
-import Searchterm.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF)
+import Searchterm.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF, ConTy (..))
 import Searchterm.Synth.UnionFind (MergeRes (..))
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
@@ -28,17 +28,14 @@ data AlignTyErr =
 instance Exception AlignTyErr
 
 -- | Align two ty con heads
-alignConHead :: Either TyName a -> Either TyName b -> Either AlignTyErr (Either TyName (a, b))
+alignConHead :: ConTy a -> ConTy b -> Either AlignTyErr (ConTy (a, b))
 alignConHead ea eb =
   case ea of
-    Left na ->
+    ConTyKnown na ->
       case eb of
-        Left nb -> if na == nb then Right (Left na) else Left (AlignTyErrConHead na nb)
-        Right _ -> Right (Left na)
-    Right va ->
-      case eb of
-        Left nb -> Right (Left nb)
-        Right vb -> Right (Right (va, vb))
+        ConTyKnown nb -> if na == nb then Right (ConTyKnown na) else Left (AlignTyErrConHead na nb)
+        ConTyFree _ -> Right (ConTyKnown na)
+    ConTyFree va -> Right (fmap (va,) eb)
 
 -- | Align (match) two types by lining up all the holes
 alignTys :: TyF x a -> TyF y b -> Either AlignTyErr (TyF (x, y) (a, b))
@@ -51,7 +48,7 @@ alignTys one two =
           lb = Seq.length bs
       if la == lb
         then Right (TyConF hd (Seq.zip as bs))
-        else Left (AlignTyErrConArity (either pure (const Nothing) hd) la lb)
+        else Left (AlignTyErrConArity (case hd of { ConTyKnown na -> Just na ; _ -> Nothing}) la lb)
     (TyFunF q1 r1, TyFunF q2 r2) -> Right (TyFunF (q1, q2) (r1, r2))
     _ -> Left AlignTyErrMismatch
 

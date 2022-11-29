@@ -32,7 +32,7 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), Ty (..),
-                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..), ConPat (..), Pat (..))
+                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..), ConPat (..), Pat (..), ConTy (..))
 import Searchterm.Interface.Decl (Decl (..), DeclSet (..), ConSig (..))
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Searchterm.Synth.UnionMap (UnionMap)
@@ -368,7 +368,7 @@ litFits goalKey = traceScopeM "Lit fit" $ do
   (_, goalVal) <- lookupGoal goalKey
   case goalVal of
     -- Match with known con head and no args only - like all literal types (Int, String)
-    TyConF (Left tyn) xs | Seq.null xs -> do
+    TyConF (ConTyKnown tyn) xs | Seq.null xs -> do
       mvals <- asks (Map.lookup tyn . dsLits . envDecls)
       case mvals of
         Nothing -> empty
@@ -466,7 +466,7 @@ destructFits goalKey = traceScopeM "Destruct fit" $ do
       (_, argVal) <- lookupGoal argKey
       case argVal of
         -- Can only destruct type constructors, and those with known heads
-        TyConF (Left tn) _ -> do
+        TyConF (ConTyKnown tn) _ -> do
           decls <- asks envDecls
           case Map.lookup tn (dsCons decls) of
             -- And can only destruct if we know the data constructors
