@@ -32,8 +32,8 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
 import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), Ty (..),
-                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..), ConPat (..), Pat (..), ConTy (..))
-import Searchterm.Interface.Decl (Decl (..), DeclSet (..), ConSig (..))
+                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..), ConPat (..), Pat (..), ConTy (..), tyToPartials)
+import Searchterm.Interface.Decl (Decl (..), DeclSet (..), ConSig (..), declPartials)
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
@@ -406,6 +406,37 @@ funIntroFits goalKey = traceScopeM "Fun intro fit" $ do
       pure (TmLam b retTm)
     _ -> traceEmptyM "Non fun in fun intro"
 
+
+-- | Find solutions by instantiating functions in the ctx with matching return type
+funCtxFits :: TyUniq -> SearchM TmFound
+funCtxFits goalKey = traceScopeM "Fun ctx fit" $ do
+  guardDepth
+  (_, goalVal) <- lookupGoal goalKey
+  ctx <- asks envCtx
+  choose ctx $ \(candTmUniq, candTyUniq) -> do
+    -- traceM $ "CONSIDERING: " ++ show candTmUniq ++ " " ++ show candTyUniq
+    (_, candTyVal) <- lookupGoal candTyUniq
+    -- -- Partials are defined for any curried lambda - args will be nonempty
+    choose (tyToPartials candTyVal) $ \part@(Partial _ retTy) -> do
+      undefined
+    --   let candVal = project retTy
+    --   -- Do a cheap check for possible alignment on the result type
+    --   whenAlt (mightAlign goalVal candVal) $ do
+    --     traceM ("Possible partial align: " ++ prettyShow part)
+    --     ctx <- asks envCtx
+    --     traceM ("Current ctx: " ++ show ctx)
+    --     -- Now really check that the result type unifies:
+    --     -- Insert the partial to get vars for args and returned function
+    --     (straints, addlCtx, candKey, _) <- insertPartial (declType decl) part
+    --     -- Unify the returned function with the goal (first, to help constraint search)
+    --     _ <- traceTryM "Align partial" (tryAlignTy goalKey candKey)
+    --     -- Unify constraints (second, to help argument search)
+    --     fairTraverse_ topUnifyStraint straints
+    --     -- It unifies. Now we know that if we can find args we can satsify the goal.
+    --     searchLetApp (TmKnown name) addlCtx
+  empty  -- TODO
+
+
 -- | Find solutions by instantiating decl functions with matching return type
 funElimFits :: TyUniq -> SearchM TmFound
 funElimFits goalKey = traceScopeM "Fun elim fit" $ do
@@ -523,6 +554,8 @@ topSearchUniq goalKey = res where
     -- ^ Solve with a variable in the context
     , litFits goalKey
     -- ^ Solve a goal by emitting literals
+    , funCtxFits goalKey
+    -- ^ Solve a goal by applying function in context
     , funIntroFits goalKey
     -- ^ Solve a function goal by adding arg to context and searching
     -- for a term of the return type.
