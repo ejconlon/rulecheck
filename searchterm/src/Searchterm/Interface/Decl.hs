@@ -1,7 +1,6 @@
 -- | Declarations of terms in our universe
 module Searchterm.Interface.Decl
   ( Decl (..)
-  , declPartials
   , DeclErr (..)
   , DeclSet (..)
   , emptyDeclSet
@@ -30,11 +29,9 @@ data Decl = Decl
   -- ^ The name of the declared term (will be used in 'TmKnown' constructors)
   , declType :: !(TyScheme Index)
   -- ^ The type scheme of the term
+  , declPartials :: !(Seq (Partial Index))
+  -- ^ If this is a function declaration, types of partial applications
   } deriving stock (Eq, Ord, Show)
-
--- | If this is a function declaration, types of partial applications
-declPartials :: Decl -> Seq (Partial Index)
-declPartials decl = tyToPartials (tySchemeBody (declType decl))
 
 -- | A contructor signature - name of the constructor and type information
 data ConSig = ConSig
@@ -75,7 +72,9 @@ mkDecl :: TmName -> TyScheme TyVar -> Either DeclErr Decl
 mkDecl n s = do
   case namelessType s of
     Left e -> Left (DeclErrNameless (Just n) e)
-    Right s' -> Right (Decl n s')
+    Right s' -> do
+      let ps = tyToPartials (tySchemeBody s')
+      pure (Decl n s' ps)
 
 type DeclM a = StateT DeclSet (Except DeclErr) a
 
@@ -104,7 +103,7 @@ insertInstM is = do
       modify' (\ds -> ds { dsDeps = Map.alter (Just . maybe (Seq.singleton is') (:|> is')) cn (dsDeps ds) })
 
 declToConSig :: Decl -> DeclM ConSig
-declToConSig (Decl nm ty) =
+declToConSig (Decl nm ty _) =
   case explodeTy ty of
     Nothing -> throwError (DeclErrForbidStraint nm)
     Just (tyEnd, argTys) -> pure (ConSig nm tyEnd argTys)
