@@ -44,7 +44,33 @@ instance Arbitrary a => Arbitrary (Proxy a)  where
 instance {-# OVERLAPS #-} (Num a) => Arbitrary a where
   arbitrary = fmap fromInteger arbitrary
 
-instance {-# OVERLAPPING #-} (
+instance Show (a -> b) where
+  show f = "A function"
+
+-- Don't re-order the following four declarations!
+-- GHC picks up incoherent instances by the order they appear
+-- We should prefer test cases in this order
+instance {-# INCOHERENT #-} (
+  Arbitrary a, Show a,
+  NFData z, Eq z, Show z) => Testable (TestableRule a z) where
+  property x = property $ \a -> trLhs x a =:= trRhs x a
+
+instance {-# INCOHERENT #-} (
+  Arbitrary a, Show a,
+  Arbitrary b, Show b,
+  NFData c, Eq c, Show c) => Testable (TestableRule a (b -> c)) where
+  property x =
+      property $ \a b -> trLhs x a b =:= trRhs x a b
+
+instance {-# INCOHERENT #-} (
+  Arbitrary a, Show a,
+  Arbitrary b, Show b,
+  Arbitrary c, Show c,
+  NFData d, Eq d, Show d) => Testable (TestableRule a (b -> c -> d)) where
+  property x =
+      property $ \a b c -> trLhs x a b c =:= trRhs x a b c
+
+instance {-# INCOHERENT #-} (
   Arbitrary a, Show a,
   Arbitrary b, Show b,
   Arbitrary c, Show c,
@@ -53,25 +79,8 @@ instance {-# OVERLAPPING #-} (
   property x =
       property $ \a b c d -> trLhs x a b c d =:= trRhs x a b c d
 
-instance {-# OVERLAPPING #-} (
-  Arbitrary a, Show a,
-  Arbitrary b, Show b,
-  Arbitrary c, Show c,
-  NFData d, Eq d, Show d) => Testable (TestableRule a (b -> c -> d)) where
-  property x =
-      property $ \a b c -> trLhs x a b c =:= trRhs x a b c
 
-instance {-# OVERLAPPING #-} (
-  Arbitrary a, Show a,
-  Arbitrary b, Show b,
-  NFData c, Eq c, Show c) => Testable (TestableRule a (b -> c)) where
-  property x =
-      property $ \a b -> trLhs x a b =:= trRhs x a b
 
-instance {-# OVERLAPPABLE #-} (
-  Arbitrary a, Show a,
-  NFData z, Eq z, Show z) => Testable (TestableRule a z) where
-  property x = property $ \a -> trLhs x a =:= trRhs x a
 
 testTestableRule :: Testable (TestableRule a z) => TestName -> TestableRule a z -> TestTree
 testTestableRule = testProperty

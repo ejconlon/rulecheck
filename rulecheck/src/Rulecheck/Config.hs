@@ -61,11 +61,20 @@ packageTestsPrefix = "package-tests"
 logFile :: FilePath
 logFile = "log.txt"
 
+concretizeType :: String -> [(String, String)] -> String
+concretizeType base substs = error "TODO"
+
 -- Override type signatures for a given rule / path combo. This is typically
 -- useful if the rule is defined in terms of a class constraint, and you want
 -- to test the rule for certain instances
 overrideTypeSigs :: FilePath -> RuleName -> Set String
 overrideTypeSigs fp rn
+  | "Data/Biapplicative.hs" `isSuffixOf` fp
+  = case unpackFS rn of
+      -- TODO: Consider more
+      -- (a -> p b c) -> q a -> (p (q b) (q c))
+      "traverseBia/list" -> Set.singleton "(String -> (Int, Char), [String]) -> ([Int], [Char])"
+      _                  -> Set.empty
   | "ListLike/UTF8.hs" `isSuffixOf` fp
   = case unpackFS rn of
       -- See https://hackage.haskell.org/package/ListLike-4.7.7/docs/Data-ListLike.html#g:4

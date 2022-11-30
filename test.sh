@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 
-stack run -- "$1" || exit 1
+set -euo pipefail
 
-# Just compile the tests, raising an error on compilation warnings
-stack --stack-yaml="./package-tests/$1-test/stack.yaml" test --no-run-tests || exit 1
+stack run -- "$1"
 
-# Don't report an error if this test fails. Could be an expected fuzzing failure
-stack --stack-yaml="./package-tests/$1-test/stack.yaml" test || exit 0
+# Just compile the tests, this will signal an error if compilation fails
+stack --stack-yaml="./package-tests/$1-test/stack.yaml" test --no-run-tests
+
+./fuzz.sh "$1"
