@@ -33,8 +33,10 @@ arbitraryInstanceFile desc = do
 testTemplateDir :: FilePath
 testTemplateDir = "test-template"
 
-packageDir :: PackageDescription -> FilePath
-packageDir desc = haskellPackagesDir ++ "/" ++ name desc ++ "-" ++ version desc
+packageDir :: PackageDescription -> IO FilePath
+packageDir desc = do
+  packagesDir <- haskellPackagesDir
+  return $ packagesDir ++ "/" ++ name desc ++ "-" ++ version desc
 
 testBaseDir :: PackageDescription -> FilePath
 testBaseDir desc = packageTestsPrefix ++ "/" ++ name desc ++ "-test"
@@ -48,12 +50,12 @@ testGenDir desc = testSrcDir desc ++ "/Rulecheck/Generated"
 startFromPackage :: Maybe String
 startFromPackage = Nothing
 
--- IMPORTANT! This should be a fully-qualified directory
-haskellPackagesDir :: FilePath
-haskellPackagesDir = "/Users/zgrannan/haskell-packages"
+-- IMPORTANT! This must be a fully-qualified path with no indirections (i.e. `..`)
+haskellPackagesDir :: IO FilePath
+haskellPackagesDir = canonicalizePath "../haskell-packages"
 
 packageDescriptionsFile :: FilePath
-packageDescriptionsFile = "./packageDescriptions.json"
+packageDescriptionsFile = "./auto/rules.json"
 
 packageTestsPrefix :: String
 packageTestsPrefix = "package-tests"
@@ -62,7 +64,7 @@ logFile :: FilePath
 logFile = "log.txt"
 
 concretizeType :: String -> [(String, String)] -> String
-concretizeType base substs = error "TODO"
+concretizeType _ _ = error "TODO"
 
 -- Override type signatures for a given rule / path combo. This is typically
 -- useful if the rule is defined in terms of a class constraint, and you want

@@ -45,7 +45,7 @@ instance {-# OVERLAPS #-} (Num a) => Arbitrary a where
   arbitrary = fmap fromInteger arbitrary
 
 instance Show (a -> b) where
-  show f = "A function"
+  show _ = "A function"
 
 -- Don't re-order the following four declarations!
 -- GHC picks up incoherent instances by the order they appear

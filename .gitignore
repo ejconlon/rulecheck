@@ -8,3 +8,4 @@ dist-newstyle
 *.swp
 data/scratch
 package-tests/*
+auto/rules.json

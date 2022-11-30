@@ -88,11 +88,12 @@ shouldSkip path = any (`isInfixOf` path) filesToSkip
 
 copyTemplateFile :: PackageDescription -> FilePath -> IO ()
 copyTemplateFile desc path = do
+    pDir <- packageDir desc
     yamlTemplate <- readFile (testTemplateFile path)
     let contents =
           replace "{testname}" (name desc ++ "-test") $
           replace "{packagename}" (name desc) $
-          replace "{packagedir}"(packageDir desc) yamlTemplate
+          replace "{packagedir}"pDir yamlTemplate
     writeFile (testBaseDir desc ++ "/" ++ path) contents
 
 setupTestDirectory :: PackageDescription -> IO ()
@@ -138,6 +139,7 @@ getPackagesToProcess = do
 
 main :: IO ()
 main = do
+  dir <- haskellPackagesDir
   toProcess <- getPackagesToProcess
-  mapM_ (processPackage haskellPackagesDir) toProcess
+  mapM_ (processPackage dir) toProcess
   putStrLn "Done"

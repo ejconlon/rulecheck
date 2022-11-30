@@ -4,24 +4,12 @@
 
 ### Obtaining Packages
 
-To start, we need to download some Haskell packages to fuzz. This is most easily
-accomplished by the tools in the `auto` directory. You can use `auto` to
-download packages containing rewrite ruless. Here's how to do it in three steps
-(from the auto directory):
+To start, we need to download some Haskell packages to fuzz. 
+This is most easily done with the `./prepare.sh` script.
 
-```sh
-./run.sh find --listing $LISTINGFILE
-./run.sh download --listing $LISTINGFILE --scratch $PACKAGEDIR
-./run.sh extract --listing $LISTINGFILE --scratch $PACKAGEDIR --output $RULESFILE
-```
+See the section "Obtaining Packages, Continued" at the bottom for how to do this manually
 
-where `$LISTINGFILE` is a temporary file to store the package information from
-hackage. `$PACKAGEDIR` is where the packages will be downloaded, and
-`$RULESFILE` contains information on packages containing rewrite rules. 
 
-__IMPORTANT__ Current we expect `$PACKAGEDIR` to be named `haskell-packages` and
-placed adjacent to this directory (i.e. `../haskell-packages`). __AND__ you need
-to put the full path in `haskellPackagesDir` in `Config.hs`.
 
 ### Generating and Running the Test Suites
 
@@ -47,7 +35,7 @@ If you want to generate a suite for every package in `$RULESFILE`, this can be
 done by running without any arguments:
 
 ``` sh
-stack run 
+stack run
 ```
 
 ### Running a fuzzing test suite for a package
@@ -62,20 +50,39 @@ generated directory.
 
 The above two steps can be done at once with the command `./test.sh $PACKAGENAME`
 
-### Adding a suite to the set of working tests  
+### Adding a suite to the set of working tests
 
 Just edit `./test-all-working.sh`, it should be straightforward
 
 ### Adding custom `Arbitrary` instances
 
 This can be done by adding a file in
-`test-template/extra-arbitrary-instances/$PACKAGENAME.hs`. 
+`test-template/extra-arbitrary-instances/$PACKAGENAME.hs`.
 
 ### Modifying the library
 
 You may want to do this to expose additional modules, functions, etc.
 This can be done by putting modified versions of the file in the `vendored`
 directory. The script `./apply-vendored-patches.sh` will apply the patches.
+
+## Obtaining Packages, Continued
+
+You can use scripts in the `auto` directory to download packages containing
+rewrite rules. Here's how to do it in three steps (from the auto directory):
+
+```sh
+./run.sh main find --listing $LISTINGFILE
+./run.sh main download --listing $LISTINGFILE --scratch $PACKAGEDIR
+./run.sh main extract --listing $LISTINGFILE --scratch $PACKAGEDIR --output $RULESFILE
+```
+
+where `$LISTINGFILE` is a temporary file to store the package information from
+hackage. `$PACKAGEDIR` is where the packages will be downloaded, and
+`$RULESFILE` contains information on packages containing rewrite rules.
+
+__IMPORTANT__ Current we expect `$PACKAGEDIR` to be named `haskell-packages` and
+placed adjacent to this directory (i.e. `../haskell-packages`). __AND__ you need
+to update the path of `haskellPackagesDir` in `Config.hs`.
 
 ## Debugging
 
@@ -89,11 +96,11 @@ contains rewrite rules. However, some files actually shouldn't be analyzed for
 the following reasons:
 
 - The file is actually a test file (for programs that analyze Haskell code, for example)
-- The rewrite rule only applies to other version of GHC besides 9.0.2 
+- The rewrite rule only applies to other version of GHC besides 9.0.2
 - The rule isn't actually a rule at all (for example, it could been commented out).
   This is possible because rule identification uses a regular expression and
   could have false positives.
-  
+
 These files can be skipped by adding an entry in `filesToSkip` in the
 `Config.hs`. Note that the `filesToSkip` entry matching is performed via an
 infix match, so facilitating skipping multiple files at once.
