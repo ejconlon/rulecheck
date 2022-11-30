@@ -4,26 +4,12 @@
 
 ### Obtaining Packages
 
-To start, we need to download some Haskell packages to fuzz. This is most easily
-accomplished by the tools in the `auto` directory. You can use `auto` to
-download packages containing rewrite ruless. Here's how to do it in three steps
-(from the auto directory):
+To start, we need to download some Haskell packages to fuzz. 
+This is most easily done with the `./prepare.sh` script.
 
-```sh
-./run.sh main find --listing $LISTINGFILE
-./run.sh main download --listing $LISTINGFILE --scratch $PACKAGEDIR
-./run.sh main extract --listing $LISTINGFILE --scratch $PACKAGEDIR --output $RULESFILE
-```
+See the section "Obtaining Packages, Continued" at the bottom for how to do this manually
 
-where `$LISTINGFILE` is a temporary file to store the package information from
-hackage. `$PACKAGEDIR` is where the packages will be downloaded, and
-`$RULESFILE` contains information on packages containing rewrite rules.
 
-__IMPORTANT__ Current we expect `$PACKAGEDIR` to be named `haskell-packages` and
-placed adjacent to this directory (i.e. `../haskell-packages`). __AND__ you need
-to put the full path in `haskellPackagesDir` in `Config.hs`.
-
-All this can also be done with `./prepare.sh`.
 
 ### Generating and Running the Test Suites
 
@@ -78,6 +64,25 @@ This can be done by adding a file in
 You may want to do this to expose additional modules, functions, etc.
 This can be done by putting modified versions of the file in the `vendored`
 directory. The script `./apply-vendored-patches.sh` will apply the patches.
+
+## Obtaining Packages, Continued
+
+You can use scripts in the `auto` directory to download packages containing
+rewrite rules. Here's how to do it in three steps (from the auto directory):
+
+```sh
+./run.sh main find --listing $LISTINGFILE
+./run.sh main download --listing $LISTINGFILE --scratch $PACKAGEDIR
+./run.sh main extract --listing $LISTINGFILE --scratch $PACKAGEDIR --output $RULESFILE
+```
+
+where `$LISTINGFILE` is a temporary file to store the package information from
+hackage. `$PACKAGEDIR` is where the packages will be downloaded, and
+`$RULESFILE` contains information on packages containing rewrite rules.
+
+__IMPORTANT__ Current we expect `$PACKAGEDIR` to be named `haskell-packages` and
+placed adjacent to this directory (i.e. `../haskell-packages`). __AND__ you need
+to update the path of `haskellPackagesDir` in `Config.hs`.
 
 ## Debugging
 

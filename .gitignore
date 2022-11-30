@@ -8,4 +8,4 @@ dist-newstyle
 *.swp
 data/scratch
 package-tests/*
-haskell-packages/*
+auto/rules.json

@@ -9,14 +9,18 @@ pushd auto
     make venv
   fi
 
-  PACKAGEDIR=../haskell-packages
-  LISTINGFILE=${PACKAGEDIR}/listing.json
-  RULESFILE=${PACKAGEDIR}/rules.json
+  PACKAGEDIR=../../haskell-packages
+  LISTINGFILE=./listing.json
+  RULESFILE=./rules.json
 
   # rm -rf ${PACKAGEDIR}
   mkdir -p ${PACKAGEDIR}
 
-  ./run.sh main find --listing ${LISTINGFILE}
+  rm -f "$RULESFILE"
+
+  # uncomment to regenerate listing
+  # ./run.sh main find --listing ${LISTINGFILE}
+
   ./run.sh main download --listing ${LISTINGFILE} --scratch ${PACKAGEDIR}
   ./run.sh main extract --listing ${LISTINGFILE} --scratch ${PACKAGEDIR} --output ${RULESFILE}
 popd
