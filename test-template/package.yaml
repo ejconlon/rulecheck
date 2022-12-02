@@ -60,7 +60,7 @@ tests:
     build-tools:
       tasty-discover:tasty-discover
     dependencies:
-    - rulecheck
+    - rulecheck-runtime
     - {packagename}
     - QuickCheck
     - tasty

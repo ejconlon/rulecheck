@@ -23,6 +23,7 @@ library
       Searchterm.Synth.Search
       Searchterm.Synth.UnionFind
       Searchterm.Synth.UnionMap
+      Searchterm.Util
   other-modules:
       Paths_searchterm
   hs-source-dirs:

@@ -9,5 +9,5 @@ extra-deps:
 - little-logger-1.0.1
 - little-rio-1.0.1
 - int-like-0.1.1
-- ../../rulecheck
+- ../../rulecheck-runtime
 - {packagedir}

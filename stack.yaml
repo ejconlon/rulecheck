@@ -11,4 +11,5 @@ extra-deps:
 packages:
 - searchterm
 - rulecheck
+- rulecheck-runtime
 - demo-domain

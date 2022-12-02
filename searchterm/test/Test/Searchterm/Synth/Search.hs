@@ -11,6 +11,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..), Strained (..), Ty (..))
+import Searchterm.Util (DeclSrc(..), loadDecls, rethrow)
 import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
 import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme (..), toListWithIndex)
 import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
@@ -27,20 +28,6 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 
-rethrow :: Exception e => Either e a -> IO a
-rethrow = either throwIO pure
-
-data DeclSrc =
-    DeclSrcFile !FilePath
-  | DeclSrcList ![Text]
-  deriving stock (Eq, Show)
-
-loadDecls :: DeclSrc -> IO DeclSet
-loadDecls src = do
-  ls <- case src of
-    DeclSrcFile fp -> parseLinesIO fp
-    DeclSrcList ts -> rethrow (parseLines "<load>" (T.unlines ts))
-  rethrow (mkLineDecls (toList ls))
 
 maxSearchDepth :: Int
 maxSearchDepth = 5

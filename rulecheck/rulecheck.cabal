@@ -18,7 +18,6 @@ library
       Rulecheck.Rule
       Rulecheck.RuleExtraction
       Rulecheck.RuleRendering
-      Rulecheck.Testing
       Rulecheck.Typecheck
   other-modules:
       Paths_rulecheck
@@ -70,6 +69,7 @@ library
     , little-logger
     , little-rio
     , mtl
+    , searchterm
     , tasty
     , tasty-quickcheck
     , template-haskell
@@ -130,6 +130,7 @@ executable rulecheck-exe
     , little-rio
     , mtl
     , rulecheck
+    , searchterm
     , tasty
     , tasty-quickcheck
     , template-haskell

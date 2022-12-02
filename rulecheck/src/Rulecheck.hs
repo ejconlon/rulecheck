@@ -8,12 +8,18 @@ import Data.List (isInfixOf)
 import Data.List.Utils
 import Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import Rulecheck.Config
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering
 import Rulecheck.Rule
 import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
+import Searchterm.Synth.Search
+import Searchterm.Util (loadDecls, rethrow, DeclSrc(..))
+import Searchterm.Interface.Parser (parseType)
+import Searchterm.Interface.Printer
+import Searchterm.Interface.Names (namelessType)
 import System.Directory
 import System.Environment (getArgs)
 
@@ -122,24 +128,44 @@ processPackage prefix pkg = do
       putStrLn $ "Processing file at " ++ path
       generateFile (getGenerateOptions path n pkg)
 
-getPackagesToProcess :: IO [PackageDescription]
-getPackagesToProcess = do
+getPackagesToProcess :: [String] -> IO [PackageDescription]
+getPackagesToProcess packages = do
   jsonResult <- eitherDecodeFileStrict packageDescriptionsFile
-  case jsonResult of
+  return $ case jsonResult of
     Left err           -> error err
-    Right descriptions ->
-      fmap go getArgs
-        where
-          go [] = filter (not . skip) $ case startFromPackage of
-            Just p  -> dropWhile ((p /=) . name) descriptions
-            Nothing -> descriptions
-          go packages = filter ((`elem` packages) . name) descriptions
+    Right descriptions -> go packages
+      where
+        go [] = filter (not . skip) $ case startFromPackage of
+          Just p  -> dropWhile ((p /=) . name) descriptions
+          Nothing -> descriptions
+        go _  = filter ((`elem` packages) . name) descriptions
 
-          skip package = name package `elem` packagesToSkip
+        skip package = name package `elem` packagesToSkip
+
+rulecheck :: [String] -> IO ()
+rulecheck args = do
+  dir <- haskellPackagesDir
+  toProcess <- getPackagesToProcess args
+  mapM_ (processPackage dir) toProcess
+  putStrLn "Done"
+
+searchterm :: [String] -> IO ()
+searchterm [] = putStrLn "Need a type"
+searchterm (typName : _) = do
+  ds <- loadDecls (DeclSrcFile "testdata/base.txt")
+  tsNamed <- rethrow (parseType (T.pack (typName)))
+  ts <- rethrow (namelessType tsNamed)
+  let maxSearchDepth = 5
+  let useSkolem = UseSkolemYes
+  let config = SearchConfig ds ts maxSearchDepth useSkolem
+  let numResults = 10
+  case runSearchN config numResults of
+    Left err      -> error (show err)
+    Right results -> mapM_ (putStrLn . T.unpack . printTerm . foundTm) results
 
 main :: IO ()
 main = do
-  dir <- haskellPackagesDir
-  toProcess <- getPackagesToProcess
-  mapM_ (processPackage dir) toProcess
-  putStrLn "Done"
+  args <- getArgs
+  case args of
+    ("--searchterm" : stArgs) -> searchterm stArgs
+    _ -> rulecheck args
