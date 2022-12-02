@@ -41,7 +41,9 @@ ghc-options:
 - -Wincomplete-uni-patterns
 - -Wpartial-fields
 - -Wredundant-constraints
-- -fno-warn-unused-top-binds
+- -fno-warn-unused-binds
+- -fno-warn-unused-matches
+- -fno-warn-unused-imports
 - -fwrite-ide-info
 - -hiedir=.hie
 
