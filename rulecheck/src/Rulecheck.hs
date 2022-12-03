@@ -150,9 +150,8 @@ rulecheck args = do
   putStrLn "Done"
 
 searchterm :: [String] -> IO ()
-searchterm [] = putStrLn "Need a type"
-searchterm (typName : _) = do
-  ds <- loadDecls (DeclSrcFile "testdata/base.txt")
+searchterm [filename, typName] = do
+  ds <- loadDecls (DeclSrcFile filename)
   tsNamed <- rethrow (parseType (T.pack (typName)))
   ts <- rethrow (namelessType tsNamed)
   let maxSearchDepth = 5
@@ -162,6 +161,7 @@ searchterm (typName : _) = do
   case runSearchN config numResults of
     Left err      -> error (show err)
     Right results -> mapM_ (putStrLn . T.unpack . printTerm . foundTm) results
+searchterm _ = putStrLn "Usage stack run -- --searchterm DEF_FILE TYP"
 
 main :: IO ()
 main = do

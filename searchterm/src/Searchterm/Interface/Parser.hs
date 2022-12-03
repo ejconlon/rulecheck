@@ -164,10 +164,17 @@ conTyP :: P (ConTy TyVar)
 conTyP = (ConTyKnown <$> tyNameP) <|> (ConTyFree <$> tyVarP)
 
 tyConP :: P (Ty TyVar)
-tyConP = do
-  cn <- conTyP
-  as <- some (tyP True True)
-  pure (TyCon cn (Seq.fromList as))
+tyConP = standardTyCon <|> listTyCon
+  where
+    standardTyCon = do
+      cn <- conTyP
+      as <- some (tyP True True)
+      pure (TyCon cn (Seq.fromList as))
+    listTyCon = do
+      _  <- P (MPC.char '[')
+      as <- some (tyP True True)
+      _  <- P (MPC.char ']')
+      pure (TyCon (ConTyKnown $ TyName $ T.pack "List") (Seq.fromList as))
 
 tyArrP :: P (Ty TyVar)
 tyArrP = do
