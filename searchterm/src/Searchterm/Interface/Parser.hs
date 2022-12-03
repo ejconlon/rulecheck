@@ -164,7 +164,7 @@ conTyP :: P (ConTy TyVar)
 conTyP = (ConTyKnown <$> tyNameP) <|> (ConTyFree <$> tyVarP)
 
 tyConP :: P (Ty TyVar)
-tyConP = standardTyCon <|> listTyCon
+tyConP = listTyCon <|> standardTyCon
   where
     standardTyCon = do
       cn <- conTyP

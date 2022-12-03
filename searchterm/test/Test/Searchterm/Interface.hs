@@ -81,6 +81,7 @@ mkS tvs insts body = TyScheme (Forall (Seq.fromList tvs) (Strained (Seq.fromList
 
 testParseTy :: TestTree
 testParseTy = testCase "parseTy" $ do
+  assertParseTy "[a]" (mkS [] [] (TyCon (ConTyKnown "List") (Seq.singleton (TyFree "a"))))
   assertParseTy "Int" (mkS [] [] (TyCon (ConTyKnown "Int") Empty))
   assertParseTy "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
     TyFun
