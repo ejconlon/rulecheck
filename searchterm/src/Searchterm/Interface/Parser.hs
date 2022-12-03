@@ -172,9 +172,9 @@ tyConP = listTyCon <|> standardTyCon
       pure (TyCon cn (Seq.fromList as))
     listTyCon = do
       _  <- P (MPC.char '[')
-      as <- some (tyP True True)
+      as <- tyP True True
       _  <- P (MPC.char ']')
-      pure (TyCon (ConTyKnown $ TyName $ T.pack "List") (Seq.fromList as))
+      pure (TyCon (ConTyKnown $ TyName $ T.pack "List") (Seq.singleton as))
 
 tyArrP :: P (Ty TyVar)
 tyArrP = do
