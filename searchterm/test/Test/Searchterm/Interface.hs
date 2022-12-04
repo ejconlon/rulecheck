@@ -86,12 +86,12 @@ testParseTy = testCase "parseTy" $ do
   assertParseTy True "Int" (mkS [] [] (TyCon (ConTyKnown "Int") Empty))
   assertParseTy True "forall a. ([]) a" $
     mkS ["a"] [] (TyCon (ConTyKnown "([])") (Seq.singleton (TyFree "a")))
-  -- assertParseTy False "forall a. [a]" $
-  --   mkS ["a"] [] (TyCon (ConTyKnown "([])") (Seq.singleton (TyFree "a"))))
+  assertParseTy False "forall a. [a]" $
+    mkS ["a"] [] (TyCon (ConTyKnown "([])") (Seq.singleton (TyFree "a")))
   assertParseTy True "forall a b. (,) a b" $
     mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
-  -- assertParseTy True "forall a b. (a, b)" $
-  --   mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
+  assertParseTy False "forall a b. (a, b)" $
+    mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
   assertParseTy True "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
     TyFun
       (TyFun (TyFree "a") (TyFree "b"))
