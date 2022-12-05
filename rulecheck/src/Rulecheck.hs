@@ -16,8 +16,8 @@ import Rulecheck.Rule
 import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
 import Searchterm.Synth.Search
-import Searchterm.Util (loadDecls, rethrow, DeclSrc(..))
-import Searchterm.Interface.Parser (parseType)
+import Searchterm.Util
+import Searchterm.Interface.Parser
 import Searchterm.Interface.Printer
 import Searchterm.Interface.Names (namelessType)
 import System.Directory
@@ -151,7 +151,7 @@ rulecheck args = do
 
 searchterm :: [String] -> IO ()
 searchterm [filename, typName] = do
-  ds <- loadDecls (DeclSrcFile filename)
+  ds <- withDieOnParseErr (loadDecls (DeclSrcFile filename))
   tsNamed <- rethrow (parseType (T.pack (typName)))
   ts <- rethrow (namelessType tsNamed)
   let maxSearchDepth = 5

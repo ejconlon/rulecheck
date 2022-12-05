@@ -2,9 +2,8 @@
 
 module Test.Searchterm.Synth.Search (testSearch) where
 
-import Control.Exception (Exception, throwIO)
 import Control.Monad ((<=<), unless, void)
-import Data.Foldable (for_, toList)
+import Data.Foldable (for_)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
@@ -12,9 +11,9 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..), Strained (..), Ty (..))
 import Searchterm.Util (DeclSrc(..), loadDecls, rethrow)
-import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
+import Searchterm.Interface.Decl (DeclSet (..))
 import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme (..), toListWithIndex)
-import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
+import Searchterm.Interface.Parser (parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
 import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..), TyFoundScheme (..), constFillTyScheme)
 import Test.Tasty (TestTree, testGroup)

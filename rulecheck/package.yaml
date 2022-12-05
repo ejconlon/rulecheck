@@ -15,6 +15,7 @@ dependencies:
 - text
 - generic-lens
 - unliftio-core
+- megaparsec
 - mtl
 - MissingH
 - ghc-paths
