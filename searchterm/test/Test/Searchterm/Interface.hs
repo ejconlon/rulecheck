@@ -2,6 +2,7 @@
 
 module Test.Searchterm.Interface (testInterface) where
 
+import Control.Monad (when)
 import Control.Exception (throwIO)
 import Data.Foldable (for_)
 import qualified Data.Sequence as Seq
@@ -69,10 +70,11 @@ testParseTm = testCase "parseTm" $ do
   assertParseTm "'c'" (TmLit (LitChar 'c'))
   assertParseTm "\"foo\"" (TmLit (LitString "foo"))
 
-assertParseTy :: Text -> TyScheme TyVar -> IO ()
-assertParseTy expectedTxt expectedAst = do
-  -- let actualTxt = docToText (pretty expectedAst)
-  -- actualTxt @?= expectedTxt
+assertParseTy :: Bool -> Text -> TyScheme TyVar -> IO ()
+assertParseTy roundtrip expectedTxt expectedAst = do
+  when roundtrip $ do
+    let actualTxt = docToText (pretty expectedAst)
+    actualTxt @?= expectedTxt
   actualAst <- either throwIO pure (parseType expectedTxt)
   actualAst @?= expectedAst
 
@@ -81,9 +83,16 @@ mkS tvs insts body = TyScheme (Forall (Seq.fromList tvs) (Strained (Seq.fromList
 
 testParseTy :: TestTree
 testParseTy = testCase "parseTy" $ do
-  assertParseTy "[a]" (mkS ["a"] [] (TyCon (ConTyKnown "List") (Seq.singleton (TyFree "a"))))
-  assertParseTy "Int" (mkS [] [] (TyCon (ConTyKnown "Int") Empty))
-  assertParseTy "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
+  assertParseTy True "Int" (mkS [] [] (TyCon (ConTyKnown "Int") Empty))
+  assertParseTy True "forall a. ([]) a" $
+    mkS ["a"] [] (TyCon (ConTyKnown "([])") (Seq.singleton (TyFree "a")))
+  assertParseTy False "forall a. [a]" $
+    mkS ["a"] [] (TyCon (ConTyKnown "([])") (Seq.singleton (TyFree "a")))
+  assertParseTy True "forall a b. (,) a b" $
+    mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
+  assertParseTy False "forall a b. (a, b)" $
+    mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
+  assertParseTy True "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
     TyFun
       (TyFun (TyFree "a") (TyFree "b"))
       (TyFun

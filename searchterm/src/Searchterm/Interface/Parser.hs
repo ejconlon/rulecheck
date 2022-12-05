@@ -51,20 +51,20 @@ lexP = P . MPCL.lexeme (unP spaceP) . unP
 moreLexP :: P a -> P a
 moreLexP = P . MPCL.lexeme (unP moreSpaceP) . unP
 
-commaP :: P ()
-commaP = lexP (P (void (MPC.char ',')))
-
-periodP :: P ()
-periodP = lexP (P (void (MPC.char '.')))
-
-openParenP :: P ()
-openParenP = lexP (P (void (MPC.char '(')))
-
-closeParenP :: P ()
-closeParenP = lexP (P (void (MPC.char ')')))
-
 keywordP :: Text -> P ()
 keywordP = lexP . P . void . MPC.string
+
+commaP :: P ()
+commaP = keywordP ","
+
+periodP :: P ()
+periodP = keywordP "."
+
+openParenP :: P ()
+openParenP = keywordP "("
+
+closeParenP :: P ()
+closeParenP = keywordP ")"
 
 inParensP :: P a -> P a
 inParensP p = do
@@ -163,18 +163,33 @@ tmVarP = fmap TmVar lowerP
 conTyP :: P (ConTy TyVar)
 conTyP = (ConTyKnown <$> tyNameP) <|> (ConTyFree <$> tyVarP)
 
+-- Parse a "plain" type constructor - no special logic for lists
+plainTyConP :: P (Ty TyVar)
+plainTyConP = do
+  cn <- conTyP
+  as <- some (tyP True True)
+  pure (TyCon cn (Seq.fromList as))
+
+-- Parse an infix list constructor
+listTyConP :: P (Ty TyVar)
+listTyConP = do
+  _ <- keywordP "["
+  ty <- tyP False False
+  _ <- keywordP "]"
+  pure (TyCon (ConTyKnown "([])") (Seq.singleton ty))
+
+-- Parse an infix tuple constructor
+tupTyConP :: P (Ty TyVar)
+tupTyConP = do
+  _ <- openParenP
+  ty1 <- tyP False False
+  _ <- commaP
+  ty2 <- tyP False False
+  _ <- closeParenP
+  pure (TyCon (ConTyKnown "(,)") (Seq.fromList [ty1, ty2]))
+
 tyConP :: P (Ty TyVar)
-tyConP = listTyCon <|> standardTyCon
-  where
-    standardTyCon = do
-      cn <- conTyP
-      as <- some (tyP True True)
-      pure (TyCon cn (Seq.fromList as))
-    listTyCon = do
-      _  <- P (MPC.char '[')
-      as <- tyP True True
-      _  <- P (MPC.char ']')
-      pure (TyCon (ConTyKnown $ TyName $ T.pack "List") (Seq.singleton as))
+tyConP = listTyConP <|> tupTyConP <|> plainTyConP
 
 tyArrP :: P (Ty TyVar)
 tyArrP = do
