@@ -92,6 +92,12 @@ testParseTy = testCase "parseTy" $ do
     mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
   assertParseTy False "forall a b. (a, b)" $
     mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
+  assertParseTy True "forall a b c d. (,,,) a b c d" $
+    mkS ["a", "b", "c", "d"] [] $ TyCon (ConTyKnown "(,,,)") $
+      Seq.fromList (fmap TyFree ["a", "b", "c", "d"])
+  assertParseTy False "forall a b c d. (a, b, c, d)" $
+    mkS ["a", "b", "c", "d"] [] $ TyCon (ConTyKnown "(,,,)") $
+      Seq.fromList (fmap TyFree ["a", "b", "c", "d"])
   assertParseTy True "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
     TyFun
       (TyFun (TyFree "a") (TyFree "b"))

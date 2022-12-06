@@ -31,6 +31,7 @@ import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
 import Data.Scientific (Scientific)
 import Text.Read (readMaybe)
+import Data.String (fromString)
 
 newtype P a = P { unP :: Parsec Void Text a }
   deriving newtype (Functor, Applicative, Monad, MonadFail)
@@ -178,15 +179,17 @@ listTyConP = do
   _ <- keywordP "]"
   pure (TyCon (ConTyKnown "([])") (Seq.singleton ty))
 
--- Parse an infix tuple constructor
+-- Parse an infix tuple constructor (of arbitrary arity)
 tupTyConP :: P (Ty TyVar)
 tupTyConP = do
   _ <- openParenP
   ty1 <- tyP False False
-  _ <- commaP
-  ty2 <- tyP False False
+  tys <- some $ do
+    _ <- commaP
+    tyP False False
   _ <- closeParenP
-  pure (TyCon (ConTyKnown "(,)") (Seq.fromList [ty1, ty2]))
+  let tn = fromString ("(" ++ replicate (length tys) ',' ++ ")")
+  pure (TyCon (ConTyKnown tn) (Seq.fromList (ty1:tys)))
 
 tyConP :: P (Ty TyVar)
 tyConP = listTyConP <|> tupTyConP <|> plainTyConP
