@@ -3,16 +3,16 @@
 module Test.Searchterm.Synth.Search (testSearch) where
 
 import Control.Monad ((<=<), unless, void)
-import Data.Foldable (for_)
+import Data.Foldable (for_, toList)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..), Strained (..), Ty (..), PatPair (..))
-import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
+import Searchterm.Interface.Decl (DeclSet (..))
 import Searchterm.Interface.Names (AlphaTm(..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme(..), toListWithIndex)
-import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
+import Searchterm.Interface.Parser (parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
 import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..), TyFoundScheme (..), constFillTyScheme)
 import Test.Tasty (TestTree, testGroup)
@@ -25,7 +25,7 @@ import Data.Functor.Foldable (cata)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
-import Searchterm.Interface.Types (Line)
+import Searchterm.Util
 
 maxSearchDepth :: Int
 maxSearchDepth = 5
