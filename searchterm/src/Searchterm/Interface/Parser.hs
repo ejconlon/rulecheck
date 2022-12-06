@@ -152,8 +152,28 @@ symP = lexP $ do
 tyNameP :: P TyName
 tyNameP = fmap TyName (upperP <|> symP)
 
+tmUnitP :: P TmName
+tmUnitP = "()" <$ keywordP "()"
+
+-- TODO Make these 3 infix and uncomment in builtinTmNameP
+
+-- tmListNilP :: P TmName
+-- tmListNilP = error "TODO"
+
+-- tmListConsP :: P TmName
+-- tmListConsP = error "TODO"
+
+-- tmTupP :: P TmName
+-- tmTupP = error "TODO"
+
+builtinTmNameP :: P TmName
+builtinTmNameP = tmUnitP -- <|> tmListNilP <|> tmListConsP <|> tmTupP
+
+plainTmNameP :: P TmName
+plainTmNameP = fmap TmName (identP <|> symP)
+
 tmNameP :: P TmName
-tmNameP = fmap TmName (identP <|> symP)
+tmNameP = builtinTmNameP <|> plainTmNameP
 
 tyVarP :: P TyVar
 tyVarP = fmap TyVar lowerP
@@ -193,13 +213,13 @@ tupTyConP = do
 
 -- Parse the unit type
 unitTyConP :: P (Ty TyVar)
-unitTyConP = do
-  _ <- openParenP
-  _ <- closeParenP
-  pure (TyCon (ConTyKnown "()") Empty)
+unitTyConP = TyCon (ConTyKnown "()") Empty <$ keywordP "()"
+
+builtinTyConP :: P (Ty TyVar)
+builtinTyConP = unitTyConP <|> listTyConP <|> tupTyConP
 
 tyConP :: P (Ty TyVar)
-tyConP = listTyConP <|> tupTyConP <|> unitTyConP <|> plainTyConP
+tyConP = builtinTyConP <|> plainTyConP
 
 tyArrP :: P (Ty TyVar)
 tyArrP = do
@@ -356,7 +376,7 @@ tmAppP = inParensP $ do
   two <- tmP
   rest <- many tmP
   pure (mkApp one two rest)
--- We can only parse vars as free until we resolve them later
+-- We can only parse vars/funs as free until we resolve them later
 tmFreeP = fmap (TmFree . TmVar . unTmName) tmNameP
 tmLetP = optParensP $ do
   _ <- keywordP "let"

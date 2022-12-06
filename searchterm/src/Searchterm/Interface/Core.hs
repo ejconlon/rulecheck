@@ -134,13 +134,13 @@ data Ty a =
 data ConPat b = ConPat
   { conPatName :: !TmName
   , conPatVars :: !(Seq b)
-  } deriving stock (Eq, Ord, Show)
+  } deriving stock (Eq, Ord, Show, Functor, Foldable)
 
 -- | A pattern - for now we only generate constructor patterns
 -- but this could be enriched with literals, wildcards, etc
 newtype Pat b = Pat { patCon :: ConPat b }
   deriving stock (Show)
-  deriving newtype (Eq, Ord)
+  deriving newtype (Eq, Ord, Functor, Foldable)
 
 -- | A "pattern pair" - LHS and RHS of a case match
 data PatPair b tm = PatPair

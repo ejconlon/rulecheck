@@ -23,17 +23,26 @@ testInterface = testGroup "interface"
   , testParseTy
   , testParseLine
   , testBaseTxt
+  , testPreludeTxt
   ]
 
-testBaseTxt :: TestTree
-testBaseTxt = testCase "base.txt" $ do
+assertParseFile :: FilePath -> IO ()
+assertParseFile fn = do
   -- assert that we can parse, render, and parse again to get the same thing
-  x <- parseLinesIO "../testdata/base.txt"
+  x <- parseLinesIO fn
   let y = printLines x
   z <- either throwIO pure (parseLines "<test>" y)
   if Seq.length z == Seq.length x
     then for_ (Seq.zip z x) (uncurry (@?=))
     else fail "mismatch lengths"
+
+testBaseTxt :: TestTree
+testBaseTxt = testCase "base.txt" $ do
+  assertParseFile "../testdata/base.txt"
+
+testPreludeTxt :: TestTree
+testPreludeTxt = testCase "prelude.txt" $ do
+  assertParseFile "../testdata/prelude.txt"
 
 assertParseTm :: Text -> Tm TmVar TmVar -> IO ()
 assertParseTm expectedTxt expectedAst = do
@@ -51,6 +60,7 @@ testParseTm = testCase "parseTm" $ do
 
   assertParseTm "([])" $ TmFree "([])"
   assertParseTm "(((:) x) y)" $ TmApp (TmApp (TmFree "(:)") (TmFree "x")) (TmFree "y")
+  assertParseTm "(((:) x) ([]))" $ TmApp (TmApp (TmFree "(:)") (TmFree "x")) (TmFree "([])")
 
   assertParseTm "(((,) a) b)" $ TmApp (TmApp (TmFree "(,)") (TmFree "a")) (TmFree "b")
   assertParseTm "(((((,,,) a) b) c) d)" $
