@@ -9,12 +9,19 @@ This is most easily done with the `./prepare.sh` script.
 
 See the section "Obtaining Packages, Continued" at the bottom for how to do this manually
 
-
-
 ### Generating and Running the Test Suites
 
 You can automatically generate and run test suites for modules we now how to
 fuzz by running the script `./test-all-working.sh`
+
+### Running the synthesis tool
+
+To run the synth tool (for testing), use the command
+
+stack run -- --searchterm [DEFS_FILE] TYPE_NAME
+
+where DEFS_FILE is an optional file that includes package-specific definitions.
+Note that the prelude in `searchterm/prelude.txt` is loaded by default.
 
 ## Generating New Test Suites
 
@@ -83,6 +90,21 @@ hackage. `$PACKAGEDIR` is where the packages will be downloaded, and
 __IMPORTANT__ Current we expect `$PACKAGEDIR` to be named `haskell-packages` and
 placed adjacent to this directory (i.e. `../haskell-packages`). __AND__ you need
 to update the path of `haskellPackagesDir` in `Config.hs`.
+
+### Obtaining a definition file for a package 
+
+The first thing you need to do is to download the modified version of `haddock`
+that can generate the definition files. This can be done by downloading the zip
+file:
+
+https://github.com/zgrannan/haddock/archive/refs/heads/rulecheck-9.0.2.zip
+
+Then run `cabal install` in that directory.
+
+To generate the defs for a package, first switch to the directory for that
+package. Then, FROM THAT DIRECTORY run the `generate-defs-file.sh` script, i.e.
+`$RULECHECK_DIR/generate-defs-file.sh`. The result should be a file `defs.txt`
+in the current directory.
 
 ## Debugging
 
