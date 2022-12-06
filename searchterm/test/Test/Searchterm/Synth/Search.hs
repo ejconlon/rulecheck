@@ -279,8 +279,7 @@ testSearchFinds = testGroup "finds"
       zeroDeclSrc
       "([]) Int"
       [ "([])"
-      -- TODO figure this one out
-      -- , "(((:) 1) ([]))"
+      , "(((:) 0) ([]))"
       ]
       []
   , testFinds "list destruct"
@@ -306,7 +305,6 @@ testSearchFinds = testGroup "finds"
       , "(\\x -> (case x of { (,) a b -> b }))"
       ]
       []
-  -- , testFinds "tuple" litsDeclSrc "(,) Int Int" ["(((,) 0) 3)"] []
   -- NOTE(ejconlon): You would expect this to work but it doesn't.
   -- This is because of how we're searching for constraints by
   -- eagerly instantiating type vars with concrete(ish) types
