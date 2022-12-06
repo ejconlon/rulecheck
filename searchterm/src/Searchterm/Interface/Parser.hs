@@ -6,6 +6,7 @@ module Searchterm.Interface.Parser
   , parseLine
   , parseLines
   , parseLinesIO
+  , ParseErr
   ) where
 
 import Control.Applicative (Alternative (..))
@@ -29,7 +30,9 @@ import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
+import qualified Text.Megaparsec.Debug as MPD
 import Data.Scientific (Scientific)
+import Text.Printf
 import Text.Read (readMaybe)
 import Data.String (fromString)
 
@@ -39,6 +42,10 @@ newtype P a = P { unP :: Parsec Void Text a }
 instance Alternative P where
   empty = P empty
   P a <|> P b = P (MP.try a <|> MP.try b)
+
+dbg :: Show a => String -> P a -> P a
+dbg _ p = p
+-- dbg msg (P inner) = P (MPD.dbg msg inner)
 
 spaceP :: P ()
 spaceP = P (MPCL.space MPC.hspace1 (MPCL.skipLineComment "--") empty)
@@ -187,14 +194,14 @@ conTyP = (ConTyKnown <$> tyNameP) <|> (ConTyFree <$> tyVarP)
 -- Parse a "plain" type constructor - no special logic for lists
 plainTyConP :: P (Ty TyVar)
 plainTyConP = do
-  cn <- conTyP
-  as <- some (tyP True True)
+  cn <- dbg "Parse plainTyConP.cn" conTyP
+  as <- dbg (printf "Parse plainTyConP.as (cn=%s)" (show cn)) $ some (tyP True True)
   pure (TyCon cn (Seq.fromList as))
 
 -- Parse an infix list constructor
 listTyConP :: P (Ty TyVar)
 listTyConP = do
-  _ <- keywordP "["
+  _ <- dbg "listTyConP.[" $ keywordP "["
   ty <- tyP False False
   _ <- keywordP "]"
   pure (TyCon (ConTyKnown "([])") (Seq.singleton ty))
@@ -238,7 +245,7 @@ singleTyP = fmap TyFree tyVarP <|> fmap (`TyCon` Empty) conTyP
 tyP :: Bool -> Bool -> P (Ty TyVar)
 tyP conNeedParen arrNeedParen =
   (if arrNeedParen then inParensP tyArrP else tyArrP) <|>
-  (if conNeedParen then inParensP tyConP else tyConP) <|>
+  (if conNeedParen then listTyConP <|> tupTyConP <|> inParensP tyConP else tyConP) <|>
   singleTyP
 
 assocFn :: Ty TyVar -> [Ty TyVar] -> Ty TyVar

@@ -8,14 +8,26 @@ import Data.List (isInfixOf)
 import Data.List.Utils
 import Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Debug.Trace (trace)
+import Prelude hiding (lines)
 import Rulecheck.Config
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering
 import Rulecheck.Rule
 import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
+import Searchterm.Synth.Search
+import Searchterm.Util
+import Searchterm.Interface.Decl (DeclSet, mkLineDecls)
+import Searchterm.Interface.Parser
+import Searchterm.Interface.Printer
+import Searchterm.Interface.Names (namelessType)
+import Searchterm.Interface.Types (Line)
 import System.Directory
 import System.Environment (getArgs)
+import Text.Printf
 
 packageFilePath :: String -> PackageDescription -> String -> FilePath
 packageFilePath prefix pkg file =
@@ -122,24 +134,66 @@ processPackage prefix pkg = do
       putStrLn $ "Processing file at " ++ path
       generateFile (getGenerateOptions path n pkg)
 
-getPackagesToProcess :: IO [PackageDescription]
-getPackagesToProcess = do
+getPackagesToProcess :: [String] -> IO [PackageDescription]
+getPackagesToProcess packages = do
   jsonResult <- eitherDecodeFileStrict packageDescriptionsFile
-  case jsonResult of
+  return $ case jsonResult of
     Left err           -> error err
-    Right descriptions ->
-      fmap go getArgs
-        where
-          go [] = filter (not . skip) $ case startFromPackage of
-            Just p  -> dropWhile ((p /=) . name) descriptions
-            Nothing -> descriptions
-          go packages = filter ((`elem` packages) . name) descriptions
+    Right descriptions -> go packages
+      where
+        go [] = filter (not . skip) $ case startFromPackage of
+          Just p  -> dropWhile ((p /=) . name) descriptions
+          Nothing -> descriptions
+        go _  = filter ((`elem` packages) . name) descriptions
 
-          skip package = name package `elem` packagesToSkip
+        skip package = name package `elem` packagesToSkip
+
+rulecheck :: [String] -> IO ()
+rulecheck args = do
+  dir <- haskellPackagesDir
+  toProcess <- getPackagesToProcess args
+  mapM_ (processPackage dir) toProcess
+  putStrLn "Done"
+
+loadFileLines :: FilePath -> IO [Line]
+loadFileLines fp = do
+  contents <- TIO.readFile fp
+  return $ concatMap go $ T.lines contents
+  where
+    go :: T.Text -> [Line]
+    go t | T.null t = []
+    go t | Right e <- parseLine fp t = [e]
+    go t | Left e  <- parseLine fp t = [] -- trace ("Could not parse line " ++ T.unpack t) []
+
+
+searchWithLines :: String -> [Line] -> IO ()
+searchWithLines typName lines = do
+  ds <- rethrow (mkLineDecls lines)
+  tsNamed <- rethrow (parseType (T.pack (typName)))
+  ts <- rethrow (namelessType tsNamed)
+  let maxSearchDepth = 5
+  let useSkolem = UseSkolemYes
+  let config = SearchConfig ds ts maxSearchDepth useSkolem
+  let numResults = 10
+  case runSearchN config numResults of
+    Left err      -> error (show err)
+    Right results -> do
+      printf "%d terms found for type %s\n" (length results) typName
+      mapM_ (putStrLn . T.unpack . printTerm . foundTm) results
+
+searchterm :: [String] -> IO ()
+searchterm [filename, typName] = do
+  baseLines <- loadFileLines "searchterm/prelude.txt"
+  pkgLines  <- loadFileLines filename
+  searchWithLines typName $ baseLines ++ pkgLines
+searchterm [typName] = do
+  baseLines <- loadFileLines "searchterm/prelude.txt"
+  searchWithLines typName baseLines
+searchterm _ = putStrLn "Usage stack run -- --searchterm DEF_FILE TYP"
 
 main :: IO ()
 main = do
-  dir <- haskellPackagesDir
-  toProcess <- getPackagesToProcess
-  mapM_ (processPackage dir) toProcess
-  putStrLn "Done"
+  args <- getArgs
+  case args of
+    ("--searchterm" : stArgs) -> searchterm stArgs
+    _ -> rulecheck args

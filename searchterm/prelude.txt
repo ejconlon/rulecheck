@@ -1,0 +1,16 @@
+type Int
+primInt :: Int
+
+type (,) a b
+(,) :: a -> b -> (,) a b
+constructors (,) (,)
+
+type Maybe a
+Nothing :: Maybe a
+Just :: a -> Maybe a
+constructors Maybe Nothing Just
+
+module Data.Traversable
+
+class Data.Traversable t
+instance Data.Traversable Maybe
