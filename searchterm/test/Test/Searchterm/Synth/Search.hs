@@ -9,11 +9,10 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..), Strained (..), Ty (..))
-import Searchterm.Util (DeclSrc(..), loadDecls, rethrow)
-import Searchterm.Interface.Decl (DeclSet (..))
-import Searchterm.Interface.Names (AlphaTm (..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme (..), toListWithIndex)
-import Searchterm.Interface.Parser (parseTerm, parseType)
+import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..), Strained (..), Ty (..), PatPair (..))
+import Searchterm.Interface.Decl (DeclSet (..), mkLineDecls)
+import Searchterm.Interface.Names (AlphaTm(..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme(..), toListWithIndex)
+import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
 import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..), TyFoundScheme (..), constFillTyScheme)
 import Test.Tasty (TestTree, testGroup)
@@ -26,7 +25,27 @@ import Data.Functor.Foldable (cata)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
+import Searchterm.Interface.Types (Line)
 
+rethrow :: Exception e => Either e a -> IO a
+rethrow = either throwIO pure
+
+data DeclSrc =
+    DeclSrcFile !FilePath
+  | DeclSrcList ![Text]
+  | DeclSrcPlus !DeclSrc !DeclSrc
+  deriving stock (Eq, Show)
+
+loadDeclLines :: DeclSrc -> IO (Seq Line)
+loadDeclLines = \case
+  DeclSrcFile fp -> parseLinesIO fp
+  DeclSrcList ts -> rethrow (parseLines "<load>" (T.unlines ts))
+  DeclSrcPlus a b -> (<>) <$> loadDeclLines a <*> loadDeclLines b
+
+loadDecls :: DeclSrc -> IO DeclSet
+loadDecls src = do
+  ls <- loadDeclLines src
+  rethrow (mkLineDecls (toList ls))
 
 maxSearchDepth :: Int
 maxSearchDepth = 5
@@ -71,7 +90,9 @@ inlineLets = flip runReader Empty . cata goTm where
     TmAppF wl wr -> TmApp <$> wl <*> wr
     TmLamF b w -> TmLam b <$> local (:|> Nothing) w
     TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
-    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse sequence pairs
+    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse goPair pairs
+  goPair :: PatPair TmUniq (Reader (Seq (Maybe TmFound)) TmFound) -> Reader (Seq (Maybe TmFound)) (PatPair TmUniq TmFound)
+  goPair (PatPair pat w) = fmap (PatPair pat) (local (<> Seq.fromList (fmap (const Nothing) (toList pat))) w)
 
 findAll :: Int -> Map AlphaTm AlphaTyScheme -> Set AlphaTm -> SearchSusp Found -> IO ()
 findAll !lim !yesTms !noTms !susp =
@@ -110,7 +131,7 @@ data Match = Match
 
 testFindsRaw :: TestName -> UseSkolem -> DeclSrc -> Text -> [Match] -> [Text] -> TestTree
 testFindsRaw n useSkolem src tyStr yesMatchStrs noTmStrs = testCase n $ do
-  ds <- loadDecls src
+  ds <- loadDecls (DeclSrcPlus (DeclSrcFile "../testdata/prelude.txt") src)
   tsNamed <- rethrow (parseType tyStr)
   ts <- rethrow (namelessType tsNamed)
   yesTms <- traverse (rethrow . parseTerm . matchTm) yesMatchStrs
@@ -174,6 +195,11 @@ litsDeclSrc = DeclSrcList
   , "literals Int 3"
   ]
 
+zeroDeclSrc :: DeclSrc
+zeroDeclSrc = DeclSrcList
+  [ "literals Int 0"
+  ]
+
 testSearchFinds :: TestTree
 testSearchFinds = testGroup "finds"
   [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
@@ -233,6 +259,49 @@ testSearchFinds = testGroup "finds"
       )
       "(String -> Int) -> String -> Bool"
       [ "(\\f -> (\\s -> (isEven (f s))))"
+      ]
+      []
+  , testFinds "unit"
+      zeroDeclSrc
+      "()"
+      [ "()"
+      ]
+      []
+  , testFinds "unit destruct"
+      zeroDeclSrc
+      "() -> Int"
+      [ "(\\x -> 0)"
+      , "(\\x -> (case x of { () -> 0 }))"
+      ]
+      []
+  , testFinds "list"
+      zeroDeclSrc
+      "([]) Int"
+      [ "([])"
+      , "(((:) 0) ([]))"
+      ]
+      []
+  , testFinds "list destruct"
+      zeroDeclSrc
+      "([]) Int -> Int"
+      [ "(\\x -> 0)"
+      , "(\\x -> (case x of { ([]) -> 0 ; (:) a b -> 0 }))"
+      , "(\\x -> (case x of { ([]) -> 0 ; (:) a b -> a }))"
+      ]
+      []
+  , testFinds "tuple"
+      zeroDeclSrc
+      "(,) Int Int"
+      [ "(((,) 0) 0)"
+      ]
+      []
+  , testFinds "tuple destruct"
+      zeroDeclSrc
+      "(,) Int Int -> Int"
+      [ "(\\x -> 0)"
+      , "(\\x -> (case x of { (,) a b -> 0 }))"
+      , "(\\x -> (case x of { (,) a b -> a }))"
+      , "(\\x -> (case x of { (,) a b -> b }))"
       ]
       []
   -- NOTE(ejconlon): You would expect this to work but it doesn't.

@@ -34,6 +34,7 @@ import qualified Text.Megaparsec.Debug as MPD
 import Data.Scientific (Scientific)
 import Text.Printf
 import Text.Read (readMaybe)
+import Data.String (fromString)
 
 newtype P a = P { unP :: Parsec Void Text a }
   deriving newtype (Functor, Applicative, Monad, MonadFail)
@@ -158,8 +159,28 @@ symP = lexP $ do
 tyNameP :: P TyName
 tyNameP = fmap TyName (upperP <|> symP)
 
+tmUnitP :: P TmName
+tmUnitP = "()" <$ keywordP "()"
+
+-- TODO Make these 3 infix and uncomment in builtinTmNameP
+
+-- tmListNilP :: P TmName
+-- tmListNilP = error "TODO"
+
+-- tmListConsP :: P TmName
+-- tmListConsP = error "TODO"
+
+-- tmTupP :: P TmName
+-- tmTupP = error "TODO"
+
+builtinTmNameP :: P TmName
+builtinTmNameP = tmUnitP -- <|> tmListNilP <|> tmListConsP <|> tmTupP
+
+plainTmNameP :: P TmName
+plainTmNameP = fmap TmName (identP <|> symP)
+
 tmNameP :: P TmName
-tmNameP = fmap TmName (identP <|> symP)
+tmNameP = builtinTmNameP <|> plainTmNameP
 
 tyVarP :: P TyVar
 tyVarP = fmap TyVar lowerP
@@ -185,18 +206,27 @@ listTyConP = do
   _ <- keywordP "]"
   pure (TyCon (ConTyKnown "([])") (Seq.singleton ty))
 
--- Parse an infix tuple constructor
+-- Parse an infix tuple constructor (of arbitrary arity)
 tupTyConP :: P (Ty TyVar)
 tupTyConP = do
   _ <- openParenP
   ty1 <- tyP False False
-  _ <- commaP
-  ty2 <- tyP False False
+  tys <- some $ do
+    _ <- commaP
+    tyP False False
   _ <- closeParenP
-  pure (TyCon (ConTyKnown "(,)") (Seq.fromList [ty1, ty2]))
+  let tn = fromString ("(" ++ replicate (length tys) ',' ++ ")")
+  pure (TyCon (ConTyKnown tn) (Seq.fromList (ty1:tys)))
+
+-- Parse the unit type
+unitTyConP :: P (Ty TyVar)
+unitTyConP = TyCon (ConTyKnown "()") Empty <$ keywordP "()"
+
+builtinTyConP :: P (Ty TyVar)
+builtinTyConP = unitTyConP <|> listTyConP <|> tupTyConP
 
 tyConP :: P (Ty TyVar)
-tyConP = listTyConP <|> tupTyConP <|> plainTyConP
+tyConP = builtinTyConP <|> plainTyConP
 
 tyArrP :: P (Ty TyVar)
 tyArrP = do
@@ -353,7 +383,7 @@ tmAppP = inParensP $ do
   two <- tmP
   rest <- many tmP
   pure (mkApp one two rest)
--- We can only parse vars as free until we resolve them later
+-- We can only parse vars/funs as free until we resolve them later
 tmFreeP = fmap (TmFree . TmVar . unTmName) tmNameP
 tmLetP = optParensP $ do
   _ <- keywordP "let"

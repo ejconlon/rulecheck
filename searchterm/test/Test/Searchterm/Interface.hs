@@ -24,17 +24,26 @@ testInterface = testGroup "interface"
   , testParseTy
   , testParseLine
   , testBaseTxt
+  , testPreludeTxt
   ]
 
-testBaseTxt :: TestTree
-testBaseTxt = testCase "base.txt" $ do
+assertParseFile :: FilePath -> IO ()
+assertParseFile fn = do
   -- assert that we can parse, render, and parse again to get the same thing
-  x <- parseLinesIO "../testdata/base.txt"
+  x <- parseLinesIO fn
   let y = printLines x
   z <- either throwIO pure (parseLines "<test>" y)
   if Seq.length z == Seq.length x
     then for_ (Seq.zip z x) (uncurry (@?=))
     else fail "mismatch lengths"
+
+testBaseTxt :: TestTree
+testBaseTxt = testCase "base.txt" $ do
+  assertParseFile "../testdata/base.txt"
+
+testPreludeTxt :: TestTree
+testPreludeTxt = testCase "prelude.txt" $ do
+  assertParseFile "../testdata/prelude.txt"
 
 assertParseTm :: Text -> Tm TmVar TmVar -> IO ()
 assertParseTm expectedTxt expectedAst = do
@@ -49,6 +58,15 @@ mkPP cn = PatPair . Pat . ConPat cn . Seq.fromList
 testParseTm :: TestTree
 testParseTm = testCase "parseTm" $ do
   assertParseTm "foo" (TmFree "foo")
+
+  assertParseTm "([])" $ TmFree "([])"
+  assertParseTm "(((:) x) y)" $ TmApp (TmApp (TmFree "(:)") (TmFree "x")) (TmFree "y")
+  assertParseTm "(((:) x) ([]))" $ TmApp (TmApp (TmFree "(:)") (TmFree "x")) (TmFree "([])")
+
+  assertParseTm "(((,) a) b)" $ TmApp (TmApp (TmFree "(,)") (TmFree "a")) (TmFree "b")
+  assertParseTm "(((((,,,) a) b) c) d)" $
+    TmApp (TmApp (TmApp (TmApp (TmFree "(,,,)") (TmFree "a")) (TmFree "b")) (TmFree "c")) (TmFree "d")
+  assertParseTm "()" (TmFree "()")
 
   assertParseTm "(case x of { Bar y -> x ; Baz z -> z })" $
     TmCase (TmFree "x") (Seq.fromList [mkPP "Bar" ["y"] (TmFree "x"), mkPP "Baz" ["z"] (TmFree "z")])
@@ -92,11 +110,14 @@ testParseTy = testCase "parseTy" $ do
   assertParseTy True "forall a b. (,) a b" $
     mkS ["a", "b"] [] (tyCon "(,)" [TyFree "a", TyFree "b"])
   assertParseTy False "forall a b. (a, b)" $
-    mkS ["a", "b"] [] (tyCon "(,)" [TyFree "a", TyFree "b"])
-  assertParseTy False "Maybe [Int]" $
-    mkS [] [] (tyCon "Maybe" [tyCon "([])" [tyCon "Int" []]])
-  -- assertParseTy False "forall p a b c s t. Biapplicative p => (forall f x. Applicative f => (a -> f x) -> s -> f (t x)) -> (a -> p b c) -> s -> p (t b) (t c)" $
-  --   mkS ["a"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
+    mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
+  assertParseTy True "forall a b c d. (,,,) a b c d" $
+    mkS ["a", "b", "c", "d"] [] $ TyCon (ConTyKnown "(,,,)") $
+      Seq.fromList (fmap TyFree ["a", "b", "c", "d"])
+  assertParseTy False "forall a b c d. (a, b, c, d)" $
+    mkS ["a", "b", "c", "d"] [] $ TyCon (ConTyKnown "(,,,)") $
+      Seq.fromList (fmap TyFree ["a", "b", "c", "d"])
+  assertParseTy True "()" (mkS [] [] (TyCon (ConTyKnown "()") Empty))
   assertParseTy True "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
     TyFun
       (TyFun (TyFree "a") (TyFree "b"))
