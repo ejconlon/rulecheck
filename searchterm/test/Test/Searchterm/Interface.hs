@@ -49,6 +49,14 @@ testParseTm :: TestTree
 testParseTm = testCase "parseTm" $ do
   assertParseTm "foo" (TmFree "foo")
 
+  assertParseTm "([])" $ TmFree "([])"
+  assertParseTm "(((:) x) y)" $ TmApp (TmApp (TmFree "(:)") (TmFree "x")) (TmFree "y")
+
+  assertParseTm "(((,) a) b)" $ TmApp (TmApp (TmFree "(,)") (TmFree "a")) (TmFree "b")
+  assertParseTm "(((((,,,) a) b) c) d)" $
+    TmApp (TmApp (TmApp (TmApp (TmFree "(,,,)") (TmFree "a")) (TmFree "b")) (TmFree "c")) (TmFree "d")
+  assertParseTm "()" (TmFree "()")
+
   assertParseTm "(case x of { Bar y -> x ; Baz z -> z })" $
     TmCase (TmFree "x") (Seq.fromList [mkPP "Bar" ["y"] (TmFree "x"), mkPP "Baz" ["z"] (TmFree "z")])
 
