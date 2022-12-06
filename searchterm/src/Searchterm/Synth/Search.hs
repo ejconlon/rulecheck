@@ -475,6 +475,11 @@ mkApp = go where
     Empty -> t
     s :<| ss -> go (TmApp t s) ss
 
+data BuiltinTy =
+    BuiltinTyList
+  | BuiltinTyTuple !Int
+  deriving stock (Eq, Ord, Show)
+
 -- Generates a lambdacase expression
 destructFits :: TyUniq -> SearchM TmFound
 destructFits goalKey = traceScopeM "Destruct fit" $ do
@@ -491,7 +496,10 @@ destructFits goalKey = traceScopeM "Destruct fit" $ do
           case Map.lookup tn (dsCons decls) of
             -- And can only destruct if we know the data constructors
             Just cons -> searchCase argKey retKey cons
-            _ -> empty
+            Nothing ->
+              -- However, we can cheat a bit and build in support for lists and tuples
+              -- TODO
+              empty
         _ -> empty
     _ -> empty
 

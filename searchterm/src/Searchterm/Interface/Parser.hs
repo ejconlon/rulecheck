@@ -191,8 +191,15 @@ tupTyConP = do
   let tn = fromString ("(" ++ replicate (length tys) ',' ++ ")")
   pure (TyCon (ConTyKnown tn) (Seq.fromList (ty1:tys)))
 
+-- Parse the unit type
+unitTyConP :: P (Ty TyVar)
+unitTyConP = do
+  _ <- openParenP
+  _ <- closeParenP
+  pure (TyCon (ConTyKnown "()") Empty)
+
 tyConP :: P (Ty TyVar)
-tyConP = listTyConP <|> tupTyConP <|> plainTyConP
+tyConP = listTyConP <|> tupTyConP <|> unitTyConP <|> plainTyConP
 
 tyArrP :: P (Ty TyVar)
 tyArrP = do
