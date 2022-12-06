@@ -27,26 +27,6 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Searchterm.Interface.Types (Line)
 
-rethrow :: Exception e => Either e a -> IO a
-rethrow = either throwIO pure
-
-data DeclSrc =
-    DeclSrcFile !FilePath
-  | DeclSrcList ![Text]
-  | DeclSrcPlus !DeclSrc !DeclSrc
-  deriving stock (Eq, Show)
-
-loadDeclLines :: DeclSrc -> IO (Seq Line)
-loadDeclLines = \case
-  DeclSrcFile fp -> parseLinesIO fp
-  DeclSrcList ts -> rethrow (parseLines "<load>" (T.unlines ts))
-  DeclSrcPlus a b -> (<>) <$> loadDeclLines a <*> loadDeclLines b
-
-loadDecls :: DeclSrc -> IO DeclSet
-loadDecls src = do
-  ls <- loadDeclLines src
-  rethrow (mkLineDecls (toList ls))
-
 maxSearchDepth :: Int
 maxSearchDepth = 5
 

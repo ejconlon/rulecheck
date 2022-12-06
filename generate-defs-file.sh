@@ -15,4 +15,5 @@ HOOGLE_FILE=$(cabal haddock --with-haddock=$HADDOCK --with-ghc=ghc-9.0.2 --haddo
 sed '/^--/d' "$HOOGLE_FILE" | \
     sed '/-> \*/d'|\
     sed '/forall.*forall/d'|\
-    sed 's/^newtype /data /' | sed 's/^\[\(.*\)\]/\1/g' > defs.txt
+    sed 's/^data /type /' |\
+    sed 's/^newtype /type /' | sed 's/^\[\(.*\)\]/\1/g' > defs.txt

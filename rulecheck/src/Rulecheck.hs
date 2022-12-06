@@ -9,6 +9,9 @@ import Data.List.Utils
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Debug.Trace (trace)
+import Prelude hiding (lines)
 import Rulecheck.Config
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering
@@ -17,11 +20,14 @@ import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
 import Searchterm.Synth.Search
 import Searchterm.Util
+import Searchterm.Interface.Decl (DeclSet, mkLineDecls)
 import Searchterm.Interface.Parser
 import Searchterm.Interface.Printer
 import Searchterm.Interface.Names (namelessType)
+import Searchterm.Interface.Types (Line)
 import System.Directory
 import System.Environment (getArgs)
+import Text.Printf
 
 packageFilePath :: String -> PackageDescription -> String -> FilePath
 packageFilePath prefix pkg file =
@@ -149,9 +155,20 @@ rulecheck args = do
   mapM_ (processPackage dir) toProcess
   putStrLn "Done"
 
-searchterm :: [String] -> IO ()
-searchterm [filename, typName] = do
-  ds <- withDieOnParseErr (loadDecls (DeclSrcFile filename))
+loadFileLines :: FilePath -> IO [Line]
+loadFileLines fp = do
+  contents <- TIO.readFile fp
+  return $ concatMap go $ T.lines contents
+  where
+    go :: T.Text -> [Line]
+    go t | T.null t = []
+    go t | Right e <- parseLine fp t = [e]
+    go t | Left e  <- parseLine fp t = [] -- trace ("Could not parse line " ++ T.unpack t) []
+
+
+searchWithLines :: String -> [Line] -> IO ()
+searchWithLines typName lines = do
+  ds <- rethrow (mkLineDecls lines)
   tsNamed <- rethrow (parseType (T.pack (typName)))
   ts <- rethrow (namelessType tsNamed)
   let maxSearchDepth = 5
@@ -160,7 +177,18 @@ searchterm [filename, typName] = do
   let numResults = 10
   case runSearchN config numResults of
     Left err      -> error (show err)
-    Right results -> mapM_ (putStrLn . T.unpack . printTerm . foundTm) results
+    Right results -> do
+      printf "%d terms found for type %s\n" (length results) typName
+      mapM_ (putStrLn . T.unpack . printTerm . foundTm) results
+
+searchterm :: [String] -> IO ()
+searchterm [filename, typName] = do
+  baseLines <- loadFileLines "searchterm/prelude.txt"
+  pkgLines  <- loadFileLines filename
+  searchWithLines typName $ baseLines ++ pkgLines
+searchterm [typName] = do
+  baseLines <- loadFileLines "searchterm/prelude.txt"
+  searchWithLines typName baseLines
 searchterm _ = putStrLn "Usage stack run -- --searchterm DEF_FILE TYP"
 
 main :: IO ()
