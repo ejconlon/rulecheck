@@ -22,18 +22,19 @@ module Searchterm.Interface.Names
   ) where
 
 import Control.Exception (Exception)
+import Control.Monad (void)
+import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), local)
 import Control.Monad.State.Strict (MonadState (..), State, modify', runState)
+import Data.Foldable (toList)
 import Data.Functor.Foldable (cata)
+import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Typeable (Typeable)
-import Searchterm.Interface.Core (Forall (..), Index (..), Inst (..), InstScheme (..), Strained (..), Tm (..), TmF (..),
-                                 TmName (..), TyScheme (..), TyVar, PatPair (..), Pat (..), ConPat (..), Ty)
-import Control.Monad (void)
-import Data.Maybe (fromMaybe)
 import GHC.Stack (HasCallStack)
-import Data.Foldable (toList)
+import Searchterm.Interface.Core (ConPat (..), Forall (..), Index (..), Inst (..), InstScheme (..), Pat (..),
+                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme (..), TyVar)
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss =
@@ -137,6 +138,34 @@ namelessClosedTerm isKnown tm =
   in case xtra of
     Empty -> Right tm'
     _ -> Left (NamelessErrMissing xtra)
+
+type N v a = ReaderT (Seq v) (Except NamedErr) a
+
+runN :: N w a -> Either NamedErr a
+runN = runExcept . flip runReaderT Empty
+
+-- | Rename a closed de Bruijn indexed term
+renameTerm :: (v -> w) -> Tm v Index -> Either NamedErr (Tm w w)
+renameTerm f = runN . cata goTm where
+  goTm = \case
+    TmFreeF ix -> do
+      s <- ask
+      case lookupSeq s ix of
+        Nothing -> throwError (NamedErrMissing ix)
+        Just w -> pure (TmFree w)
+    TmLitF l -> pure (TmLit l)
+    TmKnownF n -> pure (TmKnown n)
+    TmAppF mx my -> TmApp <$> mx <*> my
+    TmLamF b mbody ->
+      let c = f b
+      in TmLam c <$> local (:|> c) mbody
+    TmLetF b marg mbody ->
+      let c = f b
+      in TmLet c <$> marg <*> local (:|> c) mbody
+    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse goPat pairs
+  goPat (PatPair (Pat (ConPat tn bs)) mtm) =
+    let cs = fmap f bs
+    in PatPair (Pat (ConPat tn cs)) <$> local (<> cs) mtm
 
 newtype AlphaTm = AlphaTm { unAlphaTm :: Tm () Index }
   deriving stock (Show)

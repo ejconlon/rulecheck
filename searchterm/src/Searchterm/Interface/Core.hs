@@ -45,6 +45,8 @@ import Control.Monad (join)
 import Data.Foldable (toList)
 import Data.Functor.Foldable (project)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
+import Data.List (intercalate)
+import Data.Scientific (Scientific)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString)
@@ -52,8 +54,6 @@ import Data.Text (Text)
 import Prettyprinter (Pretty (..), (<+>))
 import qualified Prettyprinter as P
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
-import Data.List (intercalate)
-import Data.Scientific (Scientific)
 
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }

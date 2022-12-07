@@ -2,30 +2,33 @@
 
 module Test.Searchterm.Synth.Search (testSearch) where
 
-import Control.Monad ((<=<), unless, void)
+import Control.Monad (unless, void, (<=<))
+import Control.Monad.Reader (MonadReader (..), Reader, asks, runReader)
 import Data.Foldable (for_, toList)
+import Data.Functor.Foldable (cata)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
+import Data.Sequence (Seq (..))
+import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Index (..), TmName (..), TmVar (..), TmF (..), Tm (..), Forall (..), TyScheme (..), TyVar (..), Strained (..), Ty (..), PatPair (..))
+import Searchterm.Interface.Core (Forall (..), Index (..), PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..),
+                                  TmVar (..), Ty (..), TyScheme (..), TyVar (..))
 import Searchterm.Interface.Decl (DeclSet (..))
-import Searchterm.Interface.Names (AlphaTm(..), closeAlphaTm, mapAlphaTm, namelessType, unsafeLookupSeq, closeAlphaTyScheme, AlphaTyScheme(..), toListWithIndex)
+import Searchterm.Interface.Names (AlphaTm (..), AlphaTyScheme (..), closeAlphaTm, closeAlphaTyScheme, mapAlphaTm,
+                                   namelessType, toListWithIndex, unsafeLookupSeq)
 import Searchterm.Interface.Parser (parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
-import Searchterm.Synth.Search (SearchConfig (..), SearchSusp, Found (..), TmFound, nextSearchResult, runSearchSusp, TmUniq, UseSkolem (..), TyFoundScheme (..), constFillTyScheme)
-import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit ((@?=), testCase)
-import Test.Tasty.Providers (TestName)
-import Control.Monad.Reader (runReader, asks, MonadReader (..), Reader)
-import Data.Sequence (Seq(..))
-import Data.Maybe (fromMaybe)
-import Data.Functor.Foldable (cata)
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import qualified Data.Sequence as Seq
+import Searchterm.Synth.Search (Found (..), SearchConfig (..), SearchSusp, TmFound, TmUniq, TyFoundScheme (..),
+                                UseSkolem (..), constFillTyScheme, nextSearchResult, runSearchSusp)
 import Searchterm.Util
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit (testCase, (@?=))
+import Test.Tasty.Providers (TestName)
 
 maxSearchDepth :: Int
 maxSearchDepth = 5

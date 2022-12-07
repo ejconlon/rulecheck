@@ -2,21 +2,22 @@
 
 module Test.Searchterm.Interface (testInterface) where
 
-import Control.Monad (when)
 import Control.Exception (throwIO)
+import Control.Monad (when)
 import Data.Foldable (for_)
+import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Searchterm.Interface.Parser (parseLines, parseLinesIO, parseTerm, parseLine, parseType)
-import Searchterm.Interface.Printer (printLines)
-import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit (testCase, (@?=))
 import Data.Text (Text)
-import Searchterm.Interface.Core (TmVar, Tm (..), TmName, PatPair (..), ConPat (..), Pat (..), Lit (..), TyVar, TyScheme (..), Ty (..), Inst, Strained (..), Forall (..), ConTy (..))
 import Prettyprinter (pretty)
+import Searchterm.Interface.Core (ConPat (..), ConTy (..), Forall (..), Inst, Lit (..), Pat (..), PatPair (..),
+                                  Strained (..), Tm (..), TmName, TmVar, Ty (..), TyScheme (..), TyVar)
 import Searchterm.Interface.ParenPretty (docToText)
+import Searchterm.Interface.Parser (parseLine, parseLines, parseLinesIO, parseTerm, parseType)
+import Searchterm.Interface.Printer (printLines)
 import Searchterm.Interface.Types (Line (..), LitLine (..))
 import Searchterm.Util
-import Data.Sequence (Seq(..))
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit (testCase, (@?=))
 
 testInterface :: TestTree
 testInterface = testGroup "interface"

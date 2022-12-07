@@ -21,30 +21,31 @@ module Searchterm.Synth.Search
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (Exception)
+import Control.Monad (unless, void)
 import Control.Monad.Except (MonadError (..))
 import Control.Monad.Logic (MonadLogic (..))
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
 import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
-import Data.Foldable (foldl', toList, asum)
-import Data.Functor.Foldable (cata, project, embed)
+import Data.Foldable (asum, foldl', toList)
+import Data.Functor.Foldable (cata, embed, project)
+import Data.List (nub)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Traversable (for)
-import Searchterm.Interface.Core (ClsName, Forall (Forall), Index (..), Inst (..), Strained (..), Tm (..), Ty (..),
-                                 TyF (..), TyScheme (..), TyVar (..), tySchemeBody, Partial (..), InstScheme (..), PatPair (..), ConPat (..), Pat (..), ConTy (..))
-import Searchterm.Interface.Decl (Decl (..), DeclSet (..), ConSig (..), declPartials)
-import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
-import Searchterm.Synth.UnionMap (UnionMap)
-import qualified Searchterm.Synth.UnionMap as UM
 import Data.Tuple (swap)
-import Searchterm.Synth.Monad (TrackSt (..), Track, runManyTrack)
-import Searchterm.Interface.ParenPretty (prettyShow)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
-import Control.Monad (unless, void)
-import Searchterm.Interface.Names (unsafeIndexSeqWith, toListWithIndex, namelessStrained, NamedErr, namedStrained)
-import Data.List (nub)
+import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (Forall), Index (..), Inst (..),
+                                  InstScheme (..), Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
+                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
+import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials)
+import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith)
+import Searchterm.Interface.ParenPretty (prettyShow)
+import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
+import Searchterm.Synth.Monad (Track, TrackSt (..), runManyTrack)
+import Searchterm.Synth.UnionMap (UnionMap)
+import qualified Searchterm.Synth.UnionMap as UM
 -- import qualified Debug.Trace as DT
 -- import Text.Pretty.Simple (pShow)
 -- import qualified Data.Text as T

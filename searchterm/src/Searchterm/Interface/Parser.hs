@@ -11,8 +11,8 @@ module Searchterm.Interface.Parser
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (throwIO)
-import Control.Monad (void, join)
-import Data.Char (isAlphaNum, isSpace, isDigit)
+import Control.Monad (join, void)
+import Data.Char (isAlphaNum, isDigit, isSpace)
 import Data.Foldable (toList)
 import Data.List (nub)
 import Data.Sequence (Seq (..))
@@ -21,20 +21,21 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), Forall (..), Inst (..), InstScheme (..),
-                                 ModName (..), Rule (..), Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..),
-                                 TmVar (..), Ty (..), TyName (..), TyScheme (..), TyVar (..), strainedVars, PatPair (..), ConPat (..), Pat (..), Lit (..), ConTy (..))
-import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), TypeLine (..), FuncLine (..), InstLine (..), Line (..),
-                                  ModLine (..), RuleLine (..), LitLine (..))
+import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), ConPat (..), ConTy (..), Forall (..),
+                                  Inst (..), InstScheme (..), Lit (..), ModName (..), Pat (..), PatPair (..), Rule (..),
+                                  Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..), TmVar (..), Ty (..),
+                                  TyName (..), TyScheme (..), TyVar (..), strainedVars)
+import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..),
+                                   ModLine (..), RuleLine (..), TypeLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
-import qualified Text.Megaparsec.Debug as MPD
+-- import qualified Text.Megaparsec.Debug as MPD
 import Data.Scientific (Scientific)
-import Text.Printf
-import Text.Read (readMaybe)
 import Data.String (fromString)
+import Text.Printf (printf)
+import Text.Read (readMaybe)
 
 newtype P a = P { unP :: Parsec Void Text a }
   deriving newtype (Functor, Applicative, Monad, MonadFail)
@@ -43,7 +44,7 @@ instance Alternative P where
   empty = P empty
   P a <|> P b = P (MP.try a <|> MP.try b)
 
-dbg :: Show a => String -> P a -> P a
+dbg :: {-Show a =>-} String -> P a -> P a
 dbg _ p = p
 -- dbg msg (P inner) = P (MPD.dbg msg inner)
 

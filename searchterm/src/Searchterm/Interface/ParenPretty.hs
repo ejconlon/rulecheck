@@ -18,11 +18,11 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString (..))
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Void (Void, absurd)
 import Prettyprinter (Doc, Pretty (..), defaultLayoutOptions, layoutSmart)
 import qualified Prettyprinter as P
 import Prettyprinter.Render.Text (renderStrict)
-import qualified Data.Text as T
 
 prettyShow :: Pretty a => a -> String
 prettyShow = T.unpack . docToText . pretty

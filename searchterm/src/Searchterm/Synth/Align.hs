@@ -6,14 +6,14 @@ module Searchterm.Synth.Align where
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
+import Data.Either (isRight)
 import qualified Data.Sequence as Seq
-import Searchterm.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF, ConTy (..))
+import Prettyprinter (Pretty (..))
+import Searchterm.Interface.Core (ConTy (..), TyF (..), TyName, TyVar, bitraverseTyF)
+import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom)
 import Searchterm.Synth.UnionFind (MergeRes (..))
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
-import Prettyprinter (Pretty (..))
-import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom)
-import Data.Either (isRight)
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =

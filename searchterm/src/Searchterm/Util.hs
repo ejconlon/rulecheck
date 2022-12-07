@@ -1,20 +1,20 @@
 module Searchterm.Util where
 
-import Control.Exception
+import Control.Exception (Exception, catch, throwIO)
 import Data.Foldable (toList)
-import GHC.Stack
-import Searchterm.Interface.Parser
-import Searchterm.Interface.Decl (DeclSet, mkLineDecls)
-import Searchterm.Interface.Types (Line)
-import Data.Sequence
+import Data.Sequence (Seq)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Text.Megaparsec
+import GHC.Stack (HasCallStack, callStack, prettyCallStack)
+import Searchterm.Interface.Decl (DeclSet, mkLineDecls)
+import Searchterm.Interface.Parser (ParseErr, parseLines, parseLinesIO)
+import Searchterm.Interface.Types (Line)
+import Text.Megaparsec (errorBundlePretty)
 
 rethrow :: (HasCallStack, Exception e) => Either e a -> IO a
 rethrow = either throwErr pure where
   throwErr err = do
-    putStrLn $ "Exception at " ++ (prettyCallStack callStack)
+    putStrLn $ "Exception at " ++ prettyCallStack callStack
     throwIO err
 
 data DeclSrc =

@@ -20,10 +20,11 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Debug.Trace
 import Prelude hiding (lines)
-import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), TmName (..), TyScheme (..),
-                                 TyVar (..), instSchemeBody, tySchemeBody, Partial, tyToPartials, TyName, Ty, explodeTy, Lit)
+import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), Lit, Partial, TmName (..), Ty,
+                                  TyName, TyScheme (..), TyVar (..), explodeTy, instSchemeBody, tySchemeBody,
+                                  tyToPartials)
 import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
-import Searchterm.Interface.Types (FuncLine (..), InstLine (..), Line (..), ConsLine (..), LitLine (..))
+import Searchterm.Interface.Types (ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..))
 
 -- | A declared term (essentially name and type scheme)
 data Decl = Decl

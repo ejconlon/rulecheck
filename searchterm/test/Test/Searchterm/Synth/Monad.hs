@@ -3,14 +3,14 @@
 
 module Test.Searchterm.Synth.Monad (testMonad) where
 
+import Control.Applicative (Alternative (..))
 import Control.Monad (replicateM_)
-import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit (testCase, (@?=))
+import Control.Monad.Logic (MonadLogic (..), reflect)
+import Control.Monad.State.Strict (gets, modify')
 import Data.Void (Void, absurd)
 import Searchterm.Synth.Monad (Track, TrackSt (..), runManyTrack)
-import Control.Monad.Logic (MonadLogic (..), reflect)
-import Control.Applicative (Alternative (..))
-import Control.Monad.State.Strict (modify', gets)
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.HUnit (testCase, (@?=))
 
 testMonad :: TestTree
 testMonad = testGroup "Monad" [testBwd]

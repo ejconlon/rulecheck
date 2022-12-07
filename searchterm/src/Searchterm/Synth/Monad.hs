@@ -4,11 +4,11 @@ module Searchterm.Synth.Monad
   , runManyTrack
   ) where
 
-import Control.Monad.Except (Except, MonadError, runExcept)
-import Control.Monad.State.Strict (StateT (..), MonadState (..), modify', gets)
-import Control.Monad.Reader (MonadReader (..))
-import Control.Monad.Logic (LogicT, MonadLogic (..), observeManyT)
 import Control.Applicative (Alternative (..))
+import Control.Monad.Except (Except, MonadError, runExcept)
+import Control.Monad.Logic (LogicT, MonadLogic (..), observeManyT)
+import Control.Monad.Reader (MonadReader (..))
+import Control.Monad.State.Strict (MonadState (..), StateT (..), gets, modify')
 import Data.Bifunctor (second)
 
 -- | Backtracking state - the x component goes foreward, the y component backtracks

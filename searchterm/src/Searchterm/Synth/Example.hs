@@ -12,9 +12,10 @@ module Searchterm.Synth.Example where
 
 import Control.Exception (throwIO)
 import Data.Sequence (Seq (..))
-import Searchterm.Interface.Core (Forall (..), Strained (..), Ty (..), TyScheme (..), ConTy (..))
+import Searchterm.Interface.Core (ConTy (..), Forall (..), Strained (..), Ty (..), TyScheme (..))
 import Searchterm.Interface.Decl (DeclErr, DeclSet, mkDecls)
-import Searchterm.Synth.Search (SearchConfig (..), SearchErr, runSearchN, runSearchSusp, takeSearchResults, Found, UseSkolem (..))
+import Searchterm.Synth.Search (Found, SearchConfig (..), SearchErr, UseSkolem (..), runSearchN, runSearchSusp,
+                                takeSearchResults)
 
 -- | Some declarations - here just some "Int" constants and addition.
 exampleDecls :: Either DeclErr DeclSet
