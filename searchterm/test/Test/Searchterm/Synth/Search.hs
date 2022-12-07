@@ -287,6 +287,12 @@ testSearchFinds = testGroup "finds"
       , "(\\x -> (case x of { (,) a b -> b }))"
       ]
       []
+  , testFindsTy "Biapplicative"
+    (DeclSrcList
+     [ "primInt :: Int"
+     , "class Data.Biapplicative.Biapplicative p"
+     , "instance Data.Biapplicative.Biapplicative (,)"
+     ]) "Data.Biapplicative.Biapplicative p => p Int Int" [ Match "(((,) primInt) primInt)" "(,) Int Int"] []
   -- NOTE(ejconlon): You would expect this to work but it doesn't.
   -- This is because of how we're searching for constraints by
   -- eagerly instantiating type vars with concrete(ish) types

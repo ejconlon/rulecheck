@@ -17,6 +17,7 @@ dependencies:
 - unliftio-core
 - megaparsec
 - mtl
+- prettyprinter
 - MissingH
 - ghc-paths
 - hie-bios

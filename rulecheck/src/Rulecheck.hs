@@ -12,6 +12,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Debug.Trace (trace)
 import Prelude hiding (lines)
+import Prettyprinter
 import Rulecheck.Config
 import Rulecheck.Monad (cradleGhcM)
 import Rulecheck.Rendering
@@ -20,13 +21,15 @@ import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
 import Searchterm.Synth.Search
 import Searchterm.Util
-import Searchterm.Interface.Decl (DeclSet, mkLineDecls)
+import Searchterm.Interface.Decl (mkLineDecls)
+import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Parser
 import Searchterm.Interface.Printer
-import Searchterm.Interface.Names (namelessType)
+import Searchterm.Interface.Names
 import Searchterm.Interface.Types (Line)
 import System.Directory
 import System.Environment (getArgs)
+import System.Environment.Blank (getEnvDefault)
 import Text.Printf
 
 packageFilePath :: String -> PackageDescription -> String -> FilePath
@@ -163,7 +166,7 @@ loadFileLines fp = do
     go :: T.Text -> [Line]
     go t | T.null t = []
     go t | Right e <- parseLine fp t = [e]
-    go t | Left e  <- parseLine fp t = [] -- trace ("Could not parse line " ++ T.unpack t) []
+    go t = trace ("Could not parse line " ++ T.unpack t) []
 
 
 searchWithLines :: String -> [Line] -> IO ()
@@ -171,15 +174,22 @@ searchWithLines typName lines = do
   ds <- rethrow (mkLineDecls lines)
   tsNamed <- rethrow (parseType (T.pack (typName)))
   ts <- rethrow (namelessType tsNamed)
-  let maxSearchDepth = 5
-  let useSkolem = UseSkolemYes
+  maxSearchDepth <- fmap read (getEnvDefault "RC_MAX_SEARCH_DEPTH" "10")
+  numResults <- fmap read (getEnvDefault "RC_NUM_RESULTS" "5")
+  let useSkolem = UseSkolemNo
   let config = SearchConfig ds ts maxSearchDepth useSkolem
-  let numResults = 10
   case runSearchN config numResults of
     Left err      -> error (show err)
     Right results -> do
       printf "%d terms found for type %s\n" (length results) typName
-      mapM_ (putStrLn . T.unpack . printTerm . foundTm) results
+      mapM_ showResult results
+      where
+        showResult result = do
+          printf "Term: %s\nType:%s\n" (printTerm (foundTm result)) (docToText ty)
+          where
+            ty = pretty $ unTyFoundScheme $ foundTy result
+
+
 
 searchterm :: [String] -> IO ()
 searchterm [filename, typName] = do
