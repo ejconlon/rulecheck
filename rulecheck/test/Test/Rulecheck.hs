@@ -80,7 +80,7 @@ testGetRule = testCase "getRule" $ do
     [tcm]      <- typecheck demoDomainFile
     let [rule1, _] = getTypecheckedRuleDecls tcm
     rule <- ruleFromDecl rule1
-    let [arg] = ruleArgs rule
+    let [arg] = ruleTermArgs rule
     arg'    <- outputString arg -- A unique mangled name
     argTyp  <- outputString (varType arg)
     lhs'    <- outputString (ruleLHS rule)
@@ -97,7 +97,7 @@ testRuleSideDoc = testCase "ruleSidedoc" $ do
     [tcm] <- typecheck demoDomainFile
     let [rule1, _] = getTypecheckedRuleDecls tcm
     rule <- ruleFromDecl rule1
-    let [arg] = ruleArgs rule
+    let [arg] = ruleTermArgs rule
     arg' <- outputString arg -- A unique mangled name
     let doc = ruleSideDoc (rule, TestSuffix 0 0 ) LHS Nothing
     tf <- outputString doc
