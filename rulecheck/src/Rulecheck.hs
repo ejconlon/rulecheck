@@ -1,9 +1,13 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
 import Control.Monad (when, unless)
 import Data.Aeson (eitherDecodeFileStrict)
+import qualified Data.Map as M
+import Data.Either (fromRight)
+import Data.Map (Map)
 import Data.List (isInfixOf)
 import Data.List.Utils
 import Data.Set (Set)
@@ -21,6 +25,7 @@ import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
 import Rulecheck.RuleExtraction
 import Searchterm.Synth.Search
 import Searchterm.Util
+import Searchterm.Interface.Core hiding (ruleName)
 import Searchterm.Interface.Decl (mkLineDecls)
 import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Parser
@@ -185,9 +190,28 @@ searchWithLines typName lines = do
       mapM_ showResult results
       where
         showResult result = do
-          printf "Term: %s\nType:%s\n" (printTerm (foundTm result)) (docToText ty)
+          printf "Term: %s\nType:%s\n" (printTerm (simplify M.empty renamedTm)) (docToText ty)
           where
-            ty = pretty $ unTyFoundScheme $ foundTy result
+            mkVarName (TmUniq i) = "x" ++ show i
+            renamedTm            = fromRight undefined $ renameTerm mkVarName (foundTm result)
+            ty                   = pretty $ unTyFoundScheme $ foundTy result
+
+            simplify :: (Ord a) => Map a (Tm a a) -> Tm a a -> Tm a a
+            simplify letBinds (TmFree x)  =
+              case M.lookup x letBinds of
+                Nothing -> TmFree x
+                Just tm -> simplify letBinds tm
+            simplify letBinds (TmApp f x) = TmApp (simplify letBinds f) (simplify letBinds x)
+            simplify letBinds (TmLam x b) | simplify letBinds b == TmFree x = TmKnown (TmName "id")
+            simplify letBinds (TmLam x b) = TmLam x (simplify letBinds b)
+            simplify letBinds (TmLet ident tm body) =
+              simplify (M.insert ident tm letBinds) body
+            simplify letBinds (TmCase tm cases) =
+              TmCase (simplify letBinds tm) (fmap (simplifyPat letBinds) cases)
+            simplify _ other = other
+
+            simplifyPat letBinds (PatPair pat bod) = PatPair pat (simplify letBinds bod)
+
 
 
 
