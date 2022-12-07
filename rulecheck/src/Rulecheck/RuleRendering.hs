@@ -38,7 +38,7 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
   let
     prefix    = "fn_" ++ sideString side ++ "_"
     name      = prefix ++ sanitizeName (ruleName rule) idx
-    args      = valArgs rule
+    args      = ruleTermArgs rule
 
     maybeBoxedArgs =
       case nonEmpty (map asBoxedArg args) of
@@ -143,7 +143,7 @@ ruleModuleDoc opts rules =
           $+$ commentArgValues
           $+$ text "Result ::" <+> typeComment (ruleType rule)
           $+$ text "-}"
-        commentArgValues = foldl' ($+$) empty (map go (valArgs rule)) where
+        commentArgValues = foldl' ($+$) empty (map go (ruleTermAndTyArgs rule)) where
           go arg =  text "Arg" <+> ppr arg <+> text "::" <+> typeComment (varType arg)
         typeComment typ = ppr typ <+> text ("(closed: " ++ show (noFreeVarsOfType typ) ++ ")")
         lhs = ruleSideDoc (rule, suffix) LHS (fmap fst sigOpt)

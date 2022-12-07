@@ -7,7 +7,6 @@ module Rulecheck.Rule
   , getSide
   , ruleFromDecl
   , noTyVarsInSig
-  , valArgs
   ) where
 
 import Control.Monad.IO.Class (MonadIO (..))
@@ -29,10 +28,11 @@ data RuleSide = LHS | RHS
 -- | A `Rule` is obtained from a Haskell RULES declaration (`LRuleDecl`);
 --   it contains all of the information necessary to construct fuzzing test cases
 data Rule = Rule
-  { ruleName    :: RuleName
-  , ruleArgs    :: [Var] -- IMPORTANT! This also includes type variables
-  , ruleLHS     :: HsExpr GhcTc
-  , ruleRHS     :: HsExpr GhcTc
+  { ruleName          :: RuleName
+  , ruleTermAndTyArgs :: [Var]
+  , ruleTermArgs      :: [Var]
+  , ruleLHS           :: HsExpr GhcTc
+  , ruleRHS           :: HsExpr GhcTc
 
   -- | The type of `ruleLHS`, presumably this is also the type of `ruleRHS`!
   , ruleType :: Kind
@@ -42,7 +42,7 @@ data Rule = Rule
 
 noTyVarsInSig :: Rule -> Bool
 noTyVarsInSig rule =
-  noFreeVarsOfType (ruleType rule) && all (noFreeVarsOfType . varType) (ruleArgs rule)
+  noFreeVarsOfType (ruleType rule) && all (noFreeVarsOfType . varType) (ruleTermArgs rule)
 
 getPrimitiveTypeName :: Kind -> Maybe String
 getPrimitiveTypeName ty
@@ -55,10 +55,6 @@ getPrimitiveTypeName ty
       else Nothing
   | otherwise = Nothing
 
-
--- Extract only the term arguments from the rule
-valArgs :: Rule -> [Var]
-valArgs = filter (isValName . varName) . ruleArgs
 
 getSide :: RuleSide -> Rule -> HsExpr GhcTc
 getSide LHS = ruleLHS
@@ -97,15 +93,10 @@ ruleFromDecl decl =
     let name = getRuleName decl
     let (HsRuleRn lhsVars rhsVars) = rd_ext (unLoc decl)
     let explicitVars = unionNameSet lhsVars rhsVars
-    -- mapM_ (go explicitVars) args
     let valueArgs = filter (\arg -> elemNameSet (varName arg) explicitVars) args
     session <- getSession
     lhsTyp  <- liftIO $ getType session lhs
-    return $ Rule name valueArgs (unLoc lhs) (unLoc rhs) (fromJust lhsTyp) (ppr decl)
-  -- where
-  --   go explicitVars arg =
-  --     liftIO $
-  --       putStrLn $ (showSDocUnsafe $ ppr arg) ++ " in? " ++ show (elemNameSet (varName arg) explicitVars)
+    return $ Rule name args valueArgs (unLoc lhs) (unLoc rhs) (fromJust lhsTyp) (ppr decl)
 
 data BoxType = BoxType
   {  boxedName   :: String
