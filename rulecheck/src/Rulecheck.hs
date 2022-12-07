@@ -190,7 +190,7 @@ searchWithLines typName lines = do
       mapM_ showResult results
       where
         showResult result = do
-          printf "Term: %s\nType:%s\n" (printTerm (simplify M.empty renamedTm)) (docToText ty)
+          printf "Term: %s\nType:%s\n" (printTerm (renamedTm)) (docToText ty)
           where
             mkVarName (TmUniq i) = "x" ++ show i
             renamedTm            = fromRight undefined $ renameTerm mkVarName (foundTm result)
