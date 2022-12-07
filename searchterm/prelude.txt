@@ -1,3 +1,4 @@
+
 class Eq a
 class Show a
 
@@ -57,4 +58,22 @@ module Data.Traversable
 class Data.Traversable t
 instance Data.Traversable Maybe
 
+class Functor f
+fmap :: Functor f => f a -> (a -> b) -> f b
+
 class Functor f => Applicative f
+
+
+class Applicative m => Monad m
+(>>=) :: Monad m => m a -> (a -> m b) -> m b
+
+type Gen a
+instance Monad Gen
+
+class Arbitrary a
+arbitrary :: Arbitrary a => Gen a
+instance Arbitrary Int
+
+-- genInt :: Gen Int
+-- genMap :: Gen a -> (a -> b) -> Gen b
+-- genCombine :: Gen a -> Gen b -> Gen ((,) a b)
