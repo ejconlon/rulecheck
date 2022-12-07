@@ -19,6 +19,7 @@ module Searchterm.Interface.Names
   , closeAlphaTm
   , AlphaTyScheme (..)
   , closeAlphaTyScheme
+  , renameTerm
   ) where
 
 import Control.Exception (Exception)
