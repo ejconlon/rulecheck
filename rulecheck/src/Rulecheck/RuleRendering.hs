@@ -20,6 +20,7 @@ import GHC.Data.FastString (fs_zenc, zString)
 import GHC.Driver.Session (HasDynFlags)
 import GHC.Utils.Outputable
 import GHC.Types.Basic (RuleName)
+import GHC.Tc.Utils.TcType
 import Rulecheck.Rendering
 import Rulecheck.Rule
 
@@ -36,9 +37,10 @@ data TestSuffix =
 ruleSideDoc :: (Rule, TestSuffix) -> RuleSide -> Maybe String -> SDoc
 ruleSideDoc (rule, idx) side overrideTypeSig =
   let
-    prefix    = "fn_" ++ sideString side ++ "_"
-    name      = prefix ++ sanitizeName (ruleName rule) idx
-    args      = ruleTermArgs rule
+    prefix         =  "fn_" ++ sideString side ++ "_"
+    name           = prefix ++ sanitizeName (ruleName rule) idx
+    args           = ruleTermArgs rule
+    constraintArgs = filter (isTyVarClassPred . varType) $ ruleTermAndTyArgs rule
 
     maybeBoxedArgs =
       case nonEmpty (map asBoxedArg args) of
@@ -46,18 +48,22 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
         Nothing         -> empty
     def       = text name <+> maybeBoxedArgs <+> text "=" <+> maybeBoxedBody
 
+    constraintPart =
+      case nonEmpty (map varType constraintArgs) of
+        Just cArgTypes -> asTuple cArgTypes <+> text "=>"
+        Nothing -> empty
     resultTyp  = asBoxedType (ruleType rule)
     defaultSig =
       case nonEmpty (map (asBoxedType . varType) args) of
-        Just argTypes -> text (name ++ " ::") <+> (asTuple argTypes) <+> arrow <+> resultTyp
-        Nothing       -> text (name ++ " ::") <+> resultTyp
+        Just argTypes -> text (name ++ " ::") <+> constraintPart <+> asTuple argTypes <+> arrow <+> resultTyp
+        Nothing       -> text (name ++ " ::") <+> constraintPart <+> resultTyp
   in
     case overrideTypeSig of
       Just sig -> text (name ++ " ::") <+> text sig $+$ def
-      Nothing  ->
-        if noTyVarsInSig rule
-        then defaultSig $+$ def
-        else def -- Don't include a type sig, let Haskell infer it
+      Nothing  -> defaultSig $+$ def
+        -- if noTyVarsInSig rule
+        -- then defaultSig $+$ def
+        -- else def -- Don't include a type sig, let Haskell infer it
                  -- Currently we don't extract necessary type constraints
   where
 

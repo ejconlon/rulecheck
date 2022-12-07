@@ -34,6 +34,9 @@ renderHsDecls = vcat . fmap ppr
 stripNulls :: String -> String
 stripNulls = filter (/= '\NUL')
 
+unqualifiedModules :: [String]
+unqualifiedModules = ["GHC.Types" , "GHC.Base" , "GHC.Maybe"]
+
 -- | `identifyRequiredImports doc` determines what modules should be imported
 --   to resolve all of the `Name`s in `doc`.
 --
@@ -59,21 +62,25 @@ identifyRequiredImports doc =
         modName = moduleNameString (moduleName m)
         result  = queryQualifyName neverQualify m occ
       in
-        unsafePerformIO (modifyIORef' ref (Set.insert modName) >> return result)
+        if modName `elem` unqualifiedModules
+        then NameUnqual
+        else unsafePerformIO (modifyIORef' ref (Set.insert modName) >> return result)
 
 -- Render that a printable document to string
 renderSDoc :: (Functor m, HasDynFlags m) => SDoc -> m String
 renderSDoc doc = flip fmap getDynFlags $ \dynFlags ->
-  -- Uh this style seems to work...
   let sty = mkUserStyle q AllTheWay
       ctx = initSDocContext dynFlags sty
   in stripNulls (renderWithStyle ctx doc)
   where
     renameInternal = mkModuleName . internalToPublicMod . moduleNameString . moduleName
-    q = QueryQualify
-          (\m _ -> NameQual (renameInternal m))
+    q = QueryQualify go
           (queryQualifyModule neverQualify)
           (queryQualifyPackage neverQualify)
+    go m _ =
+      if moduleNameString (moduleName m) `elem` unqualifiedModules
+      then NameUnqual
+      else NameQual (renameInternal m)
 
 
 -- | Error encountered in conversion
