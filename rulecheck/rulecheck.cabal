@@ -70,6 +70,7 @@ library
     , little-rio
     , megaparsec
     , mtl
+    , prettyprinter
     , searchterm
     , tasty
     , tasty-quickcheck
@@ -131,6 +132,7 @@ executable rulecheck-exe
     , little-rio
     , megaparsec
     , mtl
+    , prettyprinter
     , rulecheck
     , searchterm
     , tasty
@@ -195,6 +197,7 @@ test-suite rulecheck-test
     , little-rio
     , megaparsec
     , mtl
+    , prettyprinter
     , rulecheck
     , tasty
     , tasty-hunit
