@@ -27,7 +27,7 @@
 \acmBooktitle{N/A}
 
 \title{Rulecheck}
-\subtitle{Subtitle here}
+\subtitle{Automated test case generation for Haskell rewrite rules}
 \author{Zack Grannan}
 \author{Eric Conlon}
 \authorsaddresses{}
@@ -37,7 +37,7 @@
 
 \begin{abstract}
 
-In this paper, we introduce \Rulecheck, a system for generating test cases for Haskell rewrite rules.  We cover two approaches to test generation, one using \texttt{QuickCheck}, and the other with tactics-based program synthesis. \Rulecheck tests find many instances in which contextual equivalence is not preserved by rewrite rules in various libraries.
+In this paper, we introduce \Rulecheck, a system for automatically generating test cases for Haskell rewrite rules. We cover two approaches to test generation, one using \texttt{QuickCheck}, and the other with tactics-based program synthesis. \Rulecheck tests find many instances in which contextual equivalence is not preserved by rewrite rules in various libraries.
 
 \end{abstract}
 
@@ -53,11 +53,11 @@ We would like library authors (ourselves included) to have more confidence in th
 
 \section{Methodology}
 
-Generating tests for rewrite rules comes with its own complications. First, rewritten expressions are intended to be \textit{semantically equivalent} to their source expressions, and what that means varies from library to library. For some, this is true contextual equivalence, and for others this is numerical approximation. To make matters worse, a rewrite may not even preserve user-defined boolean equality (from \texttt{class Eq}) - if that is even defined for the type! So in short, we need to remain flexible in the degree and manner in which we assert equality.
+Generating tests for rewrite rules comes with its own complications. First, rewritten expressions are intended to be \textit{semantically equivalent} to their source expressions, and what that means varies from library to library. For some, this is true contextual equivalence, and for others this is numerical approximation. To make matters worse, a rewrite may not even preserve user-defined boolean equality (from \texttt{class Eq}) - if that is even defined for the type! So in short, test generators need to remain flexible in the degree and manner in which they assert equality.
 
-The flexibility of the rewrite system flexibility is another challenge. One of the few syntactic restrictions of rewrite rules is that ``the left hand side of a rule must consist of a top-level variable applied to arbitrary expressions'' \cite{userguide} - in so many words, rewrite rules can match arbitrary function applications, and transform terms of arbitrary types. These types are not required to implement any particular interfaces, nor are they even required to represent data! (They can be function-typed and are eta-expanded as needed.) Therefore, we need to be prepared to generate terms of a variety of types to consume the results of applying rewrites.
+The flexibility of the rewrite system flexibility is another challenge. One of the few syntactic restrictions of rewrite rules is that ``the left hand side of a rule must consist of a top-level variable applied to arbitrary expressions'' \cite{userguide} - in so many words, rewrite rules can match arbitrary function applications, and transform terms of arbitrary types. These types are not required to implement any particular interfaces, nor are they even required to represent data! (They can be function-typed and are eta-expanded as needed.) Therefore, test generators need to be prepared to generate terms of a variety of types to consume the results of applying rewrites.
 
-Finally, though parametricity greatly broadens the applicability of rules, it presents difficulties in test generation. We must choose monotypes to instantiate rule polytypes, taking care that our choices implement any required typeclass constraints.
+Finally, though parametricity greatly broadens the applicability of rules, it presents difficulties in test generation. Test generators must choose monotypes to instantiate rule polytypes, taking care that our choices implement any required typeclass constraints.
 
 In summary, this is our simple methodology for testing rules:
 
@@ -99,7 +99,7 @@ Stuff here...
   \item Pattern match on an argument (for function goals with known argument constructors)
 \end{itemize}
 
-\Rulecheck directs the search by incrementally performing first-order unification on types. It also eagerly substitutes types implementing typeclass constraints, it is important that all relevant instance declarations be included in the interface file. This process yields terms and their monotypes until terminated or until the search space is exhausted.
+\Rulecheck directs the search by incrementally performing first-order unification on types. It also eagerly substitutes types implementing typeclass constraints, so it is important that all relevant instance declarations be included in the interface file. This process yields terms and their monotypes until terminated or until the search space is exhausted.
 
 The clearest limitation of \Rulecheck is that it does not support \textit{higher-rank} types (those with additional \texttt{forall} quantifiers to the left of a function arrow, not just on the outside of the type). One can see this feature used for encapsulation in the \texttt{ST} and \texttt{Cont} monads, or in the core definitions of lens libraries. We leave synthesis with these types for future work.
 
