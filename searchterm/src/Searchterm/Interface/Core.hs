@@ -66,7 +66,7 @@ instance Pretty Index where
 -- | Type variable
 newtype TyVar = TyVar { unTyVar :: Text }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, IsString, Pretty)
+  deriving newtype (Eq, Ord, IsString, Pretty, ParenPretty)
 
 -- | Term variable
 newtype TmVar = TmVar { unTmVar :: Text }

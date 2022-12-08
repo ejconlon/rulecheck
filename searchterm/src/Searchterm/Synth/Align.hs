@@ -56,13 +56,13 @@ alignTys one two =
 -- It's useful to have a quick version of alignment that looks at less of a type
 -- so we can detect guaranteed misalignments before doing expensive work.
 mightAlign :: TyF x a -> TyF y b -> Bool
-mightAlign one two =
-  case (one, two) of
-    (TyFreeF _, _) -> True
-    (_, TyFreeF _) -> True
-    (TyConF n as, TyConF m bs) -> isRight (alignConHead n m) && Seq.length as == Seq.length bs
-    (TyFunF _ _, TyFunF _ _) -> True
-    _ -> False
+mightAlign one two = isRight (alignTys one two)
+  -- case (one, two) of
+  --   (TyFreeF _, _) -> True
+  --   (_, TyFreeF _) -> True
+  --   (TyConF n as, TyConF m bs) -> isRight (alignConHead n m) && Seq.length as == Seq.length bs
+  --   (TyFunF _ _, TyFunF _ _) -> True
+  --   _ -> False
 
 -- | A unique id for the vertices of our type unification graph
 newtype TyUniq = TyUniq { unTyUniq :: Int }

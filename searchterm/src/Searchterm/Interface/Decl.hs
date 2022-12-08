@@ -20,11 +20,11 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Debug.Trace
 import Prelude hiding (lines)
-import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), Lit, Partial, TmName (..), Ty,
+import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), Lit, Partial, TmName (..), Ty (..),
                                   TyName, TyScheme (..), TyVar (..), explodeTy, instSchemeBody, tySchemeBody,
-                                  tyToPartials)
-import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
-import Searchterm.Interface.Types (ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..))
+                                  tyToPartials, Forall (..), Strained (..), ConTy (..))
+import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType, toListWithIndex)
+import Searchterm.Interface.Types (ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..), TypeLine (..))
 
 -- | A declared term (essentially name and type scheme)
 data Decl = Decl
@@ -55,10 +55,12 @@ data DeclSet = DeclSet
   -- ^ Map from type name to constructors
   , dsLits :: !(Map TyName (Seq Lit))
   -- ^ Map from type name to literals
+  , dsTypes :: !(Seq (TyScheme Index))
+  -- ^ All known types
   } deriving stock (Eq, Show)
 
 emptyDeclSet :: DeclSet
-emptyDeclSet = DeclSet Map.empty Map.empty Map.empty Map.empty
+emptyDeclSet = DeclSet Map.empty Map.empty Map.empty Map.empty Seq.empty
 
 data DeclErr =
     DeclErrNameless !(Maybe TmName) !(NamelessErr TyVar)
@@ -143,12 +145,19 @@ insertLitM tyn vals = modify' $ \ds ->
         Just xvals -> Map.insert tyn (appendUniq xvals vals) m
   in ds { dsLits = m' }
 
+insertTypeM :: TyName -> Seq TyVar -> DeclM ()
+insertTypeM tyn tvs = do
+  let ixs = Seq.fromList (fmap (TyFree . snd) (toListWithIndex tvs))
+      ts = TyScheme (Forall tvs (Strained Empty (TyCon (ConTyKnown tyn) ixs)))
+  modify' (\ds -> ds { dsTypes = dsTypes ds :|> ts })
+
 insertLineM :: Show errCtx => errCtx -> Line -> DeclM ()
 insertLineM ctx = \case
     LineFunc (FuncLine n ts) -> insertTmDeclM n ts
     LineInst (InstLine is) -> insertInstM is
     LineCons (ConsLine tmn cns) -> insertConsM ctx tmn cns
     LineLit (LitLine tyn vals) -> insertLitM tyn vals
+    LineType (TypeLine tyn tvs) -> insertTypeM tyn tvs
     -- Do we need to add anything else to the decl set for search?
     _ -> pure ()
 

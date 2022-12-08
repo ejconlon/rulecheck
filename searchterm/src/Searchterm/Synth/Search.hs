@@ -38,7 +38,7 @@ import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (Forall), Index (..), Inst (..),
                                   InstScheme (..), Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
-                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
+                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody, bitraverseTyF)
 import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials)
 import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith)
 import Searchterm.Interface.ParenPretty (prettyShow)
@@ -46,36 +46,38 @@ import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, re
 import Searchterm.Synth.Monad (Track, TrackSt (..), runManyTrack)
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
--- import qualified Debug.Trace as DT
+import qualified Debug.Trace as DT
+import qualified Data.Text as T
 -- import Text.Pretty.Simple (pShow)
 -- import qualified Data.Text as T
 -- import qualified Data.Text.Lazy as TL
 
 -- | Trace a single message - swap definitions to turn on/off
 traceM :: Applicative m => String -> m ()
--- traceM = DT.traceM
-traceM _ = pure ()
+traceM = DT.traceM
+-- traceM _ = pure ()
 
 -- | Trace entering and exiting a scope
-traceScopeM :: (MonadLogic m, Pretty a) => String -> m a -> m a
--- traceScopeM ctx act = do
---   traceM ("Enter: " ++ ctx)
---   ifte act
---     (\a -> a <$ traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a))
---     (traceM ("Exit: " ++ ctx ++ " (empty)") *> empty)
-traceScopeM _ = id
+traceScopeM :: Pretty a => String -> SearchM a -> SearchM a
+traceScopeM ctx act = do
+  depth <- asks envDepthLim
+  traceM ("Depth " ++ show depth ++ " Enter: " ++ ctx)
+  ifte act
+    (\a -> a <$ traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a))
+    (traceM ("Depth " ++ show depth ++ " Exit: " ++ ctx ++ " (empty)") *> empty)
+-- traceScopeM _ = id
 
 -- | Tracing for search failures
 traceEmptyM :: (Alternative m) => String -> m a
--- traceEmptyM msg = traceM ("Empty: " ++ msg) *> empty
-traceEmptyM _ = empty
+traceEmptyM msg = traceM ("Empty: " ++ msg) *> empty
+-- traceEmptyM _ = empty
 
 -- | Log on success/failure
 traceTryM :: MonadLogic m => String -> m a -> m a
--- traceTryM ctx act = ifte act
---   (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
---   (traceM ("Try failed: " ++ ctx) *> empty)
-traceTryM _ = id
+traceTryM ctx act = ifte act
+  (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
+  (traceM ("Try failed: " ++ ctx) *> empty)
+-- traceTryM _ = id
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -199,6 +201,46 @@ instance Exception SearchErr
 -- | The core search monad. 'LogicT' is a list transformer monad with support for fair interleavings.
 newtype SearchM a = SearchM { unSearchM :: Track Env StFwd StBwd SearchErr a }
   deriving newtype (Functor, Applicative, Monad, MonadReader Env, MonadState St, MonadError SearchErr, Alternative, MonadLogic)
+
+extractTyUniq :: TyUniq -> SearchM (TyF TyVar TyVar)
+extractTyUniq u = do
+  (TyUniq k, vert) <- rawLookupGoal u
+  case vert of
+    TyVertMeta v -> pure (TyFreeF (TyVar ("meta_" <> unTyVar v <> "_" <> T.pack (show k))))
+    TyVertSkolem v -> pure (TyFreeF (TyVar ("skolem_" <> unTyVar v <> "_" <> T.pack (show k))))
+    TyVertNode t ->
+      bitraverseTyF
+        (\z -> pure (TyVar ("var_" <> T.pack (show (unTyUniq z)))))
+        t
+
+extractTyVertString :: TyVert -> SearchM String
+extractTyVertString tv = case tv of
+  TyVertMeta v -> pure ("Meta: " ++ T.unpack (unTyVar v))
+  TyVertSkolem v -> pure ("Skolem: " ++ T.unpack (unTyVar v))
+  TyVertNode t -> do
+    t' <- bitraverseTyF
+        (\z -> pure (TyVar ("var_" <> T.pack (show (unTyUniq z)))))
+        t
+    pure ("Node: " ++ prettyShow t')
+
+traceGoal :: TyUniq -> SearchM ()
+traceGoal goalKey = do
+  goalTy <- extractTyUniq goalKey
+  traceM ("*** Goal: " ++ show goalKey ++ " -> " ++ prettyShow goalTy)
+
+traceCtxAndGraph :: SearchM ()
+traceCtxAndGraph = do
+  ctx <- asks envCtx
+  x <- do
+    kss <- traverse (\(k, v) -> fmap ((k,) . prettyShow) (extractTyUniq v)) (toList ctx)
+    pure $ unlines $ fmap (\(k, s) -> show k ++ " -> " ++ s) kss
+  traceM ("Ctx:\n" ++ x)
+  graph <- gets (stBwdTyGraph . tsBwd)
+  let kvs = UM.toList graph
+  s <- do
+    kss <- traverse (\(k, ks, v) -> fmap (k,ks,) (extractTyVertString v)) kvs
+    pure $ unlines $ fmap (\(k, ks, s) -> show (unTyUniq k) ++ " " ++ show (fmap unTyUniq ks) ++ " -> " ++ s) kss
+  traceM ("Graph:\n" ++ s)
 
 -- | Use this to guard regions that will require some depth
 guardDepth :: SearchM ()
@@ -339,21 +381,31 @@ tryAlignTy goalKey candKey = do
   case recAlignTys goalKey candKey tyGraph of
     Left e -> traceEmptyM ("Failed to align: " ++ show e)
     Right (u, tyGraph') -> do
+      traceM $ "*** Align " ++ show goalKey ++ " " ++ show candKey ++ " updated graph"
+      traceM "Before"
+      traceCtxAndGraph
       modify' (\st -> st { tsBwd = (tsBwd st) { stBwdTyGraph = tyGraph' } })
+      traceM "After"
+      traceCtxAndGraph
       pure u
 
--- | If the goal is a type vertex (not a meta/skolem vertex), yield it.
-lookupGoal :: TyUniq -> SearchM (TyUniq, TyUnify)
-lookupGoal goalKey = do
+rawLookupGoal :: TyUniq -> SearchM (TyUniq, TyVert)
+rawLookupGoal goalKey = do
   tyGraph <- gets (stBwdTyGraph . tsBwd)
   let (mp, tyGraph') = UM.find goalKey tyGraph
   case mp of
     Nothing -> traceEmptyM ("Goal not found: " ++ show goalKey)
-    Just (newKey, vert) -> do
+    Just p -> do
       modify' (\st -> st { tsBwd = (tsBwd st) { stBwdTyGraph = tyGraph' } })
-      case vert of
-        TyVertNode val -> pure (newKey, val)
-        _ -> traceEmptyM ("Goal not node: " ++ show goalKey ++ " " ++ show vert)
+      pure p
+
+-- | If the goal is a type vertex (not a meta/skolem vertex), yield it.
+lookupGoal :: TyUniq -> SearchM (TyUniq, TyUnify)
+lookupGoal goalKey = do
+  (newKey, vert) <- rawLookupGoal goalKey
+  case vert of
+    TyVertNode val -> pure (newKey, val)
+    _ -> traceEmptyM ("Goal not node: " ++ show goalKey ++ " " ++ show vert)
 
 -- | Find solutions by looking in the context for vars that match exactly.
 ctxFits :: TyUniq -> SearchM TmFound
@@ -383,9 +435,11 @@ exactDeclFits goalKey = traceScopeM "Exact decl fit" $ do
   (_, goalVal) <- lookupGoal goalKey
   traceM ("Exact decl goal val: " ++ prettyShow goalVal)
   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
+    traceM $ "Choosing decl fit: " ++ show name -- ++ " " ++ show decl
     -- Do a cheap check on the outside to see if it might align
     let candVal = project (tySchemeBody (declType decl))
     whenAlt (mightAlign goalVal candVal) $ do
+      traceM $ "Decl fit might align: " ++ show name
       -- Ok, it might align. Add the type to the local search env and see if it really does.
       (candStraints, _, candKey, _) <- insertMetaScheme (declType decl)
       fairTraverse_ topUnifyStraint candStraints
@@ -434,7 +488,7 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
   decls <- asks envDecls
   (_, goalVal) <- lookupGoal goalKey
   choose (Map.toList (dsMap decls)) $ \(name, decl) -> do
-    traceM $ "CONSIDERING: " ++ show name ++ " " ++ show decl
+    traceM $ "Choosing fun elim: " ++ show name -- ++ " " ++ show decl
     -- Partials are defined for any curried lambda - args will be nonempty
     choose (declPartials decl) $ \part@(Partial _ retTy) -> do
       let candVal = project retTy
@@ -451,6 +505,9 @@ funElimFits goalKey = traceScopeM "Fun elim fit" $ do
         -- Unify constraints (second, to help argument search)
         fairTraverse_ topUnifyStraint straints
         -- It unifies. Now we know that if we can find args we can satsify the goal.
+        traceM ("SLA start " ++ show name ++ " " ++ show addlCtx)
+        traceGoal goalKey
+        traceCtxAndGraph
         searchLetApp (TmKnown name) addlCtx
 
 -- | Search for an application of the given types.
@@ -464,6 +521,8 @@ searchLetApp fnTm us = go id Empty (toList us) where
       pure (outFn (mkApp fnTm (fmap (TmFree . unsafeIndexSeqWith (\x (b, _) -> b == x) ctx) argNames)))
     a:rest -> do
       traceM ("SLA search for " ++ show a)
+      traceGoal a
+      traceCtxAndGraph
       recSearchUniq a >>- \b -> do
         x <- freshTmBinder
         traceM ("SLA found " ++ show b ++ " as " ++ show x)
@@ -536,6 +595,20 @@ searchCase argKey retKey cons = res where
       -- unify a pat pair for each con and fairly continue
       searchPatPair argKey retKey con >>- \p -> go argBind (pairs :|> p) rest
 
+instantiate :: TyUniq -> SearchM TmFound
+instantiate goalKey = traceScopeM "Instantiate" $ do
+  guardDepth
+  (_, vert) <- rawLookupGoal goalKey
+  case vert of
+    TyVertMeta _ -> do
+      schemes <- asks (dsTypes . envDecls)
+      choose schemes $ \scheme -> do
+        traceM $ "Choosing instantiation: " ++ prettyShow scheme
+        (_, _, subGoalKey, _) <- insertMetaScheme scheme
+        _ <- tryAlignTy goalKey subGoalKey
+        recSearchUniq subGoalKey
+    _ -> traceEmptyM ("Goal not free: " ++ show goalKey ++ " " ++ show vert)
+
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
 topSearchUniq :: TyUniq -> SearchM TmFound
 topSearchUniq goalKey = res where
@@ -557,8 +630,14 @@ topSearchUniq goalKey = res where
     -- TODO Also look at partial applications of functions in the context.
     , destructFits goalKey
     -- ^ Solve a function goal by pattern matching on the argument type.
+    -- , instantiate goalKey
+    -- ^ If the goal is a free type var, instantiate with a concrete type
     ]
-  res = traceScopeM ("Key search: " ++ show (unTyUniq goalKey)) (interleaveAll fits)
+  res = do
+    goalTy <- extractTyUniq goalKey
+    traceScopeM ("Key search: " ++ show (unTyUniq goalKey) ++ " -> " ++ prettyShow goalTy) $ do
+      traceCtxAndGraph
+      interleaveAll fits
 
 recSearchUniq :: TyUniq -> SearchM TmFound
 recSearchUniq = decDepth . topSearchUniq

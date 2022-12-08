@@ -12,15 +12,19 @@ module Searchterm.Synth.UnionMap
   , find
   , stateFind
   , MergeFun
+  , merge
   , stateMerge
+  , toList
   ) where
 
-import Control.Monad.State.Strict (MonadState (..), State, modify', state)
+import Control.Monad.State.Strict (MonadState (..), State, modify', state, runStateT)
 import Data.Coerce (Coercible)
 import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
 import Searchterm.Synth.UnionFind (MergeRes (..), UnionFind)
 import qualified Searchterm.Synth.UnionFind as UF
+import Control.Monad.Trans (lift)
+import qualified IntLike.Set as ILS
 
 data UnionMap k v = UnionMap
   { unionFind :: !(UnionFind k)
@@ -83,3 +87,9 @@ stateMerge f a b = do
         in UnionMap uf m''
     _ -> pure ()
   pure res
+
+merge :: (Ord k, Coercible k Int, Monad m) => MergeFun m v -> k -> k -> UnionMap k v -> m (MergeRes k, UnionMap k v)
+merge f a b = runStateT (stateMerge (\x y -> lift (f x y)) a b)
+
+toList :: (Eq k, Coercible k Int) => UnionMap k v -> [(k, [k], v)]
+toList (UnionMap uf m) = fmap (\(k, ks) -> (k, ILS.toList (ILS.delete k ks), ILM.partialLookup k m)) (ILM.toList (fst (UF.members uf)))
