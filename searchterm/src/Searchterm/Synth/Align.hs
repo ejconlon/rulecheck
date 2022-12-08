@@ -34,8 +34,8 @@ alignConHead ea eb =
     ConTyKnown na ->
       case eb of
         ConTyKnown nb -> if na == nb then Right (ConTyKnown na) else Left (AlignTyErrConHead na nb)
-        ConTyFree _ -> Right (ConTyKnown na)
-    ConTyFree va -> Right (fmap (va,) eb)
+        -- ConTyFree _ -> Right (ConTyKnown na)
+    -- ConTyFree va -> Right (fmap (va,) eb)
 
 -- | Align (match) two types by lining up all the holes
 alignTys :: TyF x a -> TyF y b -> Either AlignTyErr (TyF (x, y) (a, b))
@@ -48,7 +48,7 @@ alignTys one two =
           lb = Seq.length bs
       if la == lb
         then Right (TyConF hd (Seq.zip as bs))
-        else Left (AlignTyErrConArity (case hd of { ConTyKnown na -> Just na ; _ -> Nothing}) la lb)
+        else Left (AlignTyErrConArity (case hd of { ConTyKnown na -> Just na {-; ConTyFree _ -> Nothing-}}) la lb)
     (TyFunF q1 r1, TyFunF q2 r2) -> Right (TyFunF (q1, q2) (r1, r2))
     _ -> Left AlignTyErrMismatch
 
