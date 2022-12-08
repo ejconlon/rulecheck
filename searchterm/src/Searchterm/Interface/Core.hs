@@ -39,6 +39,8 @@ module Searchterm.Interface.Core
   , tyToPartials
   , unrollTy
   , explodeTy
+  , InferErr (..)
+  , inferKinds
 ) where
 
 import Control.Monad (join)
@@ -54,6 +56,7 @@ import Data.Text (Text)
 import Prettyprinter (Pretty (..), (<+>))
 import qualified Prettyprinter as P
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
+import Control.Exception (Exception)
 
 -- | de Bruijn index
 newtype Index = Index { unIndex :: Int }
@@ -353,3 +356,16 @@ explodeTy (TyScheme (Forall tvs (Strained is tyStart))) =
 
 instance Pretty a => Pretty (Partial a) where
   pretty = pretty . partialToTy
+
+data InferErr = InferErrMismatch !TyVar !Int !Int
+  deriving stock (Eq, Ord, Show)
+
+instance Exception InferErr
+
+-- | Infer the kinds of forall quantified variables as n-ary type constructors.
+-- If a variable is not found in the body of the type, it is assumed to be
+-- 0-ary. If there are inconsistencies in arities, an error is returned.
+-- In the success case, the sequence of all type variable is returned
+-- along with their arities.
+inferKinds :: TyScheme Index -> Either InferErr (Seq (TyVar, Int))
+inferKinds = error "TODO"

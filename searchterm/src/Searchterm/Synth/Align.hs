@@ -71,14 +71,27 @@ instance ParenPretty TyUniq where
 -- | Types in the unification graph have holes that point to other nodes in the graph
 type TyUnify = TyF TyUniq TyUniq
 
+data UnifyStyle =
+    UnifyStyleMeta
+  -- ^ Meta vars can unify with anything
+  | UnifyStyleSkolem
+  -- ^ But skolem vars can only unify with themselves
+  -- Essentially, these are externally-chosen
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+data UnifyVar = UnifyVar
+  { uvStyle :: !UnifyStyle
+  -- ^ Unification style of this var
+  , uvName :: !TyVar
+  -- ^ Nice stringy var name for printing - not unique
+  } deriving stock (Eq, Ord, Show)
+
 -- | A vertex in the type unification graph
 data TyVert =
-    TyVertMeta !TyVar
-  -- ^ A meta var vertex (unifies with everything)
-  | TyVertSkolem !TyVar
-  -- ^ A skolem var vertex (unifies with nothing - essentially externally-chosen)
+    TyVertVar !UnifyVar
+  -- ^ A var vertex
   | TyVertNode !TyUnify
-  -- ^ A vertex with some type structure
+  -- ^ A type vertex
   deriving stock (Eq, Ord, Show)
 
 -- | Something that can go wrong when aligning two vertices
@@ -107,12 +120,12 @@ alignVertsM vl vr = do
   -- traceM $ "alignVertsM: " ++ show vl ++ " " ++ show vr
   case (vl, vr) of
     -- Meta vars always align
-    (TyVertMeta _, _) -> pure vr
-    (_, TyVertMeta _) -> pure vl
+    (TyVertVar (UnifyVar UnifyStyleMeta _), _) -> pure vr
+    (_, TyVertVar (UnifyVar UnifyStyleMeta _)) -> pure vl
     -- Skolem vars never align (will never be called on same id, so don't
     -- have to worry about skolem aligning with itself)
-    (TyVertSkolem tv, _) -> throwError (AlignErrSkol tv)
-    (_, TyVertSkolem tv) -> throwError (AlignErrSkol tv)
+    (TyVertVar (UnifyVar UnifyStyleSkolem tv), _) -> throwError (AlignErrSkol tv)
+    (_, TyVertVar (UnifyVar UnifyStyleSkolem tv)) -> throwError (AlignErrSkol tv)
     -- Types are more interesting
     (TyVertNode tl, TyVertNode tr) -> do
       case alignTys tl tr of

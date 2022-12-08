@@ -42,7 +42,7 @@ import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (Fora
 import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials, TySig (..))
 import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith, unsafeLookupSeq)
 import Searchterm.Interface.ParenPretty (prettyShow)
-import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
+import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys, UnifyVar (..), UnifyStyle (UnifyStyleSkolem, UnifyStyleMeta))
 import Searchterm.Synth.Monad (Track, TrackSt (..), runManyTrack)
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
@@ -53,7 +53,7 @@ import qualified Data.Text as T
 -- import qualified Data.Text.Lazy as TL
 
 enableTracing :: Bool
-enableTracing = True
+enableTracing = False
 {-# INLINE enableTracing #-}
 
 -- | Trace a single message - swap definitions to turn on/off
@@ -214,8 +214,9 @@ extractTyUniq :: TyUniq -> SearchM (TyF TyVar TyVar)
 extractTyUniq u = do
   (TyUniq k, vert) <- rawLookupGoal u
   case vert of
-    TyVertMeta v -> pure (TyFreeF (TyVar ("meta_" <> unTyVar v <> "_" <> T.pack (show k))))
-    TyVertSkolem v -> pure (TyFreeF (TyVar ("skolem_" <> unTyVar v <> "_" <> T.pack (show k))))
+    TyVertVar (UnifyVar sty (TyVar n)) ->
+      let prefix = if sty == UnifyStyleMeta then "meta_" else "skolem_"
+      in pure (TyFreeF (TyVar (prefix <> n <> "_" <> T.pack (show k))))
     TyVertNode t ->
       bitraverseTyF
         (\z -> pure (TyVar ("var_" <> T.pack (show (unTyUniq z)))))
@@ -223,8 +224,9 @@ extractTyUniq u = do
 
 extractTyVertString :: TyVert -> SearchM String
 extractTyVertString tv = case tv of
-  TyVertMeta v -> pure ("Meta: " ++ T.unpack (unTyVar v))
-  TyVertSkolem v -> pure ("Skolem: " ++ T.unpack (unTyVar v))
+  TyVertVar (UnifyVar sty (TyVar n)) ->
+    let prefix = if sty == UnifyStyleMeta then "Meta: " else "Skolem: "
+    in pure (prefix ++ T.unpack n)
   TyVertNode t -> do
     t' <- bitraverseTyF
         (\z -> pure (TyVar ("var_" <> T.pack (show (unTyUniq z)))))
@@ -274,18 +276,18 @@ lookupCtx i = do
     Just x -> pure x
 
 -- | Instantiate the type variables and return their ids.
-insertTyVars :: MonadState St m => (TyVar -> TyVert) -> Seq TyVar -> m (Seq TyUniq)
-insertTyVars onVar tvs = res where
+insertTyVars :: MonadState St m => UnifyStyle -> Seq TyVar -> m (Seq TyUniq)
+insertTyVars sty tvs = res where
   insertRaw v (TrackSt (StFwd srcx zz) (StBwd umx)) =
     (srcx, TrackSt (StFwd (srcx + 1) zz) (StBwd (UM.insert srcx v umx)))
-  acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
+  acc (stx, ctxx) tv = let (u, stz) = insertRaw (TyVertVar (UnifyVar sty tv)) stx in (stz, ctxx :|> u)
   res = state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
 
 -- | Insert the given constraint scheme with fresh type metavariables.
 -- Returns inserted (dependent constraints, given constraint)
 insertStraintScheme :: InstScheme Index -> SearchM (Seq StraintUniq, StraintUniq)
 insertStraintScheme (InstScheme (Forall tvs (Strained cons inst))) = do
-  ctx <- insertTyVars TyVertMeta tvs
+  ctx <- insertTyVars UnifyStyleMeta tvs
   ius <- for cons (insertStraint ctx)
   iu <- insertStraint ctx inst
   pure (ius, iu)
@@ -328,11 +330,11 @@ insertStraint ctx _inst@(Inst cln tys) =  do
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
-insertTyScheme :: (TyVar -> TyVert) -> TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertTyScheme onVar _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
+insertTyScheme :: UnifyStyle -> TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
+insertTyScheme sty _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
   -- traceM ("*** INSERT TY SCHEME")
   -- traceM ("Ty: " ++ prettyShow ts)
-  ctx <- insertTyVars onVar tvs
+  ctx <- insertTyVars sty tvs
   ius <- for cons (insertStraint ctx)
   (u, v) <- insertTy ctx ty
   pure (ius, ctx, u, v)
@@ -377,7 +379,7 @@ insertTy ctx ty = res where
 --  the instantiated type key
 --  the instantiated type value
 insertMetaScheme :: TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertMetaScheme = insertTyScheme TyVertMeta
+insertMetaScheme = insertTyScheme UnifyStyleMeta
 
 -- | Inserts a partial application into the graph.
 -- Returns
@@ -389,7 +391,7 @@ insertPartial :: TyScheme Index -> Partial Index -> SearchM (Seq StraintUniq, Se
 insertPartial _ts@(TyScheme (Forall tvs (Strained cons _))) (Partial args retTy) = do
   -- traceM ("**** INSERT PARTIAL")
   -- traceM ("TS: " ++ prettyShow ts)
-  ctx <- insertTyVars TyVertMeta tvs
+  ctx <- insertTyVars UnifyStyleMeta tvs
   -- traceM ("CTX: " ++ show ctx)
   ius <- traverse (insertStraint ctx) cons
   addlCtx <- traverse (fmap fst . insertTy ctx) args
@@ -625,20 +627,21 @@ searchCase argKey retKey cons = res where
       -- unify a pat pair for each con and fairly continue
       searchPatPair argKey retKey con >>- \p -> go argBind (pairs :|> p) rest
 
-instantiate :: TyUniq -> SearchM TmFound
-instantiate goalKey = traceScopeM "Instantiate" $ do
-  guardDepth
-  (_, vert) <- rawLookupGoal goalKey
-  case vert of
-    TyVertMeta _ -> do
-      sigs <- asks (dsTypes . envDecls)
-      choose sigs $ \sig -> do
-        let scheme = tsScheme sig
-        traceM $ "Choosing instantiation: " ++ prettyShow scheme
-        (_, _, subGoalKey, _) <- insertMetaScheme scheme
-        _ <- tryAlignTy goalKey subGoalKey
-        recSearchUniq subGoalKey
-    _ -> traceEmptyM ("Goal not free: " ++ show goalKey ++ " " ++ show vert)
+-- NOTE It should not be necessary to blindly instantiate free type vars in the goal.
+-- instantiate :: TyUniq -> SearchM TmFound
+-- instantiate goalKey = traceScopeM "Instantiate" $ do
+--   guardDepth
+--   (_, vert) <- rawLookupGoal goalKey
+--   case vert of
+--     TyVertMeta _ -> do
+--       sigs <- asks (dsTypes . envDecls)
+--       choose sigs $ \sig -> do
+--         let scheme = tsScheme sig
+--         traceM $ "Choosing instantiation: " ++ prettyShow scheme
+--         (_, _, subGoalKey, _) <- insertMetaScheme scheme
+--         _ <- tryAlignTy goalKey subGoalKey
+--         recSearchUniq subGoalKey
+--     _ -> traceEmptyM ("Goal not free: " ++ show goalKey ++ " " ++ show vert)
 
 -- | Search for a term matching the current goal type using a number of interleaved strategies.
 topSearchUniq :: TyUniq -> SearchM TmFound
@@ -718,15 +721,14 @@ resolveTy _useSkolem _outerVars tyuRoot = res where
     in case mp of
       Nothing -> error ("Missing key: " ++ show tyu)
       Just (_, v) -> case v of
-        TyVertMeta _ -> TyFree tyu
-        TyVertSkolem _ -> TyFree tyu
+        TyVertVar _ -> TyFree tyu
         TyVertNode tf -> embed (fmap (expand tyGraph) tf)
 
 -- | Outermost search interface: Insert the given scheme and search for terms matching it.
 searchScheme :: TyScheme Index -> UseSkolem -> SearchM Found
 searchScheme scheme useSkolem = traceScopeM ("Scheme search: " ++ prettyShow scheme) $ do
-  let mkVert = if useSkolem == UseSkolemYes then TyVertSkolem else TyVertMeta
-  (goalStraints, outerVars, goalKey, _) <- insertTyScheme mkVert scheme
+  let sty = if useSkolem == UseSkolemYes then UnifyStyleSkolem else UnifyStyleMeta
+  (goalStraints, outerVars, goalKey, _) <- insertTyScheme sty scheme
   fairTraverse_ topUnifyStraint goalStraints
   tm <- topSearchUniq goalKey
   ty <- resolveTy useSkolem outerVars goalKey
