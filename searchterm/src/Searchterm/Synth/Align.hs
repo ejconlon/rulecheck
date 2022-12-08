@@ -14,6 +14,7 @@ import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom)
 import Searchterm.Synth.UnionFind (MergeRes (..))
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
+-- import Debug.Trace (traceM)
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =
@@ -53,16 +54,8 @@ alignTys one two =
     _ -> Left AlignTyErrMismatch
 
 -- | Do two types have the potential to align?
--- It's useful to have a quick version of alignment that looks at less of a type
--- so we can detect guaranteed misalignments before doing expensive work.
 mightAlign :: TyF x a -> TyF y b -> Bool
 mightAlign one two = isRight (alignTys one two)
-  -- case (one, two) of
-  --   (TyFreeF _, _) -> True
-  --   (_, TyFreeF _) -> True
-  --   (TyConF n as, TyConF m bs) -> isRight (alignConHead n m) && Seq.length as == Seq.length bs
-  --   (TyFunF _ _, TyFunF _ _) -> True
-  --   _ -> False
 
 -- | A unique id for the vertices of our type unification graph
 newtype TyUniq = TyUniq { unTyUniq :: Int }
@@ -111,6 +104,7 @@ runAlignM m s = runExcept (runStateT (unAlignM m) s)
 -- This will never be called on two vertices with the same original id.
 alignVertsM :: TyVert -> TyVert -> AlignM TyVert
 alignVertsM vl vr = do
+  -- traceM $ "alignVertsM: " ++ show vl ++ " " ++ show vr
   case (vl, vr) of
     -- Meta vars always align
     (TyVertMeta _, _) -> pure vr
@@ -130,8 +124,10 @@ alignVertsM vl vr = do
 -- | Aligns two vertices (by id)
 alignUniqM :: TyUniq -> TyUniq -> AlignM TyUniq
 alignUniqM ul ur = do
+  -- traceM $ "alignUniqM args: " ++ show ul ++ " " ++ show ur
   -- Merge them the union map by value
   res <- UM.stateMerge alignVertsM ul ur
+  -- traceM $ "alignUniqM res: " ++ show res
   case res of
     -- Calling this with an unknown vertex id indicates a logic bug higher up
     MergeResMissing u -> error ("Missing vertex: " ++ show u)

@@ -39,8 +39,8 @@ import qualified Prettyprinter as P
 import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (Forall), Index (..), Inst (..),
                                   InstScheme (..), Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
                                   Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody, bitraverseTyF)
-import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials)
-import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith)
+import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials, TySig (..))
+import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith, unsafeLookupSeq)
 import Searchterm.Interface.ParenPretty (prettyShow)
 import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys)
 import Searchterm.Synth.Monad (Track, TrackSt (..), runManyTrack)
@@ -53,7 +53,7 @@ import qualified Data.Text as T
 -- import qualified Data.Text.Lazy as TL
 
 enableTracing :: Bool
-enableTracing = False
+enableTracing = True
 {-# INLINE enableTracing #-}
 
 -- | Trace a single message - swap definitions to turn on/off
@@ -283,7 +283,7 @@ insertTyVars onVar tvs = res where
 
 -- | Insert the given constraint scheme with fresh type metavariables.
 -- Returns inserted (dependent constraints, given constraint)
-insertStraintScheme :: (MonadError SearchErr m, MonadState St m) => InstScheme Index -> m (Seq StraintUniq, StraintUniq)
+insertStraintScheme :: InstScheme Index -> SearchM (Seq StraintUniq, StraintUniq)
 insertStraintScheme (InstScheme (Forall tvs (Strained cons inst))) = do
   ctx <- insertTyVars TyVertMeta tvs
   ius <- for cons (insertStraint ctx)
@@ -291,14 +291,36 @@ insertStraintScheme (InstScheme (Forall tvs (Strained cons inst))) = do
   pure (ius, iu)
 
 -- | Insert the given constraint with the given type variable context.
-insertStraint :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Inst Index -> m StraintUniq
-insertStraint ctx _inst@(Inst cn tys) =  do
-  -- traceM ("**** INSERT STRAINT")
-  -- traceM ("Insert straint inst: " ++ prettyShow inst)
+insertStraint :: Seq TyUniq -> Inst Index -> SearchM StraintUniq
+insertStraint ctx _inst@(Inst cln tys) =  do
+  -- traceM "**** INSERT STRAINT"
+  -- traceM ("Insert straint inst: " ++ prettyShow _inst)
   -- traceM ("Insert straint ctx: " ++ show (fmap prettyShow (toList ctx)))
   -- traceM ("Insert straint ctx (show): " ++ show ctx)
-  us <- traverse (fmap fst . insertTy ctx) tys
-  let su = StraintUniq cn us
+  us <- for tys $ \ty -> do
+    -- NOTE - this is REALLY fragile - we assume instances are defined like
+    -- instance Foo Bar Baz where Bar and Baz are n-ary type constructors
+    -- If anything is partially applied, this will not work.
+    case ty of
+      TyCon (ConTyKnown tn) Empty -> do
+        -- Known type con, for example `instance Foo Bar`
+        -- Must lookup type decl to approximate its kind
+        dts <- asks (dsTypes . envDecls)
+        let sc = case Map.lookup tn dts of
+              -- Not there, must assume it's of kind `Type`
+              Nothing -> TyScheme (Forall Empty (Strained Empty ty))
+              -- If it's there, use its type scheme
+              Just (TySig x) -> x
+        (_, _, u, _) <- insertMetaScheme sc
+        pure u
+      TyFree ix ->
+        -- Bound in forall, for example `instance Foo a` as `forall a. instance Foo a`
+        -- Must assume (with lack of kind sig) that it is of kind `Type`
+        -- So return the unif var directly
+        pure (unsafeLookupSeq ctx ix)
+      _ -> error $ "Unsupported constraint arg for " ++ show cln ++ " " ++ show ty
+    --  (fmap fst . insertTy ctx) tys
+  let su = StraintUniq cln us
   -- traceM ("Inserted StraintUniq: " ++ prettyShow su)
   pure su
 
@@ -306,7 +328,7 @@ insertStraint ctx _inst@(Inst cn tys) =  do
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
-insertTyScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
+insertTyScheme :: (TyVar -> TyVert) -> TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
 insertTyScheme onVar _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
   -- traceM ("*** INSERT TY SCHEME")
   -- traceM ("Ty: " ++ prettyShow ts)
@@ -609,8 +631,9 @@ instantiate goalKey = traceScopeM "Instantiate" $ do
   (_, vert) <- rawLookupGoal goalKey
   case vert of
     TyVertMeta _ -> do
-      schemes <- asks (dsTypes . envDecls)
-      choose schemes $ \scheme -> do
+      sigs <- asks (dsTypes . envDecls)
+      choose sigs $ \sig -> do
+        let scheme = tsScheme sig
         traceM $ "Choosing instantiation: " ++ prettyShow scheme
         (_, _, subGoalKey, _) <- insertMetaScheme scheme
         _ <- tryAlignTy goalKey subGoalKey

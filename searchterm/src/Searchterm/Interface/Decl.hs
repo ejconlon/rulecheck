@@ -5,6 +5,7 @@ module Searchterm.Interface.Decl
   , DeclSet (..)
   , emptyDeclSet
   , ConSig (..)
+  , TySig (..)
   , mkDecl
   , mkDecls
   , mkLineDecls
@@ -46,6 +47,11 @@ data ConSig = ConSig
   -- ^ Vars with type indices possibly bound in the scheme
   } deriving stock (Eq, Ord, Show)
 
+newtype TySig = TySig
+  { tsScheme :: TyScheme Index
+  -- ^ Type scheme
+  } deriving stock (Eq, Ord, Show)
+
 data DeclSet = DeclSet
   { dsMap :: !(Map TmName Decl)
   -- ^ Map from term to its definition
@@ -55,12 +61,12 @@ data DeclSet = DeclSet
   -- ^ Map from type name to constructors
   , dsLits :: !(Map TyName (Seq Lit))
   -- ^ Map from type name to literals
-  , dsTypes :: !(Seq (TyScheme Index))
+  , dsTypes :: !(Map TyName TySig)
   -- ^ All known types
   } deriving stock (Eq, Show)
 
 emptyDeclSet :: DeclSet
-emptyDeclSet = DeclSet Map.empty Map.empty Map.empty Map.empty Seq.empty
+emptyDeclSet = DeclSet Map.empty Map.empty Map.empty Map.empty Map.empty
 
 data DeclErr =
     DeclErrNameless !(Maybe TmName) !(NamelessErr TyVar)
@@ -148,8 +154,9 @@ insertLitM tyn vals = modify' $ \ds ->
 insertTypeM :: TyName -> Seq TyVar -> DeclM ()
 insertTypeM tyn tvs = do
   let ixs = Seq.fromList (fmap (TyFree . snd) (toListWithIndex tvs))
-      ts = TyScheme (Forall tvs (Strained Empty (TyCon (ConTyKnown tyn) ixs)))
-  modify' (\ds -> ds { dsTypes = dsTypes ds :|> ts })
+      sc = TyScheme (Forall tvs (Strained Empty (TyCon (ConTyKnown tyn) ixs)))
+      sig = TySig sc
+  modify' (\ds -> ds { dsTypes = Map.insert tyn sig (dsTypes ds) })
 
 insertLineM :: Show errCtx => errCtx -> Line -> DeclM ()
 insertLineM ctx = \case
