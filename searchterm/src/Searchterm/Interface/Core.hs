@@ -112,16 +112,17 @@ instance Pretty Lit where
     LitChar c -> pretty (show c)
     LitString txt -> pretty (show txt)
 
--- | Type constructor (known/var)
-data ConTy a =
-    ConTyKnown !TyName
-  | ConTyFree !a
+-- | Type constructor (only known constructors for now)
+-- Allowing variables requires more complicated unification.
+newtype ConTy a =
+    ConTyKnown TyName
+  -- | ConTyFree a
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Pretty a => Pretty (ConTy a) where
   pretty = \case
     ConTyKnown tn -> pretty tn
-    ConTyFree a -> pretty a
+    -- ConTyFree a -> pretty a
 
 -- | Type with a hole for variables (can later be filled in with indices)
 data Ty a =

@@ -190,7 +190,10 @@ tmVarP :: P TmVar
 tmVarP = fmap TmVar lowerP
 
 conTyP :: P (ConTy TyVar)
-conTyP = (ConTyKnown <$> tyNameP) <|> (ConTyFree <$> tyVarP)
+conTyP = ConTyKnown <$> tyNameP
+-- NOTE Once unification if fixed for higher kinded types,
+-- we can parse variables in this position.
+-- <|> (ConTyFree <$> tyVarP)
 
 -- Parse a "plain" type constructor - no special logic for lists
 plainTyConP :: P (Ty TyVar)
