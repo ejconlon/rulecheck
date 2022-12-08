@@ -295,14 +295,15 @@ insertStraintScheme (InstScheme (Forall tvs (Strained cons inst))) = do
 -- | Insert the given constraint with the given type variable context.
 insertStraint :: Seq TyUniq -> Inst Index -> SearchM StraintUniq
 insertStraint ctx _inst@(Inst cln tys) =  do
-  -- traceM "**** INSERT STRAINT"
-  -- traceM ("Insert straint inst: " ++ prettyShow _inst)
-  -- traceM ("Insert straint ctx: " ++ show (fmap prettyShow (toList ctx)))
-  -- traceM ("Insert straint ctx (show): " ++ show ctx)
+  traceM "**** INSERT STRAINT"
+  traceM ("Insert straint inst: " ++ prettyShow _inst)
+  traceM ("Insert straint ctx: " ++ show (fmap prettyShow (toList ctx)))
+  traceM ("Insert straint ctx (show): " ++ show ctx)
   us <- for tys $ \ty -> do
     -- NOTE - this is REALLY fragile - we assume instances are defined like
     -- instance Foo Bar Baz where Bar and Baz are n-ary type constructors
     -- If anything is partially applied, this will not work.
+    traceM ("Considering ty arg" ++ show ty)
     case ty of
       TyCon (ConTyKnown tn) args -> do
         -- Known type con, for example `instance Foo Bar`
@@ -323,7 +324,7 @@ insertStraint ctx _inst@(Inst cln tys) =  do
               --     else error $
               --       "Unsupported combination of sig and args in constraint insertion: " ++
               --       show cln ++ " " ++ show args ++ " " ++ show x
-        (_, _, u, _) <- insertMetaScheme sc
+        (_, _, u, _) <- insertMetaSchemeWithContext ctx sc
         pure u
       TyFree ix ->
         -- Bound in forall, for example `instance Foo a` as `forall a. instance Foo a`
@@ -333,21 +334,25 @@ insertStraint ctx _inst@(Inst cln tys) =  do
       _ -> error $ "Unsupported constraint arg for " ++ show cln ++ " " ++ show ty
     --  (fmap fst . insertTy ctx) tys
   let su = StraintUniq cln us
-  -- traceM ("Inserted StraintUniq: " ++ prettyShow su)
+  traceM ("Inserted StraintUniq: " ++ prettyShow su)
   pure su
 
 -- | Instantiate the type variables in the scheme with the given strategy, bind them in the local
 -- typing context, then insert the type into the union map. The strategy is used to instantiate with skolem vars
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
-insertTyScheme :: UnifyStyle -> TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertTyScheme sty _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
+insertTySchemeWithContext :: Seq TyUniq -> UnifyStyle -> TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
+insertTySchemeWithContext ctx0 sty _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
   -- traceM ("*** INSERT TY SCHEME")
   -- traceM ("Ty: " ++ prettyShow ts)
-  ctx <- insertTyVars sty tvs
+  ctx1 <- insertTyVars sty tvs
+  let ctx = ctx0 <> ctx1
   ius <- for cons (insertStraint ctx)
   (u, v) <- insertTy ctx ty
   pure (ius, ctx, u, v)
+
+insertTyScheme :: UnifyStyle -> TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
+insertTyScheme = insertTySchemeWithContext Empty
 
 -- | Used in 'insertScheme' to do the type insertion.
 insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
@@ -388,8 +393,11 @@ insertTy ctx ty = res where
 --  type var context
 --  the instantiated type key
 --  the instantiated type value
+insertMetaSchemeWithContext :: Seq TyUniq -> TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
+insertMetaSchemeWithContext ctx0 = insertTySchemeWithContext ctx0 UnifyStyleMeta
+
 insertMetaScheme :: TyScheme Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertMetaScheme = insertTyScheme UnifyStyleMeta
+insertMetaScheme = insertMetaSchemeWithContext Empty
 
 -- | Inserts a partial application into the graph.
 -- Returns

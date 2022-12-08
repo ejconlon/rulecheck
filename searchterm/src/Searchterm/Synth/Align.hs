@@ -54,8 +54,17 @@ alignTys one two =
     _ -> Left AlignTyErrMismatch
 
 -- | Do two types have the potential to align?
+-- Note that this is *slightly* different than just checking if 'alignTys' yields
+-- a 'Right' value - this is more permissive in that free vars don't have to exactly
+-- line up, as prior unification steps will handle that.
 mightAlign :: TyF x a -> TyF y b -> Bool
-mightAlign one two = isRight (alignTys one two)
+mightAlign one two =
+  case (one, two) of
+    (TyFreeF _, _) -> True
+    (_, TyFreeF _) -> True
+    (TyConF n as, TyConF m bs) -> isRight (alignConHead n m) && Seq.length as == Seq.length bs
+    (TyFunF _ _, TyFunF _ _) -> True
+    _ -> False
 
 -- | A unique id for the vertices of our type unification graph
 newtype TyUniq = TyUniq { unTyUniq :: Int }

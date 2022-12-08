@@ -186,6 +186,10 @@ strainRecDeclSrc = DeclSrcList
   , "quux :: Foo c => c -> Int"
   ]
 
+-- This is a variant that contains a type sig for FooThing
+strainRecDeclSrc2 :: DeclSrc
+strainRecDeclSrc2 = DeclSrcPlus strainRecDeclSrc (DeclSrcList ["type FooThing x"])
+
 destructDeclSrc :: DeclSrc
 destructDeclSrc = DeclSrcList
   [ "type Either a b"
@@ -219,6 +223,9 @@ testSearchFinds = testGroup "finds"
     ["(quux foo bar)"]
     ["foo"]
   , testFinds "strain rec" strainRecDeclSrc "Int"
+    ["(quux foo)"]
+    ["(quux bar)"]
+  , testFinds "strain rec 2" strainRecDeclSrc2 "Int"
     ["(quux foo)"]
     ["(quux bar)"]
   , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
@@ -311,7 +318,7 @@ testSearchFinds = testGroup "finds"
       , "(\\x -> (case x of { (,) a b -> b }))"
       ]
       []
-  , testFinds "arbitrary"
+  , testFinds "Arbitrary"
     (DeclSrcList
      [ "type Int"
      , "class Monad m"
