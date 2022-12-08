@@ -27,9 +27,8 @@ inf sc = do
 testInferKinds :: TestTree
 testInferKinds = testCase "inferKinds" $ do
   inf (mkS [] [] (mkC (ConTyKnown "Int") [])) @?= Right Empty
-  inf (mkS ["a"] [] (mkC (ConTyKnown "Int") [])) @?= Right (Seq.singleton ("a", 1))
-  inf (mkS ["a"] [] (mkC (ConTyFree "a") [])) @?= Right (Seq.singleton ("a", 1))
-  inf (mkS ["a"] [] (mkC (ConTyKnown "Foo") [TyFree "a"])) @?= Right (Seq.singleton ("a", 1))
-  -- TODO make these work
-  -- inf (mkS ["m", "a"] [] (mkC (ConTyKnown "m") [TyFree "a"])) @?= Right (Seq.fromList [("m", 2), ("a", 1)])
-  -- inf (mkS ["m"] [] (mkC (ConTyKnown "m") [TyFree "m"])) @?= Left (InferErrMismatch "m" 2 1)
+  inf (mkS ["a"] [] (mkC (ConTyKnown "Int") [])) @?= Right (Seq.singleton ("a", 0))
+  inf (mkS ["a"] [] (mkC (ConTyFree "a") [])) @?= Right (Seq.singleton ("a", 0))
+  inf (mkS ["a"] [] (mkC (ConTyKnown "Foo") [TyFree "a"])) @?= Right (Seq.singleton ("a", 0))
+  inf (mkS ["m", "a"] [] (mkC (ConTyFree "m") [TyFree "a"])) @?= Right (Seq.fromList [("m", 1), ("a", 0)])
+  inf (mkS ["m"] [] (mkC (ConTyFree "m") [TyFree "m"])) @?= Left (InferErrMismatch "m" 1 0)

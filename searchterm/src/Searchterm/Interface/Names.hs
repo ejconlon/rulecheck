@@ -25,7 +25,7 @@ module Searchterm.Interface.Names
   ) where
 
 import Control.Exception (Exception)
-import Control.Monad (void)
+import Control.Monad (void, unless)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), local)
 import Control.Monad.State.Strict (MonadState (..), State, execStateT, modify', runState)
@@ -39,7 +39,7 @@ import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)
 import Searchterm.Interface.Core (ConPat (..), Forall (..), Index (..), Inst (..), InstScheme (..), Pat (..),
                                   PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty (..), TyF (..),
-                                  TyScheme (..), TyVar)
+                                  TyScheme (..), TyVar, ConTy (..))
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss =
@@ -214,11 +214,26 @@ instance Exception InferErr
 inferKinds :: TyScheme Index -> Either InferErr (Seq (TyVar, Int))
 inferKinds (TyScheme (Forall tvs (Strained _ ty))) = res where
   res = fmap finalize (runExcept (execStateT (cata go ty) Map.empty))
-  finalize m = flip fmap tvs $ \tv -> (tv, fromMaybe 1 (Map.lookup tv m))
+  finalize m = flip fmap tvs $ \tv -> (tv, fromMaybe 0 (Map.lookup tv m))
+  insert ix arity = do
+    case lookupSeq tvs ix of
+      Nothing -> throwError (InferErrMissing ix)
+      Just tv -> do
+        m <- get
+        case Map.lookup tv m of
+          Just oldArity ->
+            unless (oldArity == arity) $
+              throwError (InferErrMismatch tv oldArity arity)
+          Nothing -> pure ()
+        put (Map.insert tv arity m)
   go = \case
-    TyFreeF _i -> pure ()
-    TyConF _ct _args -> pure ()
-    TyFunF _a _b -> pure ()
+    TyFreeF ix -> insert ix 0
+    TyConF ct args -> do
+      case ct of
+        ConTyFree ix -> insert ix (Seq.length args)
+        _ -> pure ()
+      sequence_ args
+    TyFunF a b -> a *> b
 
 -- | de Bruijn shift all indices in a type
 -- This is easy because there are no binders inside the type.
