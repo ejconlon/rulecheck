@@ -19,22 +19,27 @@ module Searchterm.Interface.Names
   , closeAlphaTm
   , AlphaTyScheme (..)
   , closeAlphaTyScheme
+  , InferErr (..)
+  , inferKinds
+  , shiftTy
   ) where
 
 import Control.Exception (Exception)
 import Control.Monad (void)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), local)
-import Control.Monad.State.Strict (MonadState (..), State, modify', runState)
+import Control.Monad.State.Strict (MonadState (..), State, execStateT, modify', runState)
 import Data.Foldable (toList)
 import Data.Functor.Foldable (cata)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)
 import Searchterm.Interface.Core (ConPat (..), Forall (..), Index (..), Inst (..), InstScheme (..), Pat (..),
-                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme (..), TyVar)
+                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty (..), TyF (..),
+                                  TyScheme (..), TyVar)
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss =
@@ -193,3 +198,33 @@ newtype AlphaTyScheme = AlphaTyScheme { unAlphaTyScheme :: Forall () (Strained I
 closeAlphaTyScheme :: TyScheme TyVar -> Either (NamelessErr TyVar) AlphaTyScheme
 closeAlphaTyScheme = fmap forget . namelessType where
   forget (TyScheme (Forall bs st)) = AlphaTyScheme (Forall (void bs) st)
+
+data InferErr =
+    InferErrMismatch !TyVar !Int !Int
+  | InferErrMissing !Index
+  deriving stock (Eq, Ord, Show)
+
+instance Exception InferErr
+
+-- | Infer the kinds of forall quantified variables as n-ary type constructors.
+-- If a variable is not found in the body of the type, it is assumed to be
+-- 0-ary. If there are inconsistencies in arities, an error is returned.
+-- In the success case, the sequence of all type variable is returned
+-- along with their arities.
+inferKinds :: TyScheme Index -> Either InferErr (Seq (TyVar, Int))
+inferKinds (TyScheme (Forall tvs (Strained _ ty))) = res where
+  res = fmap finalize (runExcept (execStateT (cata go ty) Map.empty))
+  finalize m = flip fmap tvs $ \tv -> (tv, fromMaybe 1 (Map.lookup tv m))
+  go = \case
+    TyFreeF _i -> pure ()
+    TyConF _ct _args -> pure ()
+    TyFunF _a _b -> pure ()
+
+-- | de Bruijn shift all indices in a type
+-- This is easy because there are no binders inside the type.
+shiftTy :: Int -> Ty Index -> Ty Index
+shiftTy o = cata go where
+  go =  \case
+    TyFreeF i -> TyFree (Index (unIndex i + o))
+    TyConF ct args -> TyCon ct args
+    TyFunF a b -> TyFun a b

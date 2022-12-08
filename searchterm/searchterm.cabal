@@ -77,8 +77,8 @@ test-suite searchterm-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
-      Test.Searchterm.Core
       Test.Searchterm.Interface
+      Test.Searchterm.Names
       Test.Searchterm.State
       Test.Searchterm.Synth.Monad
       Test.Searchterm.Synth.Search

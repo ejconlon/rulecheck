@@ -32,22 +32,24 @@ import Data.List (nub)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
+import qualified Data.Text as T
 import Data.Traversable (for)
 import Data.Tuple (swap)
+import qualified Debug.Trace as DT
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (Forall), Index (..), Inst (..),
                                   InstScheme (..), Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
-                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody, bitraverseTyF, shiftTy)
-import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials, TySig (..))
-import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith, unsafeLookupSeq)
+                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), bitraverseTyF, tySchemeBody)
+import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), TySig (..), declPartials)
+import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, shiftTy, toListWithIndex,
+                                   unsafeIndexSeqWith, unsafeLookupSeq)
 import Searchterm.Interface.ParenPretty (prettyShow)
-import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), mightAlign, recAlignTys, UnifyVar (..), UnifyStyle (UnifyStyleSkolem, UnifyStyleMeta))
+import Searchterm.Synth.Align (TyUnify, TyUniq (..), TyVert (..), UnifyStyle (UnifyStyleMeta, UnifyStyleSkolem),
+                               UnifyVar (..), mightAlign, recAlignTys)
 import Searchterm.Synth.Monad (Track, TrackSt (..), runManyTrack)
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
-import qualified Debug.Trace as DT
-import qualified Data.Text as T
 -- import Text.Pretty.Simple (pShow)
 -- import qualified Data.Text as T
 -- import qualified Data.Text.Lazy as TL

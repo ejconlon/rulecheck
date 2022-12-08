@@ -2,7 +2,7 @@
 
 module Test.Searchterm.Synth.Search (testSearch) where
 
-import Control.Monad (unless, void, (<=<), when)
+import Control.Monad (unless, void, when, (<=<))
 import Control.Monad.Reader (MonadReader (..), Reader, runReader)
 import Data.Foldable (for_, toList)
 import Data.Functor.Foldable (cata)
@@ -15,21 +15,21 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Prettyprinter (pretty)
 import Searchterm.Interface.Core (Forall (..), Index (..), PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..),
                                   TmVar (..), Ty (..), TyScheme (..), TyVar (..))
 import Searchterm.Interface.Decl (DeclSet (..))
 import Searchterm.Interface.Names (AlphaTm (..), AlphaTyScheme (..), closeAlphaTm, closeAlphaTyScheme, mapAlphaTm,
-                                   namelessType, toListWithIndex, unsafeLookupSeq, namelessClosedTerm)
+                                   namelessClosedTerm, namelessType, toListWithIndex, unsafeLookupSeq)
+import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Parser (parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
 import Searchterm.Synth.Search (Found (..), SearchConfig (..), SearchSusp, TmFound, TmUniq, TyFoundScheme (..),
                                 UseSkolem (..), constFillTyScheme, nextSearchResult, runSearchSusp)
-import Searchterm.Util (loadDecls, rethrow, DeclSrc(..))
+import Searchterm.Util (DeclSrc (..), loadDecls, rethrow)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Test.Tasty.Providers (TestName)
-import Prettyprinter (pretty)
-import Searchterm.Interface.ParenPretty (docToText)
 
 enablePrinting :: Bool
 enablePrinting = False

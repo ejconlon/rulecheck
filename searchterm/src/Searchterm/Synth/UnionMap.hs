@@ -17,14 +17,14 @@ module Searchterm.Synth.UnionMap
   , toList
   ) where
 
-import Control.Monad.State.Strict (MonadState (..), State, modify', state, runStateT)
+import Control.Monad.State.Strict (MonadState (..), State, modify', runStateT, state)
+import Control.Monad.Trans (lift)
 import Data.Coerce (Coercible)
 import IntLike.Map (IntLikeMap)
 import qualified IntLike.Map as ILM
+import qualified IntLike.Set as ILS
 import Searchterm.Synth.UnionFind (MergeRes (..), UnionFind)
 import qualified Searchterm.Synth.UnionFind as UF
-import Control.Monad.Trans (lift)
-import qualified IntLike.Set as ILS
 
 data UnionMap k v = UnionMap
   { unionFind :: !(UnionFind k)
