@@ -17,19 +17,6 @@ constructors ([]) ([]) (:)
 instance (Eq a) => Eq (([]) a)
 instance (Show a) => Show (([]) a)
 
-type ()
-() :: ()
-constructors () ()
-instance Eq ()
-instance Show ()
-
-type ([]) a
-([]) :: forall a. ([]) a
-(:) :: forall a. a -> ([]) a -> ([]) a
-constructors ([]) ([]) (:)
-instance (Eq a) => Eq (([]) a)
-instance (Show a) => Show (([]) a)
-
 type (,) a b
 (,) :: forall a b. a -> b -> (,) a b
 constructors (,) (,)
