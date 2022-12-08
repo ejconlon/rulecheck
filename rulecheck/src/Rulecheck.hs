@@ -3,16 +3,16 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
-import Control.Monad (when, unless)
+import Control.Monad.State
 import Data.Aeson (eitherDecodeFileStrict)
-import qualified Data.Map as M
 import Data.Either (fromRight)
-import Data.Map (Map)
+import Data.Functor.Foldable (cata)
 import Data.List (isInfixOf)
 import Data.List.Utils
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import Data.Text (Text)
 import qualified Data.Text.IO as TIO
 import Debug.Trace (trace)
 import Prelude hiding (lines)
@@ -173,6 +173,40 @@ loadFileLines fp = do
     go t | Right e <- parseLine fp t = [e]
     go t = trace ("Could not parse line " ++ T.unpack t) []
 
+data DoGen a b = DoGen [a] b
+
+returnText :: (Pretty a) => DoGen a (Tm a a) -> Text
+returnText (DoGen _ ret) = T.append "return " (printTerm ret)
+
+renderDoGen :: (Pretty a) => DoGen a (Tm a a) -> Text
+renderDoGen d@(DoGen [] _)      = returnText d
+renderDoGen d@(DoGen clauses _) = T.concat $ ("do\n" : map go clauses) ++ [T.append "  " $ returnText d]
+  where
+    go t = T.concat ["  " , (docToText . pretty) t , " <- arbitrary\n"]
+
+mkDoGen :: Tm String String -> DoGen String (Tm String String)
+mkDoGen t = uncurry (flip DoGen) $ runState (go t) [] where
+  freshDoVar typName = do
+    prevVars <- get
+    let index = length prevVars + 1
+    let varName = "gen_" ++ typName ++ show index
+    put (prevVars ++ [varName])
+    return varName
+  go = cata goTm
+  goTm = \case
+    TmFreeF a -> pure (TmFree a)
+    TmLitF l -> pure (TmLit l)
+    TmKnownF (TmName n) | "rcgen__" `T.isPrefixOf` n ->
+      do
+        v <- freshDoVar $ drop 7 $ T.unpack n
+        return $ TmKnown (TmName (T.pack v))
+    TmKnownF n -> pure (TmKnown n)
+    TmAppF wl wr -> TmApp <$> wl <*> wr
+    TmLamF b w -> TmLam b <$> w
+    TmLetF x arg body -> TmLet x <$> arg <*> body
+    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse goPair pairs
+  goPair (PatPair pat w) = PatPair pat <$> w
+
 
 searchWithLines :: String -> [Line] -> IO ()
 searchWithLines typName lines = do
@@ -190,28 +224,14 @@ searchWithLines typName lines = do
       mapM_ showResult results
       where
         showResult result = do
-          printf "Term: %s\nType:%s\n" (printTerm (renamedTm)) (docToText ty)
+          printf "Term: %s\nType:%s\n" (renderDoGen doTm) (docToText ty)
           where
             mkVarName (TmUniq i) = "x" ++ show i
-            renamedTm            = fromRight undefined $ renameTerm mkVarName (foundTm result)
+            namelessTm           = fromRight undefined $ namelessClosedTerm (const Nothing) $ inlineLets $ foundTm result
+            renamedTm            = fromRight undefined $ renameTerm mkVarName namelessTm
+            doTm :: DoGen (String) (Tm String String)
+            doTm                 = mkDoGen renamedTm
             ty                   = pretty $ unTyFoundScheme $ foundTy result
-
-            simplify :: (Ord a) => Map a (Tm a a) -> Tm a a -> Tm a a
-            simplify letBinds (TmFree x)  =
-              case M.lookup x letBinds of
-                Nothing -> TmFree x
-                Just tm -> simplify letBinds tm
-            simplify letBinds (TmApp f x) = TmApp (simplify letBinds f) (simplify letBinds x)
-            simplify letBinds (TmLam x b) | simplify letBinds b == TmFree x = TmKnown (TmName "id")
-            simplify letBinds (TmLam x b) = TmLam x (simplify letBinds b)
-            simplify letBinds (TmLet ident tm body) =
-              simplify (M.insert ident tm letBinds) body
-            simplify letBinds (TmCase tm cases) =
-              TmCase (simplify letBinds tm) (fmap (simplifyPat letBinds) cases)
-            simplify _ other = other
-
-            simplifyPat letBinds (PatPair pat bod) = PatPair pat (simplify letBinds bod)
-
 
 
 

@@ -60,40 +60,6 @@ reportMismatch tm tyExp tyAct = fail $
   " | expected: " ++ T.unpack (printAlphaTy tyExp) ++
   " | actual: " ++ T.unpack (printAlphaTy tyAct)
 
-type TmInline = Tm TmUniq TmUniq
-
-data BoundVal =
-    BoundValNonLet !TmUniq
-  | BoundValLet !TmInline
-
-type InlineSt = Seq BoundVal
-
-inlineLets :: TmFound -> TmInline
-inlineLets = flip runReader Empty . go where
-  go :: TmFound -> Reader InlineSt TmInline
-  go = cata goTm
-  localVar :: BoundVal -> Reader InlineSt TmInline -> Reader InlineSt TmInline
-  localVar = localVars . Seq.singleton
-  localVars :: Seq BoundVal -> Reader InlineSt TmInline -> Reader InlineSt TmInline
-  localVars vs = local (<> vs)
-  lookupVar :: Index -> Reader InlineSt TmInline
-  lookupVar a = do
-    zs <- ask
-    pure $ case unsafeLookupSeq zs a of
-      BoundValNonLet u -> TmFree u
-      BoundValLet t -> t
-  goTm :: TmF TmUniq Index (Reader InlineSt TmInline) -> Reader InlineSt TmInline
-  goTm = \case
-    TmFreeF a -> lookupVar a
-    TmLitF l -> pure (TmLit l)
-    TmKnownF n -> pure (TmKnown n)
-    TmAppF wl wr -> TmApp <$> wl <*> wr
-    TmLamF b w -> TmLam b <$> localVar (BoundValNonLet b) w
-    TmLetF _ arg body -> arg >>= \a -> localVar (BoundValLet a) body
-    TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse goPair pairs
-  goPair :: PatPair TmUniq (Reader InlineSt TmInline) -> Reader InlineSt (PatPair TmUniq TmInline)
-  goPair (PatPair pat w) = fmap (PatPair pat) (localVars (Seq.fromList (fmap BoundValNonLet (toList pat))) w)
-
 findAll :: Int -> Map AlphaTm AlphaTyScheme -> Set AlphaTm -> SearchSusp Found -> IO ()
 findAll !lim !yesTms !noTms !susp =
   if lim <= 0 || Map.null yesTms
