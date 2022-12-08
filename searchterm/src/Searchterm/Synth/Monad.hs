@@ -64,15 +64,15 @@ instance Alternative (Track r x y e) where
     oldTes <- Track get
     Track (unTrack x <|> unTrack (restore oldTes y))
 
--- -- | Custom implementation that backtracks part of state
--- instance MonadLogic (Track r x y e) where
---   msplit x = Track (fmap (fmap (second Track)) (msplit (unTrack x)))
---   interleave x y = do
---     oldTes <- Track get
---     Track (interleave (unTrack x) (unTrack (restore oldTes y)))
-
--- Break glass in case of emergency: Disable fairness!
+-- | Custom implementation that backtracks part of state
 instance MonadLogic (Track r x y e) where
   msplit x = Track (fmap (fmap (second Track)) (msplit (unTrack x)))
-  interleave = (<|>)
-  (>>-) = (>>=)
+  interleave x y = do
+    oldTes <- Track get
+    Track (interleave (unTrack x) (unTrack (restore oldTes y)))
+
+-- -- Break glass in case of emergency: Disable fairness!
+-- instance MonadLogic (Track r x y e) where
+--   msplit x = Track (fmap (fmap (second Track)) (msplit (unTrack x)))
+--   interleave = (<|>)
+--   (>>-) = (>>=)

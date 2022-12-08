@@ -38,7 +38,7 @@ import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (Forall), Index (..), Inst (..),
                                   InstScheme (..), Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
-                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody, bitraverseTyF)
+                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody, bitraverseTyF, shiftTy)
 import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials, TySig (..))
 import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith, unsafeLookupSeq)
 import Searchterm.Interface.ParenPretty (prettyShow)
@@ -304,7 +304,7 @@ insertStraint ctx _inst@(Inst cln tys) =  do
     -- instance Foo Bar Baz where Bar and Baz are n-ary type constructors
     -- If anything is partially applied, this will not work.
     case ty of
-      TyCon (ConTyKnown tn) Empty -> do
+      TyCon (ConTyKnown tn) args -> do
         -- Known type con, for example `instance Foo Bar`
         -- Must lookup type decl to approximate its kind
         dts <- asks (dsTypes . envDecls)
@@ -312,7 +312,17 @@ insertStraint ctx _inst@(Inst cln tys) =  do
               -- Not there, must assume it's of kind `Type`
               Nothing -> TyScheme (Forall Empty (Strained Empty ty))
               -- If it's there, use its type scheme
-              Just (TySig x) -> x
+              Just (TySig (TyScheme (Forall tvs (Strained Empty (TyCon (ConTyKnown _) xargs))))) ->
+                let yargs = fmap (shiftTy (Seq.length tvs)) args <> Seq.drop (Seq.length args) xargs
+                in TyScheme (Forall tvs (Strained Empty (TyCon (ConTyKnown tn) yargs)))
+              sig -> error $ "Unsupported type sig for " ++ show cln ++ " " ++ show sig
+              -- NOTE this is a conservative version
+              -- Just (TySig x) ->
+              --   if Seq.null args
+              --     then x
+              --     else error $
+              --       "Unsupported combination of sig and args in constraint insertion: " ++
+              --       show cln ++ " " ++ show args ++ " " ++ show x
         (_, _, u, _) <- insertMetaScheme sc
         pure u
       TyFree ix ->

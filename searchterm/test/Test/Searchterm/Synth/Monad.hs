@@ -13,7 +13,10 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 
 testMonad :: TestTree
-testMonad = testGroup "Monad" [testBwd]
+testMonad = testGroup "Monad"
+  [ testFwd
+  , testBwd
+  ]
 
 testFwd :: TestTree
 testFwd = testCase "fwd" $ do

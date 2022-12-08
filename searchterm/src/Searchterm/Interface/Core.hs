@@ -41,11 +41,12 @@ module Searchterm.Interface.Core
   , explodeTy
   , InferErr (..)
   , inferKinds
+  , shiftTy
 ) where
 
 import Control.Monad (join)
 import Data.Foldable (toList)
-import Data.Functor.Foldable (project)
+import Data.Functor.Foldable (project, cata)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
 import Data.List (intercalate)
 import Data.Scientific (Scientific)
@@ -369,3 +370,12 @@ instance Exception InferErr
 -- along with their arities.
 inferKinds :: TyScheme Index -> Either InferErr (Seq (TyVar, Int))
 inferKinds = error "TODO"
+
+-- | de Bruijn shift all indices in a type
+-- This is easy because there are no binders inside the type.
+shiftTy :: Int -> Ty Index -> Ty Index
+shiftTy o = cata go where
+  go =  \case
+    TyFreeF i -> TyFree (Index (unIndex i + o))
+    TyConF ct args -> TyCon ct args
+    TyFunF a b -> TyFun a b

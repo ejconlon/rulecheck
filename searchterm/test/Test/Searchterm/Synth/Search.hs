@@ -73,8 +73,8 @@ data BoundVal =
 
 type InlineSt = Seq BoundVal
 
-inlineLets :: TmFound -> IO TmFound
-inlineLets = rethrow . namelessClosedTerm (const Nothing) . flip runReader Empty . go where
+inlineLets :: TmFound -> TmInline
+inlineLets = flip runReader Empty . go where
   go :: TmFound -> Reader InlineSt TmInline
   go = cata goTm
   localVar :: BoundVal -> Reader InlineSt TmInline -> Reader InlineSt TmInline
@@ -108,10 +108,12 @@ findAll !lim !yesTms !noTms !susp =
       case mx of
         Nothing -> reportMissing yesTms
         Just (Found tm ty, susp') -> do
-          when enablePrinting $ TIO.putStrLn (docToText (pretty tm))
-          tmNoLet <- inlineLets tm
-          let tm' = mapAlphaTm tmNoLet
-          when enablePrinting $ TIO.putStrLn (printAlphaTm tm')
+          when enablePrinting $ putStr "*** Found tm: " *> TIO.putStrLn (docToText (pretty tm))
+          let tmNoLet = inlineLets tm
+          when enablePrinting $ putStr "  + No lets: " *> TIO.putStrLn (docToText (pretty tmNoLet))
+          tmNl <- rethrow (namelessClosedTerm (const Nothing) tmNoLet)
+          let tm' = mapAlphaTm tmNl
+          when enablePrinting $ putStr "  + Alpha: " *> TIO.putStrLn (printAlphaTm tm')
           if Set.member tm' noTms
             then reportIllegal tm'
             else do
@@ -207,109 +209,109 @@ zeroDeclSrc = DeclSrcList
 
 testSearchFinds :: TestTree
 testSearchFinds = testGroup "finds"
-  -- [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
-  --   ["(\\x -> x)"]
-  --   []
-  -- , testFinds "basic" basicDeclSrc "Int"
-  --   ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
-  --   ["(plus zero)", "plus", "(zero plus)"]
-  -- , testFinds "strain simple" strainSimpleDeclSrc "Int"
-  --   ["(quux foo bar)"]
-  --   ["foo"]
-  -- , testFinds "strain rec" strainRecDeclSrc "Int"
-  --   ["(quux foo)"]
-  --   ["(quux bar)"]
-  -- , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
-  --   ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
-  --   ["showChar"]
-  -- , testFinds "literals" litsDeclSrc "Int"
-  --   ["0", "-1", "2", "3"]
-  --   ["4"]
-  -- , testFindsTy "without skolem"
-  --     (DeclSrcList
-  --       [ "forget :: Pair a b -> Pair a a"
-  --       , "thing1 :: Pair Int b"
-  --       , "thing2 :: Pair b Int"
-  --       ]
-  --     )
-  --     "Pair a a"
-  --     [ Match "thing1" "Pair Int Int"
-  --     , Match "thing2" "Pair Int Int"
-  --     , Match "(forget thing1)" "Pair Int Int"
-  --     , Match "(forget thing2)" "Pair a a"
-  --     ]
-  --     []
-  -- , testFinds "GenString"
-  --     (DeclSrcList
-  --      [ "instance IsString String"
-  --      , "fromString :: IsString c => String0 -> c"
-  --      , "primString :: String0"
-  --      ]
-  --     ) "String" ["(fromString primString)"] []
-  -- , testFindsTy "solve constraints"
-  --     (DeclSrcList
-  --       [ "class Foo a"
-  --       , "instance Foo Int"
-  --       , "tm :: Foo a => Pair a b"
-  --       ]
-  --     )
-  --     "Pair a b"
-  --     [ Match "tm" "Pair Int b"
-  --     ]
-  --     []
-  -- , testFinds "apply fns in context"
-  --     (DeclSrcList
-  --       [ "isEven :: Int -> Bool"
-  --       ]
-  --     )
-  --     "(String -> Int) -> String -> Bool"
-  --     [ "(\\f -> (\\s -> (isEven (f s))))"
-  --     ]
-  --     []
-  -- , testFinds "unit"
-  --     zeroDeclSrc
-  --     "()"
-  --     [ "()"
-  --     ]
-  --     []
-  -- , testFinds "unit destruct"
-  --     zeroDeclSrc
-  --     "() -> Int"
-  --     [ "(\\x -> 0)"
-  --     , "(\\x -> (case x of { () -> 0 }))"
-  --     ]
-  --     []
-  -- , testFinds "list"
-  --     zeroDeclSrc
-  --     "([]) Int"
-  --     [ "([])"
-  --     , "(((:) 0) ([]))"
-  --     ]
-  --     []
-  -- , testFinds "list destruct"
-  --     zeroDeclSrc
-  --     "([]) Int -> Int"
-  --     [ "(\\x -> 0)"
-  --     , "(\\x -> (case x of { ([]) -> 0 ; (:) a b -> 0 }))"
-  --     , "(\\x -> (case x of { ([]) -> 0 ; (:) a b -> a }))"
-  --     ]
-  --     []
-  -- , testFinds "tuple"
-  --     zeroDeclSrc
-  --     "(,) Int Int"
-  --     [ "(((,) 0) 0)"
-  --     ]
-  --     []
-  -- , testFinds "tuple destruct"
-  --     zeroDeclSrc
-  --     "(,) Int Int -> Int"
-  --     [ "(\\x -> 0)"
-  --     , "(\\x -> (case x of { (,) a b -> 0 }))"
-  --     , "(\\x -> (case x of { (,) a b -> a }))"
-  --     , "(\\x -> (case x of { (,) a b -> b }))"
-  --     ]
-  --     []
-  [ testFinds "Arbitrary"
+  [ testFinds "ctx" (DeclSrcList []) "Int -> Int"
+    ["(\\x -> x)"]
+    []
+  , testFinds "basic" basicDeclSrc "Int"
+    ["zero", "one", "(plus zero one)", "((plus one) ((plus one) zero))"]
+    ["(plus zero)", "plus", "(zero plus)"]
+  , testFinds "strain simple" strainSimpleDeclSrc "Int"
+    ["(quux foo bar)"]
+    ["foo"]
+  , testFinds "strain rec" strainRecDeclSrc "Int"
+    ["(quux foo)"]
+    ["(quux bar)"]
+  , testFinds "destruct" destructDeclSrc "Either Char Int -> String"
+    ["(\\x -> (case x of { Left y -> (showChar y) ; Right z -> (showInt z) }))"]
+    ["showChar"]
+  , testFinds "literals" litsDeclSrc "Int"
+    ["0", "-1", "2", "3"]
+    ["4"]
+  , testFindsTy "without skolem"
+      (DeclSrcList
+        [ "forget :: Pair a b -> Pair a a"
+        , "thing1 :: Pair Int b"
+        , "thing2 :: Pair b Int"
+        ]
+      )
+      "Pair a a"
+      [ Match "thing1" "Pair Int Int"
+      , Match "thing2" "Pair Int Int"
+      , Match "(forget thing1)" "Pair Int Int"
+      , Match "(forget thing2)" "Pair a a"
+      ]
+      []
+  , testFinds "GenString"
+      (DeclSrcList
+       [ "instance IsString String"
+       , "fromString :: IsString c => String0 -> c"
+       , "primString :: String0"
+       ]
+      ) "String" ["(fromString primString)"] []
+  , testFindsTy "solve constraints"
+      (DeclSrcList
+        [ "class Foo a"
+        , "instance Foo Int"
+        , "tm :: Foo a => Pair a b"
+        ]
+      )
+      "Pair a b"
+      [ Match "tm" "Pair Int b"
+      ]
+      []
+  , testFinds "apply fns in context"
+      (DeclSrcList
+        [ "isEven :: Int -> Bool"
+        ]
+      )
+      "(String -> Int) -> String -> Bool"
+      [ "(\\f -> (\\s -> (isEven (f s))))"
+      ]
+      []
+  , testFinds "unit"
+      zeroDeclSrc
+      "()"
+      [ "()"
+      ]
+      []
+  , testFinds "unit destruct"
+      zeroDeclSrc
+      "() -> Int"
+      [ "(\\x -> 0)"
+      , "(\\x -> (case x of { () -> 0 }))"
+      ]
+      []
+  , testFinds "list"
+      zeroDeclSrc
+      "([]) Int"
+      [ "([])"
+      , "(((:) 0) ([]))"
+      ]
+      []
+  , testFinds "list destruct"
+      zeroDeclSrc
+      "([]) Int -> Int"
+      [ "(\\x -> 0)"
+      , "(\\x -> (case x of { ([]) -> 0 ; (:) a b -> 0 }))"
+      , "(\\x -> (case x of { ([]) -> 0 ; (:) a b -> a }))"
+      ]
+      []
+  , testFinds "tuple"
+      zeroDeclSrc
+      "(,) Int Int"
+      [ "(((,) 0) 0)"
+      ]
+      []
+  , testFinds "tuple destruct"
+      zeroDeclSrc
+      "(,) Int Int -> Int"
+      [ "(\\x -> 0)"
+      , "(\\x -> (case x of { (,) a b -> 0 }))"
+      , "(\\x -> (case x of { (,) a b -> a }))"
+      , "(\\x -> (case x of { (,) a b -> b }))"
+      ]
+      []
+  , testFinds "arbitrary"
     (DeclSrcList
      [ "type Int"
      , "class Monad m"
@@ -324,9 +326,10 @@ testSearchFinds = testGroup "finds"
      "Gen (Int, Int)"
      [ "(bind arbitrary (\\x -> (bind arbitrary (\\y -> (return ((,) x y))))))"
      ]
-     [ "((bind ([])) (\\x -> ([])))"
-     , "((bind arbitrary) (\\x -> ((bind ([])) (bind (return ([]))))))"
-     ]
+     [] -- TODO ensure the following aren't generated:
+    --  [ "((bind ([])) (\\x -> ([])))"
+    --  , "((bind arbitrary) (\\x -> ((bind ([])) (bind (return ([]))))))"
+    --  ]
   -- NOTE(ejconlon): You would expect this to work but it doesn't.
   -- This is because of how we're searching for constraints by
   -- eagerly instantiating type vars with concrete(ish) types
