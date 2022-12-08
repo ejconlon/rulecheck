@@ -2,13 +2,12 @@
 
 module Test.Searchterm.Synth.Search (testSearch) where
 
-import Control.Monad (unless, void, (<=<))
-import Control.Monad.Reader (MonadReader (..), Reader, asks, runReader)
+import Control.Monad (unless, void, (<=<), when)
+import Control.Monad.Reader (MonadReader (..), Reader, runReader)
 import Data.Foldable (for_, toList)
 import Data.Functor.Foldable (cata)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Set (Set)
@@ -20,15 +19,20 @@ import Searchterm.Interface.Core (Forall (..), Index (..), PatPair (..), Straine
                                   TmVar (..), Ty (..), TyScheme (..), TyVar (..))
 import Searchterm.Interface.Decl (DeclSet (..))
 import Searchterm.Interface.Names (AlphaTm (..), AlphaTyScheme (..), closeAlphaTm, closeAlphaTyScheme, mapAlphaTm,
-                                   namelessType, toListWithIndex, unsafeLookupSeq)
+                                   namelessType, toListWithIndex, unsafeLookupSeq, namelessClosedTerm)
 import Searchterm.Interface.Parser (parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
 import Searchterm.Synth.Search (Found (..), SearchConfig (..), SearchSusp, TmFound, TmUniq, TyFoundScheme (..),
                                 UseSkolem (..), constFillTyScheme, nextSearchResult, runSearchSusp)
-import Searchterm.Util
+import Searchterm.Util (loadDecls, rethrow, DeclSrc(..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Test.Tasty.Providers (TestName)
+import Prettyprinter (pretty)
+import Searchterm.Interface.ParenPretty (docToText)
+
+enablePrinting :: Bool
+enablePrinting = False
 
 maxSearchDepth :: Int
 maxSearchDepth = 7
@@ -61,21 +65,39 @@ reportMismatch tm tyExp tyAct = fail $
   " | expected: " ++ T.unpack (printAlphaTy tyExp) ++
   " | actual: " ++ T.unpack (printAlphaTy tyAct)
 
-inlineLets :: TmFound -> TmFound
-inlineLets = flip runReader Empty . cata goTm where
-  goTm :: TmF TmUniq Index (Reader (Seq (Maybe TmFound)) TmFound) -> Reader (Seq (Maybe TmFound)) TmFound
+type TmInline = Tm TmUniq TmUniq
+
+data BoundVal =
+    BoundValNonLet !TmUniq
+  | BoundValLet !TmInline
+
+type InlineSt = Seq BoundVal
+
+inlineLets :: TmFound -> IO TmFound
+inlineLets = rethrow . namelessClosedTerm (const Nothing) . flip runReader Empty . go where
+  go :: TmFound -> Reader InlineSt TmInline
+  go = cata goTm
+  localVar :: BoundVal -> Reader InlineSt TmInline -> Reader InlineSt TmInline
+  localVar = localVars . Seq.singleton
+  localVars :: Seq BoundVal -> Reader InlineSt TmInline -> Reader InlineSt TmInline
+  localVars vs = local (<> vs)
+  lookupVar :: Index -> Reader InlineSt TmInline
+  lookupVar a = do
+    zs <- ask
+    pure $ case unsafeLookupSeq zs a of
+      BoundValNonLet u -> TmFree u
+      BoundValLet t -> t
+  goTm :: TmF TmUniq Index (Reader InlineSt TmInline) -> Reader InlineSt TmInline
   goTm = \case
-    TmFreeF a -> do
-      mx <- asks (`unsafeLookupSeq` a)
-      pure (fromMaybe (TmFree a) mx)
+    TmFreeF a -> lookupVar a
     TmLitF l -> pure (TmLit l)
     TmKnownF n -> pure (TmKnown n)
     TmAppF wl wr -> TmApp <$> wl <*> wr
-    TmLamF b w -> TmLam b <$> local (:|> Nothing) w
-    TmLetF _ arg body -> arg >>= \a -> local (:|> Just a) body
+    TmLamF b w -> TmLam b <$> localVar (BoundValNonLet b) w
+    TmLetF _ arg body -> arg >>= \a -> localVar (BoundValLet a) body
     TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse goPair pairs
-  goPair :: PatPair TmUniq (Reader (Seq (Maybe TmFound)) TmFound) -> Reader (Seq (Maybe TmFound)) (PatPair TmUniq TmFound)
-  goPair (PatPair pat w) = fmap (PatPair pat) (local (<> Seq.fromList (fmap (const Nothing) (toList pat))) w)
+  goPair :: PatPair TmUniq (Reader InlineSt TmInline) -> Reader InlineSt (PatPair TmUniq TmInline)
+  goPair (PatPair pat w) = fmap (PatPair pat) (localVars (Seq.fromList (fmap BoundValNonLet (toList pat))) w)
 
 findAll :: Int -> Map AlphaTm AlphaTyScheme -> Set AlphaTm -> SearchSusp Found -> IO ()
 findAll !lim !yesTms !noTms !susp =
@@ -86,10 +108,10 @@ findAll !lim !yesTms !noTms !susp =
       case mx of
         Nothing -> reportMissing yesTms
         Just (Found tm ty, susp') -> do
-          -- TIO.putStrLn (docToText (pretty tm))
-          let tmNoLet = inlineLets tm
+          when enablePrinting $ TIO.putStrLn (docToText (pretty tm))
+          tmNoLet <- inlineLets tm
           let tm' = mapAlphaTm tmNoLet
-          -- TIO.putStrLn (printAlphaTm tm')
+          when enablePrinting $ TIO.putStrLn (printAlphaTm tm')
           if Set.member tm' noTms
             then reportIllegal tm'
             else do
@@ -98,7 +120,7 @@ findAll !lim !yesTms !noTms !susp =
                 Nothing -> pure yesTms
                 Just tyExpected -> do
                   let tyActual = forgetTyScheme ty
-                  -- TIO.putStrLn (printAlphaTy tyActual)
+                  when enablePrinting $ TIO.putStrLn (printAlphaTy tyActual)
                   if tyActual == tyExpected
                     then pure (Map.delete tm' yesTms)
                     else reportMismatch tm' tyExpected tyActual
@@ -302,7 +324,8 @@ testSearchFinds = testGroup "finds"
      "Gen (Int, Int)"
      [ "(bind arbitrary (\\x -> (bind arbitrary (\\y -> (return ((,) x y))))))"
      ]
-     [ --"((bind arbitrary) (\\x -> ((bind ([])) (bind (return ([]))))))"
+     [ "((bind ([])) (\\x -> ([])))"
+     , "((bind arbitrary) (\\x -> ((bind ([])) (bind (return ([]))))))"
      ]
   -- NOTE(ejconlon): You would expect this to work but it doesn't.
   -- This is because of how we're searching for constraints by

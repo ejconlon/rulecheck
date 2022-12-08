@@ -11,10 +11,10 @@ module Prelude
 -- instance Eq ()
 -- instance Show ()
 
--- type ([]) a
--- ([]) :: forall a. ([]) a
--- (:) :: forall a. a -> ([]) a -> ([]) a
--- constructors ([]) ([]) (:)
+type ([]) a
+([]) :: forall a. ([]) a
+(:) :: forall a. a -> ([]) a -> ([]) a
+constructors ([]) ([]) (:)
 -- instance (Eq a) => Eq (([]) a)
 -- instance (Show a) => Show (([]) a)
 

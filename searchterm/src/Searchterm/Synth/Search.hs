@@ -21,7 +21,7 @@ module Searchterm.Synth.Search
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (Exception)
-import Control.Monad (unless, void)
+import Control.Monad (unless, void, when)
 import Control.Monad.Except (MonadError (..))
 import Control.Monad.Logic (MonadLogic (..))
 import Control.Monad.Reader (MonadReader (..), ReaderT (..), asks)
@@ -52,32 +52,40 @@ import qualified Data.Text as T
 -- import qualified Data.Text as T
 -- import qualified Data.Text.Lazy as TL
 
+enableTracing :: Bool
+enableTracing = False
+{-# INLINE enableTracing #-}
+
 -- | Trace a single message - swap definitions to turn on/off
 traceM :: Applicative m => String -> m ()
-traceM = DT.traceM
--- traceM _ = pure ()
+traceM msg = when enableTracing (DT.traceM msg)
 
 -- | Trace entering and exiting a scope
-traceScopeM :: Pretty a => String -> SearchM a -> SearchM a
-traceScopeM ctx act = do
-  depth <- asks envDepthLim
-  traceM ("Depth " ++ show depth ++ " Enter: " ++ ctx)
-  ifte act
-    (\a -> a <$ traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a))
-    (traceM ("Depth " ++ show depth ++ " Exit: " ++ ctx ++ " (empty)") *> empty)
--- traceScopeM _ = id
+traceScopeM :: (MonadLogic m, Pretty a) => String -> m a -> m a
+traceScopeM ctx act =
+  if enableTracing
+    then do
+      traceM ("Enter: " ++ ctx)
+      ifte act
+        (\a -> a <$ traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a))
+        (traceM ("Exit: " ++ ctx ++ " (empty)") *> empty)
+    else act
 
 -- | Tracing for search failures
 traceEmptyM :: (Alternative m) => String -> m a
-traceEmptyM msg = traceM ("Empty: " ++ msg) *> empty
--- traceEmptyM _ = empty
+traceEmptyM msg =
+  if enableTracing
+    then traceM ("Empty: " ++ msg) *> empty
+    else empty
 
 -- | Log on success/failure
 traceTryM :: MonadLogic m => String -> m a -> m a
-traceTryM ctx act = ifte act
-  (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
-  (traceM ("Try failed: " ++ ctx) *> empty)
--- traceTryM _ = id
+traceTryM ctx act =
+  if enableTracing
+    then ifte act
+      (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
+      (traceM ("Try failed: " ++ ctx) *> empty)
+    else act
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -224,12 +232,12 @@ extractTyVertString tv = case tv of
     pure ("Node: " ++ prettyShow t')
 
 traceGoal :: TyUniq -> SearchM ()
-traceGoal goalKey = do
+traceGoal goalKey = when enableTracing $ do
   goalTy <- extractTyUniq goalKey
   traceM ("*** Goal: " ++ show goalKey ++ " -> " ++ prettyShow goalTy)
 
 traceCtxAndGraph :: SearchM ()
-traceCtxAndGraph = do
+traceCtxAndGraph = when enableTracing $ do
   ctx <- asks envCtx
   x <- do
     kss <- traverse (\(k, v) -> fmap ((k,) . prettyShow) (extractTyUniq v)) (toList ctx)
