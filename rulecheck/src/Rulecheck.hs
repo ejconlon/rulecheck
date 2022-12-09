@@ -8,7 +8,7 @@ import Control.Monad.State
 import Data.Aeson ( eitherDecodeFileStrict )
 import Data.Either ( fromRight )
 import Data.Functor.Foldable ( cata )
-import Data.List ( isInfixOf )
+import Data.List ( isInfixOf, nub )
 import Data.List.Utils ( replace )
 import Data.Set ( Set )
 import qualified Data.Set as Set ( fromList, map, union )
@@ -38,7 +38,7 @@ import Rulecheck.Config
 import Rulecheck.Monad ( cradleGhcM, GhcM )
 import Rulecheck.Rendering
     ( identifyRequiredImports, outputString )
-import Rulecheck.Rule ( Rule(ruleName) )
+import Rulecheck.Rule ( Rule(ruleName, ruleTermArgs) )
 import Rulecheck.RuleRendering
     ( TestModuleRenderOpts(..), ruleInputDoc, ruleModuleDoc )
 import Rulecheck.RuleExtraction ( getRulesFromFile )
@@ -92,7 +92,7 @@ getModContents (GenerateOptions {genDecls, srcFile, genModName, genDeps}) =
     rulesInFile <- getRulesFromFile srcFile
     let rules = filter (not . skipRule srcFile . ruleName) rulesInFile
     case genDecls of
-      Just decls -> mapM_ (getSynthResultsForRule decls) rules
+      Just decls -> mapM_ (getSynthResultsForRule decls) (filter (not . null . ruleTermArgs) rules)
       Nothing -> return ()
 
     let renderOpts = TestModuleRenderOpts genModName genDeps (overrideTypeSigs srcFile)
@@ -289,6 +289,7 @@ getSynthResultsForType typName ds = do
 getSynthResultsForRule :: DeclSet -> Rule -> GhcM [(Tm String String, T.Text)]
 getSynthResultsForRule decls rule = do
   typName <- outputString (ruleInputDoc rule)
+  liftIO $ printf "Synthesizing input terms for rule %s (type:  %s)\n" (show $ ruleName rule) (typName)
   liftIO $ catch (getSynthResultsForType typName decls) reportErr
   where
     reportErr :: ParseErr -> IO [(Tm String String, T.Text)]
@@ -310,7 +311,7 @@ loadDecls pkgDefsPath = do
   pkgLines  <- case pkgDefsPath of
     Just path -> loadFileLines path
     Nothing   -> return []
-  rethrow (mkLineDecls $ baseLines ++ pkgLines)
+  rethrow (mkLineDecls $ nub $ baseLines ++ pkgLines)
 
 
 searchterm :: [String] -> IO ()
