@@ -3,40 +3,75 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
-import Control.Exception
+import Control.Exception ( catch, throwIO )
 import Control.Monad.State
-import Data.Aeson (eitherDecodeFileStrict)
-import Data.Either (fromRight)
-import Data.Functor.Foldable (cata)
-import Data.List (isInfixOf)
-import Data.List.Utils
-import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Aeson ( eitherDecodeFileStrict )
+import Data.Either ( fromRight )
+import Data.Functor.Foldable ( cata )
+import Data.List ( isInfixOf )
+import Data.List.Utils ( replace )
+import Data.Set ( Set )
+import qualified Data.Set as Set ( fromList, map, union )
 import qualified Data.Text as T
-import Data.Text (Text)
-import qualified Data.Text.IO as TIO
-import Debug.Trace (trace)
-import Prelude hiding (lines)
-import Prettyprinter
+    ( Text, concat, pack, append, isPrefixOf, lines, null, unpack )
+import Data.Text ( Text )
+import qualified Data.Text.IO as TIO ( readFile )
+import Debug.Trace ( trace )
+import Prettyprinter ( Pretty(pretty) )
 import Rulecheck.Config
-import Rulecheck.Monad (cradleGhcM, GhcM)
+    ( arbitraryInstanceFile,
+      filesToSkip,
+      haskellPackagesDir,
+      importsForPackage,
+      internalToPublicMod,
+      overrideTypeSigs,
+      packageDescriptionsFile,
+      packageDir,
+      packagesToSkip,
+      skipRule,
+      startFromPackage,
+      testBaseDir,
+      testGenDir,
+      testSrcDir,
+      testTemplateFile,
+      PackageDescription(version, files, name) )
+import Rulecheck.Monad ( cradleGhcM, GhcM )
 import Rulecheck.Rendering
-import Rulecheck.Rule
-import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleInputDoc, ruleModuleDoc)
-import Rulecheck.RuleExtraction
+    ( identifyRequiredImports, outputString )
+import Rulecheck.Rule ( Rule(ruleName) )
+import Rulecheck.RuleRendering
+    ( TestModuleRenderOpts(..), ruleInputDoc, ruleModuleDoc )
+import Rulecheck.RuleExtraction ( getRulesFromFile )
 import Searchterm.Synth.Search
-import Searchterm.Util hiding (loadDecls)
-import Searchterm.Interface.Core hiding (Rule, ruleName)
-import Searchterm.Interface.Decl (mkLineDecls, DeclSet)
-import Searchterm.Interface.ParenPretty (docToText)
+    ( runSearchN,
+      Found(foundTm, foundTy),
+      SearchConfig(SearchConfig),
+      TmUniq(TmUniq),
+      TyFoundScheme(unTyFoundScheme),
+      UseSkolem(UseSkolemNo) )
+import Searchterm.Util ( rethrow, inlineLets )
+import Searchterm.Interface.Core
+    ( Tm(..),
+      TmF(TmCaseF, TmFreeF, TmLitF, TmKnownF, TmAppF, TmLamF, TmLetF),
+      TmName(TmName),
+      PatPair(PatPair) )
+import Searchterm.Interface.Decl ( mkLineDecls, DeclSet )
+import Searchterm.Interface.ParenPretty ( docToText )
 import Searchterm.Interface.Parser
-import Searchterm.Interface.Printer
+    ( ParseErr, parseLine, parseType )
+import Searchterm.Interface.Printer ( printTerm )
 import Searchterm.Interface.Names
-import Searchterm.Interface.Types (Line)
+    ( namelessClosedTerm, namelessType, renameTerm )
+import Searchterm.Interface.Types ( Line )
 import System.Directory
-import System.Environment (getArgs)
-import System.Environment.Blank (getEnvDefault)
-import Text.Printf
+    ( copyFile,
+      createDirectoryIfMissing,
+      doesDirectoryExist,
+      doesFileExist,
+      removeDirectoryRecursive )
+import System.Environment ( getArgs )
+import System.Environment.Blank ( getEnvDefault )
+import Text.Printf ( printf )
 
 packageFilePath :: String -> PackageDescription -> String -> FilePath
 packageFilePath prefix pkg file =
@@ -228,7 +263,7 @@ mkDoGen t = uncurry (flip DoGen) $ runState (go t) [] where
 
 getSynthResultsForType :: String -> DeclSet -> IO [(Tm String String, T.Text)]
 getSynthResultsForType typName ds = do
-  tsNamed <- either throwTypNameParseErr pure (parseType (T.pack (typName)))
+  tsNamed <- either throwTypNameParseErr pure (parseType (T.pack typName))
   ts <- rethrow (namelessType tsNamed)
   maxSearchDepth <- fmap read (getEnvDefault "RC_MAX_SEARCH_DEPTH" "10")
   numResults <- fmap read (getEnvDefault "RC_NUM_RESULTS" "5")

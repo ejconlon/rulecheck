@@ -9,19 +9,28 @@ module Rulecheck.Rule
   , noTyVarsInSig
   ) where
 
-import Control.Monad.IO.Class (MonadIO (..))
-import Data.Maybe (fromJust)
-import GHC.Core.TyCon
+import Control.Monad.IO.Class ( MonadIO(..) )
+import Data.Maybe ( fromJust )
+import GHC.Core.TyCon ( isPrimTyCon, tyConRepName_maybe )
 import GHC.Core.Type
+    ( Kind, Var(..), noFreeVarsOfType, splitTyConApp_maybe )
 import GHC
-import GHC.Types.Basic (RuleName)
-import GHC.Types.Var
-import GHC.Types.Name (isValName, occName, occNameString)
-import GHC.Types.Name.Set
-import GHC.Utils.Outputable
-import Prelude hiding ((<>))
-import Rulecheck.Monad (GhcM)
-import Rulecheck.Typecheck (getType)
+    ( GhcMonad(getSession),
+      unLoc,
+      HsRuleRn(HsRuleRn),
+      LRuleDecl,
+      RuleBndr(RuleBndr),
+      RuleDecl(rd_name, rd_lhs, rd_rhs, rd_tmvs, rd_ext),
+      HsExpr,
+      LHsExpr,
+      GhcTc )
+import GHC.Types.Basic ( RuleName )
+import GHC.Types.Var ( Var(varName) )
+import GHC.Types.Name ( occName, occNameString )
+import GHC.Types.Name.Set ( elemNameSet, unionNameSet )
+import GHC.Utils.Outputable ( Outputable(ppr), SDoc )
+import Rulecheck.Monad ( GhcM )
+import Rulecheck.Typecheck ( getType )
 
 data RuleSide = LHS | RHS
 

@@ -11,20 +11,35 @@ module Rulecheck.RuleRendering
   , TestSuffix(..)
   ) where
 
-import Data.Char (isAlphaNum)
-import Data.Foldable (foldl', toList)
-import Data.Maybe (fromMaybe)
-import Data.Set as Set (Set)
-import Data.List (intercalate)
-import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
-import GHC.Core.Type
-import GHC.Data.FastString (fs_zenc, zString)
-import GHC.Driver.Session (HasDynFlags)
+import Data.Char ( isAlphaNum )
+import Data.Foldable ( foldl', toList )
+import Data.Set as Set ( Set )
+import Data.List ( intercalate )
+import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
+import GHC.Core.Type ( Kind, Var(..), noFreeVarsOfType )
+import GHC.Data.FastString ( fs_zenc, zString )
+import GHC.Driver.Session ( HasDynFlags )
 import GHC.Utils.Outputable
-import GHC.Types.Basic (RuleName)
-import GHC.Tc.Utils.TcType
-import Rulecheck.Rendering
+    ( Outputable(ppr),
+      SDoc,
+      text,
+      ($+$),
+      (<+>),
+      arrow,
+      blankLine,
+      empty,
+      parens,
+      pprWithCommas )
+import GHC.Types.Basic ( RuleName )
+import GHC.Tc.Utils.TcType ( isTyVarClassPred )
+import Rulecheck.Rendering ( outputString )
 import Rulecheck.Rule
+    ( getBoxType,
+      getSide,
+      BoxType(BoxType),
+      Rule(ruleTermArgs, ruleName, origRule, ruleType,
+           ruleTermAndTyArgs),
+      RuleSide(..) )
 
 data TestSuffix =
   TestSuffix Int Int -- RuleNum, TestNum
@@ -46,13 +61,9 @@ ruleInputDoc rule =
     args           = ruleTermArgs rule
     constraintArgs = filter (isTyVarClassPred . varType) $ ruleTermAndTyArgs rule
     constraintPart =
-      case nonEmpty (map varType constraintArgs) of
-        Just cArgTypes -> asTuple cArgTypes
-        Nothing -> empty
+      maybe empty asTuple (nonEmpty (map varType constraintArgs))
     argsPart =
-      case nonEmpty (map (asBoxedType . varType) args) of
-        Just argTypes -> asTuple argTypes
-        Nothing       -> empty
+      maybe empty asTuple (nonEmpty (map (asBoxedType . varType) args))
 
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
 --
@@ -69,9 +80,7 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
     constraintArgs = filter (isTyVarClassPred . varType) $ ruleTermAndTyArgs rule
 
     maybeBoxedArgs =
-      case nonEmpty (map asBoxedArg args) of
-        Just boxedArgs' -> asTuple boxedArgs'
-        Nothing         -> empty
+      maybe empty asTuple (nonEmpty (map asBoxedArg args))
     def       = text name <+> maybeBoxedArgs <+> text "=" <+> maybeBoxedBody
 
     resultTyp  = asBoxedType (ruleType rule)
@@ -82,7 +91,7 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
       where
         arr = if null args then text "=>" else arrow
   in
-    text (name ++ " ::") <+> fromMaybe defaultSig (fmap text overrideTypeSig) $+$ def
+    text (name ++ " ::") <+> maybe defaultSig text overrideTypeSig $+$ def
   where
 
     body = getSide side rule
