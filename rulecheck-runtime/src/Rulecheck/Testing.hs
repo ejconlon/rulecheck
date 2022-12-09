@@ -15,6 +15,9 @@ module Rulecheck.Testing
 
 import Control.DeepSeq
 import Control.Exception
+import qualified Data.ByteString as ByteString
+import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString (ByteString)
 import Data.Proxy
 import Data.Typeable
 import Test.QuickCheck (Arbitrary (..), Testable (..), (===))
@@ -65,6 +68,12 @@ x =:= y = ioProperty $ do
 
 instance Arbitrary a => Arbitrary (Proxy a)  where
   arbitrary = return Proxy
+
+instance Arbitrary ByteString where
+  arbitrary = fmap ByteString.pack arbitrary
+
+instance Arbitrary LBS.ByteString where
+  arbitrary = fmap LBS.pack arbitrary
 
 -- TODO: This rule is probably bad, remove it eventually
 instance {-# OVERLAPS #-} (Num a) => Arbitrary a where
