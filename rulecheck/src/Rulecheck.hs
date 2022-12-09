@@ -10,6 +10,7 @@ import Data.Either ( fromRight )
 import Data.Functor.Foldable ( cata )
 import Data.List ( isInfixOf, nub )
 import Data.List.Utils ( replace )
+import Data.Maybe ( fromMaybe )
 import Data.Set ( Set )
 import qualified Data.Set as Set ( fromList, map, union )
 import qualified Data.Text as T
@@ -71,6 +72,7 @@ import System.Directory
       removeDirectoryRecursive )
 import System.Environment ( getArgs )
 import System.Environment.Blank ( getEnvDefault )
+import System.Timeout
 import Text.Printf ( printf )
 
 packageFilePath :: String -> PackageDescription -> String -> FilePath
@@ -290,19 +292,25 @@ getSynthResultsForRule :: DeclSet -> Rule -> GhcM [(Tm String String, T.Text)]
 getSynthResultsForRule decls rule = do
   typName <- outputString (ruleInputDoc rule)
   liftIO $ printf "Synthesizing input terms for rule %s (type:  %s)\n" (show $ ruleName rule) (typName)
-  liftIO $ catch (getSynthResultsForType typName decls) reportErr
+  maybeResults <- liftIO $ timeout maxWaitTimeNs $ catch (getSynthResultsForType typName decls) reportErr
+  liftIO $ when (maybeResults == Nothing) $ putStrLn "Timed-out during synth"
+  let results = fromMaybe [] maybeResults
+  liftIO $ mapM_ showResult results
+  return results
   where
+    maxWaitTimeNs = 5 * 1000000
     reportErr :: ParseErr -> IO [(Tm String String, T.Text)]
     reportErr _ = do
       putStrLn "Ignoring parse error for rule"
       return []
 
+showResult :: (Tm String String, T.Text) -> IO ()
+showResult (tm, ty) = printf "Term: %s\nType:%s\n" (renderDoGen $ mkDoGen tm) ty
+
 searchWithDecls :: String -> DeclSet -> IO ()
 searchWithDecls typName ds = do
   sr <- getSynthResultsForType typName ds
   mapM_ showResult sr
-  where
-    showResult (tm, ty) = printf "Term: %s\nType:%s\n" (renderDoGen $ mkDoGen tm) ty
 
 
 loadDecls :: Maybe FilePath -> IO DeclSet
