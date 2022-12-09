@@ -1,0 +1,31 @@
+\section{Implementation}
+\label{sec:implementation}
+
+\Rulecheck consists of several components:
+
+\begin{itemize}
+  \item Tooling to identify and download public Haskell packages
+  \item A program to extract rules and types from packages and generate tests
+  \item A small runtime library for those generate tests
+  \item A library for program synthesis
+\end{itemize}
+
+More sections here
+
+\subsection{Program synthesis}
+
+\Rulecheck implements a tactics-based search for terms matching a given type, with fair interleaving and backtracking. \cite{delahaye2000tactic, kiselyov2005backtracking} It can be configured to read interface files in a format similar to Hoogle+ \cite{james2020digging} to define the sets of types and terms used in the search. Given a goal type, \Rulecheck derives terms of that type by repeatedly applying these tactics:
+
+\begin{itemize}
+  \item Yield a variable in the context (i.e. a function argument)
+  \item Yield a literal (e.g. Int, String, etc)
+  \item Yield a known term (e.g. functions or constants matching exactly)
+  \item Apply a function and search for its arguments (where some partial application of the function matches the goal)
+  \item Apply a function to a variable in the context
+  \item Introduce a variable and search for a body (for function goals)
+  \item Pattern match on an argument (for function goals with known argument constructors)
+\end{itemize}
+
+\Rulecheck directs the search by incrementally performing first-order unification on types. It also eagerly substitutes types implementing typeclass constraints, so it is important that all relevant instance declarations be included in the interface file. This process yields terms and their monotypes until terminated or until the search space is exhausted.
+
+The clearest limitation of \Rulecheck is that it does not support \textit{higher-rank} types (those with additional \texttt{forall} quantifiers to the left of a function arrow, not just on the outside of the type). One can see this feature used for encapsulation in the \texttt{ST} and \texttt{Cont} monads, or in the core definitions of lens libraries. We leave synthesis with these types for future work.

@@ -9,3 +9,5 @@ dist-newstyle
 data/scratch
 package-tests/*
 auto/rules.json
+.DS_Store
+.auctex-auto
