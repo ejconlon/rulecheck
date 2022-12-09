@@ -11,7 +11,6 @@ import qualified Data.Text as T
 import GHC.Stack (HasCallStack, callStack, prettyCallStack)
 import Searchterm.Interface.Names (unsafeLookupSeq)
 import Searchterm.Interface.Core
-import Searchterm.Interface.Decl (DeclSet, mkLineDecls)
 import Searchterm.Interface.Parser (ParseErr, parseLines, parseLinesIO)
 import Searchterm.Interface.Types (Line)
 import Searchterm.Synth.Search
@@ -68,11 +67,6 @@ loadDeclLines = \case
   DeclSrcFile fp -> parseLinesIO fp
   DeclSrcList ts -> rethrow (parseLines "<load>" (T.unlines ts))
   DeclSrcPlus a b -> (<>) <$> loadDeclLines a <*> loadDeclLines b
-
-loadDecls :: DeclSrc -> IO DeclSet
-loadDecls src = do
-  ls <- loadDeclLines src
-  rethrow (mkLineDecls (toList ls))
 
 withDieOnParseErr :: IO a -> IO a
 withDieOnParseErr act = catch act dieOnParseErr

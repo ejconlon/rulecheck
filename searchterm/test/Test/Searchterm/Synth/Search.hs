@@ -17,7 +17,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Searchterm.Interface.Core (Forall (..), Index (..), PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..),
                                   TmVar (..), Ty (..), TyScheme (..), TyVar (..))
-import Searchterm.Interface.Decl (DeclSet (..))
+import Searchterm.Interface.Decl (DeclSet (..), MkDeclOptions(..), mkLineDecls)
 import Searchterm.Interface.Names (AlphaTm (..), AlphaTyScheme (..), closeAlphaTm, closeAlphaTyScheme, mapAlphaTm,
                                    namelessType, toListWithIndex, unsafeLookupSeq, namelessClosedTerm)
 import Searchterm.Interface.Parser (parseTerm, parseType)
@@ -95,6 +95,11 @@ data Match = Match
   { matchTm :: !Text
   , matchTy :: !Text
   } deriving stock (Eq, Show)
+
+loadDecls :: DeclSrc -> IO DeclSet
+loadDecls src = do
+  ls <- loadDeclLines src
+  rethrow (mkLineDecls (MkDeclOptions False) (toList ls))
 
 testFindsRaw :: TestName -> UseSkolem -> DeclSrc -> Text -> [Match] -> [Text] -> TestTree
 testFindsRaw n useSkolem src tyStr yesMatchStrs noTmStrs = testCase n $ do

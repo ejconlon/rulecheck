@@ -56,7 +56,7 @@ import Searchterm.Interface.Core
       TmF(TmCaseF, TmFreeF, TmLitF, TmKnownF, TmAppF, TmLamF, TmLetF),
       TmName(TmName),
       PatPair(PatPair) )
-import Searchterm.Interface.Decl ( mkLineDecls, DeclSet )
+import Searchterm.Interface.Decl ( mkLineDecls, DeclSet , MkDeclOptions(..) )
 import Searchterm.Interface.ParenPretty ( docToText )
 import Searchterm.Interface.Parser
     ( ParseErr, parseLine, parseType )
@@ -319,7 +319,7 @@ loadDecls pkgDefsPath = do
   pkgLines  <- case pkgDefsPath of
     Just path -> loadFileLines path
     Nothing   -> return []
-  rethrow (mkLineDecls $ nub $ baseLines ++ pkgLines)
+  rethrow (mkLineDecls (MkDeclOptions True) $ nub $ baseLines ++ pkgLines)
 
 
 searchterm :: [String] -> IO ()
