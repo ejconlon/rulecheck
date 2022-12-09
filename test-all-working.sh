@@ -22,6 +22,7 @@ set -euo pipefail
 # carray - no rules have args
 # case-insensitive -m no rules have args (SHOULD BE EASY MANUALLY, bytestring)
 # cassava - looks to be another default issue
+# clashLib - Core.Var.varType is both a type and a kind? this one's prob. too complicated
 
 # Packages w/o rules
 # MemoTrie
