@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Rulecheck where
 
+import Control.Exception
 import Control.Monad.State
 import Data.Aeson (eitherDecodeFileStrict)
 import Data.Either (fromRight)
@@ -18,15 +19,15 @@ import Debug.Trace (trace)
 import Prelude hiding (lines)
 import Prettyprinter
 import Rulecheck.Config
-import Rulecheck.Monad (cradleGhcM)
+import Rulecheck.Monad (cradleGhcM, GhcM)
 import Rulecheck.Rendering
 import Rulecheck.Rule
-import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleModuleDoc)
+import Rulecheck.RuleRendering (TestModuleRenderOpts(..), ruleInputDoc, ruleModuleDoc)
 import Rulecheck.RuleExtraction
 import Searchterm.Synth.Search
-import Searchterm.Util
-import Searchterm.Interface.Core hiding (ruleName)
-import Searchterm.Interface.Decl (mkLineDecls)
+import Searchterm.Util hiding (loadDecls)
+import Searchterm.Interface.Core hiding (Rule, ruleName)
+import Searchterm.Interface.Decl (mkLineDecls, DeclSet)
 import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Parser
 import Searchterm.Interface.Printer
@@ -47,13 +48,17 @@ data GenerateOptions =
     , genModName :: String
     , genDeps    :: Set String
     , genModFile :: FilePath
+    , genDecls   :: Maybe DeclSet
     }
 
 getModContents :: GenerateOptions -> IO String
-getModContents (GenerateOptions {srcFile, genModName, genDeps}) =
+getModContents (GenerateOptions {genDecls, srcFile, genModName, genDeps}) =
   cradleGhcM srcFile $ do
     rulesInFile <- getRulesFromFile srcFile
     let rules = filter (not . skipRule srcFile . ruleName) rulesInFile
+    case genDecls of
+      Just decls -> mapM_ (getSynthResultsForRule decls) rules
+      Nothing -> return ()
 
     let renderOpts = TestModuleRenderOpts genModName genDeps (overrideTypeSigs srcFile)
 
@@ -84,14 +89,16 @@ demoGenOpts = GenerateOptions
   "DemoTest.Generated.DemoDomain"
   (Set.fromList ["DemoDomain"])
   "demo-test/test/DemoTest/Generated/DemoDomain.hs"
+  Nothing
 
-getGenerateOptions :: FilePath -> Int -> PackageDescription -> GenerateOptions
-getGenerateOptions path num desc =
+getGenerateOptions :: Maybe DeclSet -> FilePath -> Int -> PackageDescription -> GenerateOptions
+getGenerateOptions ds path num desc =
   GenerateOptions
     path
     ("Rulecheck.Generated.Test" ++ show num)
     (Set.union (importsForPackage desc) defaultImports)
     (testGenDir desc ++ "/Test" ++ show num ++ ".hs")
+    ds
   where
     defaultImports :: Set String
     defaultImports = Set.fromList ["GHC.Base", "GHC.Float", "GHC.Types", "GHC.Word"]
@@ -129,18 +136,30 @@ setupTestDirectory pkg =
     copyFile instancesFilename (testGenDir pkg ++ "/ArbitraryInstances.hs")
 
 
+declSetForPackage :: String -> PackageDescription -> IO (Maybe DeclSet)
+declSetForPackage prefix pkg = do
+  hasDeclsFile <- doesFileExist declsFile
+  if hasDeclsFile
+    then do
+      printf "%s has decls file\n" (name pkg)
+      fmap Just (loadDecls (Just declsFile))
+    else printf "%s has does not have decls\n" (name pkg) >> return Nothing
+  where
+    declsFile = packageFilePath prefix pkg "defs.txt"
+
 processPackage :: String -> PackageDescription -> IO ()
 processPackage prefix pkg = do
   putStrLn $ "Processing " ++ name pkg
+  ds <- declSetForPackage prefix pkg
   setupTestDirectory pkg
-  mapM_ go (zip (map (packageFilePath prefix pkg) $ files pkg) [1..])
+  mapM_ (go ds) (zip (map (packageFilePath prefix pkg) $ files pkg) [1..])
   where
-    go :: (FilePath, Int) -> IO ()
-    go (path, _) | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
-    go (path, n) = do
+    go :: Maybe DeclSet -> (FilePath, Int) -> IO ()
+    go _ (path, _) | shouldSkip path = putStrLn $ "Skipping file at path" ++ path
+    go ds (path, n) = do
       assertFileExists path
-      putStrLn $ "Processing file at " ++ path
-      generateFile (getGenerateOptions path n pkg)
+      putStrLn $ "Processing file " ++ path
+      generateFile (getGenerateOptions ds path n pkg)
 
 getPackagesToProcess :: [String] -> IO [PackageDescription]
 getPackagesToProcess packages = do
@@ -207,11 +226,9 @@ mkDoGen t = uncurry (flip DoGen) $ runState (go t) [] where
     TmCaseF scrut pairs -> TmCase <$> scrut <*> traverse goPair pairs
   goPair (PatPair pat w) = PatPair pat <$> w
 
-
-searchWithLines :: String -> [Line] -> IO ()
-searchWithLines typName lines = do
-  ds <- rethrow (mkLineDecls lines)
-  tsNamed <- rethrow (parseType (T.pack (typName)))
+getSynthResultsForType :: String -> DeclSet -> IO [(Tm String String, T.Text)]
+getSynthResultsForType typName ds = do
+  tsNamed <- either throwTypNameParseErr pure (parseType (T.pack (typName)))
   ts <- rethrow (namelessType tsNamed)
   maxSearchDepth <- fmap read (getEnvDefault "RC_MAX_SEARCH_DEPTH" "10")
   numResults <- fmap read (getEnvDefault "RC_NUM_RESULTS" "5")
@@ -221,28 +238,53 @@ searchWithLines typName lines = do
     Left err      -> error (show err)
     Right results -> do
       printf "%d terms found for type %s\n" (length results) typName
-      mapM_ showResult results
+      return $ map convert results
       where
-        showResult result = do
-          printf "Term: %s\nType:%s\n" (renderDoGen doTm) (docToText ty)
+        convert result = (tm, ty)
           where
             mkVarName (TmUniq i) = "x" ++ show i
             namelessTm           = fromRight undefined $ namelessClosedTerm (const Nothing) $ inlineLets $ foundTm result
-            renamedTm            = fromRight undefined $ renameTerm mkVarName namelessTm
-            doTm :: DoGen (String) (Tm String String)
-            doTm                 = mkDoGen renamedTm
-            ty                   = pretty $ unTyFoundScheme $ foundTy result
+            tm                   = fromRight undefined $ renameTerm mkVarName namelessTm
+            ty                   = docToText $ pretty $ unTyFoundScheme $ foundTy result
+  where
+    throwTypNameParseErr err = do
+      printf "Error: cannot parse type %s for synthesis\n" typName
+      throwIO err
 
+getSynthResultsForRule :: DeclSet -> Rule -> GhcM [(Tm String String, T.Text)]
+getSynthResultsForRule decls rule = do
+  typName <- outputString (ruleInputDoc rule)
+  liftIO $ catch (getSynthResultsForType typName decls) reportErr
+  where
+    reportErr :: ParseErr -> IO [(Tm String String, T.Text)]
+    reportErr _ = do
+      putStrLn "Ignoring parse error for rule"
+      return []
+
+searchWithDecls :: String -> DeclSet -> IO ()
+searchWithDecls typName ds = do
+  sr <- getSynthResultsForType typName ds
+  mapM_ showResult sr
+  where
+    showResult (tm, ty) = printf "Term: %s\nType:%s\n" (renderDoGen $ mkDoGen tm) ty
+
+
+loadDecls :: Maybe FilePath -> IO DeclSet
+loadDecls pkgDefsPath = do
+  baseLines <- loadFileLines "searchterm/prelude.txt"
+  pkgLines  <- case pkgDefsPath of
+    Just path -> loadFileLines path
+    Nothing   -> return []
+  rethrow (mkLineDecls $ baseLines ++ pkgLines)
 
 
 searchterm :: [String] -> IO ()
 searchterm [filename, typName] = do
-  baseLines <- loadFileLines "searchterm/prelude.txt"
-  pkgLines  <- loadFileLines filename
-  searchWithLines typName $ baseLines ++ pkgLines
+  decls <- loadDecls $ Just filename
+  searchWithDecls typName decls
 searchterm [typName] = do
-  baseLines <- loadFileLines "searchterm/prelude.txt"
-  searchWithLines typName baseLines
+  decls <- loadDecls Nothing
+  searchWithDecls typName decls
 searchterm _ = putStrLn "Usage stack run -- --searchterm DEF_FILE TYP"
 
 main :: IO ()
