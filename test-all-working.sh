@@ -2,13 +2,17 @@
 
 set -euo pipefail
 
-# Packags skipped for now:
+# Packages skipped for now:
 # Agda - Strange parsing error
 # Color - Probably do-able but setting up data is complicated
 # adjunctions - Complicated class constraints
 # aeson - GADTs
 # algebraic graphs - GHC Doesn't support impredicative polymorphism
 #                  - TODO Take another look at this one, has some interesting rules
+# These packages don't work for synth:
+# bifunctors - rules only for higher-kinded types it seems
+# binary-list - cannot introduce type vars
+# bits - higher-kinded datatype breaks parsing of defs file
 
 # Packages w/o rules
 # MemoTrie
