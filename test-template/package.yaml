@@ -69,5 +69,6 @@ tests:
     - ghc-prim
                  # Extra deps for specific modules
                  # If this causes a problem, setup per-module package.yaml
+    - bytestring # Required for byteable
     - containers # Required for algebraic-graphs
     - deepseq    # Required for basement

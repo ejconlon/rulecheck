@@ -23,5 +23,6 @@ sed '/^--/d' "$HOOGLE_FILE" | \
     sed '/-> \*/d'|\
     sed '/forall.*forall/d'|\
     sed 's/^data /type /' |\
-    sed 's/{-# UNPACK #-} !Int/Int/' |\
+    sed 's/{-# UNPACK #-}//' |\
+    sed 's/!//g' |\
     sed 's/^newtype /type /' | sed 's/^\[\(.*\)\]/\1/g' > defs.txt
