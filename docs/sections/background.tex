@@ -1,14 +1,13 @@
 \section{Background}
 \label{sec:background}
 
-As \Rulecheck is primarily concerned with reasoning about rewrite rules, we
-provide an overview in this section. Here we present a simplified version of
-Haskell's rewrite rule syntax and semantics that captures the relevant aspects
-for our technique. Readers interested in the full syntax and semantics of
-rewrite rules in Haskell are suggested to consult the GHC documentation
-\cite{userguide}.
+In this section, we provide a high-level conceptual overview of rewrite rules in
+Haskell. In particular, we omit details of rewriting that are not relevant for
+\Rulecheck (such as phase-control) in the interest of clarity. Readers
+interested in the full syntax and semantics of rewrite rules in Haskell are
+suggested to consult the GHC documentation \cite{userguide}.
 
-A rewrite rule is annotation of the form:\\ \texttt{\{-\# RULES forall <binders>
+A rewrite rule is declared using an annotation of the form:\\ \texttt{\{-\# RULES forall <binders>
 :: \rlhs = \rrhs \#-\}},\\ where \texttt{<binders>} is a (possibly-empty) list
 of variable names, and \rlhs and \rrhs (the left and
 right-hand sides of the rule, respectively) are Haskell expressions. The
@@ -25,9 +24,6 @@ there is a match, the compiler then applies the substitution to the
 right-hand-side of the rule, and replaces \texttt{e} with the resulting
 expression.
 
-such that applying the substitution to $l$ yields the term
-matches the LHS of a rule if there is a way substitute the binders with expressions
-
-$ \forall x_{1} $
-
-\subsection{Simplified Rewrite Rule Semantics}
+\ZGTODO{Consider mentioning that rules are applied multiple times, order of
+  consideration not defined, considerations due to inlining, possible disabiling
+due to optimization flags, termination, confluence, etc.}
