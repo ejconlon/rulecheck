@@ -1,0 +1,33 @@
+\section{Background}
+\label{sec:background}
+
+As \Rulecheck is primarily concerned with reasoning about rewrite rules, we
+provide an overview in this section. Here we present a simplified version of
+Haskell's rewrite rule syntax and semantics that captures the relevant aspects
+for our technique. Readers interested in the full syntax and semantics of
+rewrite rules in Haskell are suggested to consult the GHC documentation
+\cite{userguide}.
+
+A rewrite rule is annotation of the form:\\ \texttt{\{-\# RULES forall <binders>
+:: \rlhs = \rrhs \#-\}},\\ where \texttt{<binders>} is a (possibly-empty) list
+of variable names, and \rlhs and \rrhs (the left and
+right-hand sides of the rule, respectively) are Haskell expressions. The
+expressions on each side of the rule can refer to functions in scope as well as
+the variable names in \texttt{<binders>}; the referenced variables are called
+the \textit{free variables} of that side.
+
+At compile time, GHC analyzes expressions in the abstract syntax tree, and
+replaces expressions that \textit{match} the left-hand side of a rewrite rule
+with their rewritten equivalents. An expression $\texttt{e}$ matches the
+left-hand side \rlhs iff \rlhs can be made syntactically equal to $\texttt{e}$
+by substituting the free variables in \rlhs with appropriate expressions. If
+there is a match, the compiler then applies the substitution to the
+right-hand-side of the rule, and replaces \texttt{e} with the resulting
+expression.
+
+such that applying the substitution to $l$ yields the term
+matches the LHS of a rule if there is a way substitute the binders with expressions
+
+$ \forall x_{1} $
+
+\subsection{Simplified Rewrite Rule Semantics}
