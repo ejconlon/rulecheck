@@ -10,11 +10,11 @@
   \item A library for program synthesis
 \end{itemize}
 
-\subsection{Rule extractor and test generator}
+\subsection{Rule extractor and test generator}\label{sec:implementation:testgen}
 
 \Rulecheck uses the GHC API library to extract rule and type information from packages under test. We made slight modifications to the Hoogle utility to extract declarations from these packages and their dependencies for our interface file format.
 
-\subsection{Program synthesis}
+\subsection{Program Synthesis}\label{sec:implementation:synthesis}
 
 \Rulecheck implements a tactics-based search for terms matching a given type, with fair interleaving and backtracking. \cite{delahaye2000tactic, kiselyov2005backtracking} It can be configured to read interface files in a format similar to Hoogle+ \cite{james2020digging} to define the sets of types and terms used in the search. Given a goal type, \Rulecheck derives terms of that type by repeatedly applying these tactics:
 

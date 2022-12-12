@@ -62,9 +62,9 @@ goal = \case
   Right z -> showInt z
   \end{minted}
   \caption{An example term that could be used for testing a rule with a free
-variable of type \texttt{Either Char Int -> String}. In \Rulecheck, we
+variable of type \mbox{\texttt{Either Char Int \textrightarrow~String}}. In \Rulecheck, we
 synthesize such terms from their type definition.}
-  \label{fig:synthexample}
+  \label{fig:methodology:synthexample}
 \end{figure}
 
 Haskell does not impose any requirements on the binders \rbinders in a rewrite
@@ -74,19 +74,23 @@ of potentially arbitrary type.
 Generating terms for primitive types (i.e. \texttt{Int}, \texttt{Bool}, etc) is
 relatively straightforward. However, as Haskell is a functional language, it is
 also necessary to construct arbitrary terms of function type. For example,
-consider a rule with a free variable of type \texttt{Either Char Int -> String},
+consider a rule with a free variable of type \mbox{\texttt{Either Char Int \textrightarrow~String}},
 i.e. a function that takes as input either a \texttt{Char} or an \texttt{Int}
-value and returns a \texttt{String}. Generating a term of
-that type is analagous to synthesize a program from the type specification; for
-this reason, we approach the challenge of generating test values using a
-\textit{program synthesis} approach.
+value and returns a \texttt{String}. As shown in
+\figref{methodology:synthexample}, generating a term of that type is analogous
+to synthesizing a program from the type specification; for this reason, we
+approach the challenge of generating test values using a \textit{program
+synthesis} approach.
 
+For \Rulecheck, we opted to build a custom engine for program synthesis; the
+design of our synthesis engine is described in \secref{implementation:synthesis}.
 
 \subsection{Comparing Test Outputs}\label{sec:methodology:testoutput}
 
-Because Haskell rewrite rules can apply to terms of any type; our methodology
-requires that we have some way to determine (or at least, approximate), whether
-two values of some arbitrary type are semantically equivalent.
+Analogously to the case of free variables, Haskell rewrite rules can also apply
+to terms of arbitrary type. Therefore, we must also have some way to determine
+(or at least, approximate), whether two values of some arbitrary type are
+semantically equivalent.
 
 Unfortunately, there does not appear to be a universally applicable way to
 determine semantic equivalence at runtime. Haskell provides a typeclass
@@ -104,17 +108,15 @@ specialized version of a more general function). Clearly, the original and
 replaced function will have different internal representations, even if they
 always produce equivalent results.
 
-\ZGTODO{Explain our solution, handling of functions, NaN special case, using synthesis}
+For this reason, we choose to determine semantic equality by checking for
+\textit{extensional equality} in the property-based tests. Intuitively, we
+consider two values to be semantically equivalent if there is a way to observe a
+difference between the values. For example, consider the case of a rule applying
+to an expression of type \mbox{\texttt{Int \textrightarrow~Bool}}, where
+\texttt{f} and \texttt{g} correspond to the output of the functions for each
+rule side. To test semantic equivalence of \texttt{f} and \texttt{g}, we can
+sample the functions at various points (i.e. trying various \texttt{Int}
+values), and ensure the function always return the same result.
 
-Generating tests for rewrite rules comes with its own complications. First, rewritten expressions are intended to be \textit{semantically equivalent} to their source expressions, and what that means varies from library to library. For some, this is true contextual equivalence, and for others this is numerical approximation. To make matters worse, a rewrite may not even preserve user-defined boolean equality (from \texttt{class Eq}) - if that is even defined for the type! So in short, test generators need to remain flexible in the degree and manner in which they assert equality.
-
-The flexibility of the rewrite system is another challenge. One of the few syntactic restrictions of rewrite rules is that ``the left hand side of a rule must consist of a top-level variable applied to arbitrary expressions'' \cite{userguide} - in so many words, rewrite rules can match arbitrary function applications, and transform terms of arbitrary types. These types are not required to implement any particular interfaces, nor are they even required to represent data! They can be function-typed and are eta-expanded as needed. Therefore, test generators need to be prepared to generate terms of a variety of types to act as inputs to or consume outputs from rule applications.
-
-Finally, though parametricity greatly broadens the applicability of rules, it presents difficulties in test generation. Test generators must choose monotypes to instantiate rule polytypes, taking care that our choices implement any required typeclass constraints.
-
-In summary, any test generator for rewrite rules must implement the following features:
-
-\begin{itemize}
-  \item Given a type, generate an arbitrary values of (instantiations of) that type
-  \item Given two arbitrary values of the same type, compare them for semantic equality
-\end{itemize}
+We describe the implementation of our extensional equality check in
+\secref{implementation:testgen}.
