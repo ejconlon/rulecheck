@@ -7,12 +7,11 @@ Haskell. In particular, we omit details of rewriting that are not relevant for
 interested in the full syntax and semantics of rewrite rules in Haskell are
 suggested to consult the GHC documentation \cite{userguide}.
 
-A rewrite rule is declared using an annotation of the form:\\ \texttt{\{-\# RULES forall <binders>
-:: \rlhs = \rrhs \#-\}},\\ where \texttt{<binders>} is a (possibly-empty) list
+A rewrite rule is declared using an annotation of the form:\\ \rrule,\\ where \rbinders is a (possibly-empty) list
 of variable names, and \rlhs and \rrhs (the left and
 right-hand sides of the rule, respectively) are Haskell expressions. The
 expressions on each side of the rule can refer to functions in scope as well as
-the variable names in \texttt{<binders>}; the referenced variables are called
+the variable names in \rbinders; the referenced variables are called
 the \textit{free variables} of that side.
 
 At compile time, GHC analyzes expressions in the abstract syntax tree, and

@@ -7,6 +7,70 @@ requires that application of a rule should not change the meaning of a program.
 Therefore, we focus on this aspect of correctness: we define a rule to be
 \textit{correct} iff applying the rule preserves the semantics of the program.
 
+\subsection{Generating Tests for Rewrite Rules}
+
+Intuitively, one could test the correctness of rewrite rule applications for a
+program by compiling two versions: one with rewrite rules enabled, and one with
+rules disabled. If the output of the two versions differ, then one of the
+applied rules must be incorrect.
+
+Unfortunately, generating a test program to trigger a specific rewrite rule is
+not straightforward, because including a term in the program that matches a
+specific rewrite rule does not ensure that GHC will apply the rule to that term.
+For example, the compiler could first perform other syntactic transformations on
+the term (such as inlining), that would change the structure of the term so that
+the rule no longer applies. Or, it's possible that another rewrite rule (for
+example, one defined in the standard library) could first apply to a subterm,
+hence preventing the intended rule application.
+
+Therefore, for \Rulecheck we adopted an alternative approach. Instead of relying
+on GHC to apply a rewrite rule, we instead bypass the rewrite mechanism
+entirely, by constructing a property-based test \textit{derived from} the
+rewrite rule. While this approach does not directly test rewrite rule
+application (and would therefore fail to identify issues due to bugs in GHC's
+rewrite engine, for example); it enables direct testing of the transformation
+defined by the rule.
+
+\Rulecheck constructs the property-based test, directly from the syntax of the
+rule itself. Conceptually, the LHS and RHS of a rule each define a function from
+the free variables of the rule, to their corresponding expression. Concretely,
+the given a rewrite rule \texttt{forall \rbinders~.~\rlhs = \rrhs}, we can
+construct a pair of functions \texttt{flhs} and \texttt{frhs} as follows:
+
+\begin{minted}{haskell}
+flhs x1, ..., xn = lhs
+frhs x1, ..., xn = rhs
+\end{minted}
+
+The property-based test for the rule, therefore, checks that \texttt{flhs} and
+\texttt{frhs} yield semantically equivalent values when applied to the same
+inputs. However, as we explain in the next section, checking for semantic
+equivalence is not necessarily straightforward.
+
+\subsection{Checking for Semantic Equivalence}
+
+Because Haskell rewrite rules can apply to terms of any type; our methodology
+requires that we have some way to determine (or at least, approximate), whether
+two values of some arbitrary type are semantically equivalent.
+
+Unfortunately, there does not appear to be a universally applicable way to
+determine semantic equivalence at runtime. Haskell provides a typeclass
+\texttt{Eq} for user-defined equality, however, this is not implemented by all
+types. Furthermore, it's not clear that the implementation will necessarily
+correspond to semantic equality. For example, the \texttt{Eq} implementation for
+floating point numbers defines \NaN to not equal any other value, including itself.
+
+Alternatively, one could imagine using some intrinsic notion of equality, for
+example, a value's representation in memory, to determine semantic equality.
+Unfortunately, this is also not suitable in all cases. For example, as Haskell
+is a functional language, it is possible to define a rewrite rule to rewrite a
+function-typed expression with a more efficient version (typically, a
+specialized version of a more general function). Clearly, the original and
+replaced function will have different internal representations, even if they
+always produce equivalent results.
+
+\ZGTODO{Explain our solution, handling of functions, NaN special case, using synthesis}
+
 Generating tests for rewrite rules comes with its own complications. First, rewritten expressions are intended to be \textit{semantically equivalent} to their source expressions, and what that means varies from library to library. For some, this is true contextual equivalence, and for others this is numerical approximation. To make matters worse, a rewrite may not even preserve user-defined boolean equality (from \texttt{class Eq}) - if that is even defined for the type! So in short, test generators need to remain flexible in the degree and manner in which they assert equality.
 
 The flexibility of the rewrite system is another challenge. One of the few syntactic restrictions of rewrite rules is that ``the left hand side of a rule must consist of a top-level variable applied to arbitrary expressions'' \cite{userguide} - in so many words, rewrite rules can match arbitrary function applications, and transform terms of arbitrary types. These types are not required to implement any particular interfaces, nor are they even required to represent data! They can be function-typed and are eta-expanded as needed. Therefore, test generators need to be prepared to generate terms of a variety of types to act as inputs to or consume outputs from rule applications.
