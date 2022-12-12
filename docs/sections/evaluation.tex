@@ -32,10 +32,30 @@ packages could also impact the correctness on the packages that rely on
 them.\ZGTODO{If time, figure out how many packages on Hackage have one of these
 as a transitive dependency.}
 
-At the time of writing, we have used \Rulecheck on six candidate packages, and
-have identified that three of them contain rewrite rules that can alter program
-behaviour. In the remainder of this section, we will focus on the testing
-results of one such package, \fastmath.
+\begin{figure}
+  \begin{tabular}{ |l|c|c| }
+    \hline
+    \makecell{\textbf{Package Name}}  & \makecell{\textbf{\# Tests} \\ \textbf{Generated}} & \makecell{\textbf{\# Test} \\ \textbf{Failures}}\\
+    \hline
+    \texttt{arithmoi} & 11 & 2\\
+    \texttt{basement} & 56 & 6\\
+    \texttt{bits} & 3 & 2\\
+    \texttt{bytestring-strict-builder} & 1 & 0\\
+    \texttt{fast-math} & 72 & 42\\
+    \texttt{ListLike} & 1 & 0\\
+    \hline
+  \end{tabular}
+  \caption{Results of our evaluation on six Haskell packages. One test is
+generated for each rewrite rule in the package. A test failure occurs when a
+counterexample is found for the property-based test derived from a rewrite rule.}
+  \label{fig:evalresults}
+\end{figure}
+
+At the time of writing, we have used \Rulecheck on six candidate packages; four
+of the generated test suites had at least one failing tests indicating that a
+rewrite rule in the package may be able to change program behaviour. The results
+are shown in \figref{evalresults}. In the remainder of this section, we will
+focus on the testing results of one such package, \fastmath.
 
 \subsection{Case Study: \fastmath}
 
@@ -56,9 +76,23 @@ involving NaN values, and small numerical discrepencies.
 
 \subsubsection{Calculations involving \NaN values}
 
+\begin{figure}
+  \begin{minted}[linenos]{text}
+divideFloatz20U0z20Ux_6_1: FAIL
+*** Failed! Falsified (after 1 test):
+0.0
+LHS was NaN, RHS was 0.0
+  \end{minted}
+  \caption{Counterexample found by \Rulecheck for the rule \texttt{forall x. 0.0
+/ x = 0}. The \texttt{0.0} on line 3 indicates that the LHS and RHS
+of the rule evaluate to different values when substituting \texttt{0} for \texttt{x}.}
+  \label{fig:div0}
+\end{figure}
+
 Several of the test cases failed when considering rule applications for
-expressions that would normally produce a \NaN value. One such example is the
-rule \texttt{forall x. 0.0 / x = 0}. In the case when \texttt{x} itself is
+expressions that would normally produce a \NaN value. One such failure is
+presented in \figref{div0}, for the test case generated from the rule
+\texttt{forall x. 0.0 / x = 0}. In the case when \texttt{x} itself is
 \texttt{0}, applying the rule would rewrite the expression \texttt{0.0 / 0} to
 \texttt{0}. However, in Haskell, the expression \texttt{0.0 / 0} evaluates to
 \NaN; not \texttt{0}. Therefore, applying this rule would could change the
@@ -67,6 +101,20 @@ rule would yield a different result when \texttt{x} was \texttt{0}, resulting in
 a failing test case.
 
 \subsubsection{Numerical Discrepencies}
+
+\begin{figure}
+  \begin{minted}[linenos]{text}
+floatz20Uztz2cUzpz20Udistributez20UA_37_1:  FAIL
+*** Failed! Falsified (after 3 tests and 14 shrinks):
+(0.1,-1.0,0.1)
+LHS was -0.09, RHS was -0.089999996
+  \end{minted}
+  \caption{Counterexample found by \Rulecheck for the rule \texttt{forall x y1
+y2. (x * y1) + (x * y2) = x * (y1 + y2)}. The output on line 3 indicates
+that the LHS and RHS of the rule evaluate to different values when substituting
+\texttt{0.1}, \texttt{-1.0}, and \texttt{0.1} for \texttt{x}, \texttt{y1}, and \texttt{y2} respectively.}
+  \label{fig:dist}
+\end{figure}
 
 It is well-known that operations on floating-point numbers may not yield precise
 results due to imprecision in the representation. Therefore, arithmetic
@@ -77,8 +125,8 @@ is observed in several cases in the \texttt{fast-math}.
 For example, the rule \texttt{forall x y1 y2. (x * y1) + (x * y2) = x * (y1 +
 y2)} defines an optimization based on a distributivity property, changing a
 computation involving two multiplications to one with only a single
-multiplication. However, applying this rule can lead to small numerical
-differences in the resulting computation.
+multiplication. However, as shown in \figref{dist}, applying this rule can lead
+to small numerical differences in the resulting computation.
 
 \smallskip
 As for the remaining 30 rules, \Rulecheck cannot definitively prove that they

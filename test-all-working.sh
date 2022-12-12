@@ -35,16 +35,22 @@ set -euo pipefail
 # blaze-builder (only rules in test)
 
 
+# Only run tests, skip build
+if [[ "${1:-}" == "--skip-build" ]]; then
+   TEST_SCRIPT="./fuzz.sh"
+else
+   TEST_SCRIPT="./test.sh"
+fi
 ./apply-vendored-patches.sh
-./test.sh ListLike
-./test.sh basement
-./test.sh bits
-./test.sh bytestring-strict-builder
-./test.sh fast-math
+$TEST_SCRIPT ListLike
+$TEST_SCRIPT basement
+$TEST_SCRIPT bits
+$TEST_SCRIPT bytestring-strict-builder
+$TEST_SCRIPT fast-math
 
 # These tests are somewhat fragile, you may need to run multiple times
 # to avoid errors (-10, -11). Not sure why they're happening
 # Run this at the end because of these errors
-./test.sh arithmoi
+$TEST_SCRIPT arithmoi
 
 echo "All tests completed successfully"
