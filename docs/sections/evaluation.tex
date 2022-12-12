@@ -1,6 +1,87 @@
 \section{Evaluation}
 \label{sec:evaluation}
+{
 
-We used the Stackage package repository resolver \texttt{lts-19.27} for GHC \texttt{9.0.2} to identify X packages with rewrite rules. \cite{stackage} This represents Y percent of the total packages available in the package set. (The package set itself contains versions of the most popular Haskell libraries and many more in the long tail that are all mutually compatible.)
+We evaluated \Rulecheck with respect to the following research question:
+\textit{Is Rulecheck able to find instances of rewrite rules, defined in
+real-world Haskell libraries, that are capable of changing program behaviour?}.
 
-Stuff here...
+To answer this question, we tested \Rulecheck on packages from
+\Hackage, the Haskell package repository. Our first step was to identify the
+packages on \Hackage that contained rewrite rules, and identify a subset of the
+packages that we considered to be testable.
+
+\newcommand{\totalpackages}{2,912\xspace}  % jq length packages.json
+\newcommand{\rulespackages}{123\xspace}    % jq length listings.json
+\newcommand{\candidatepackages}{94\xspace} % ls package-tests | wc -l
+
+We began by downloading all packages from Hackage, using the Stackage package
+repository resolver \texttt{lts-19.27}; this yielded \totalpackages packages.
+Then, we identified the packages containing rewrite rules by using a simple
+regular expression to determine which packages contain at least on source files
+with a \texttt{\{-\# RULES \#-\}} pragma (\rulespackages packages). We then
+attempted to compile each package with GHC version \rcghcver, and excluded
+packages that did not compile\footnote{Compilation errors indicated that either
+the package was broken, or, more commonly, that the package required external
+dependencies that were not available on our test systems.}. After excluding
+packages that we deemed untestable, we were left with \candidatepackages
+candidate packages for consideration. While this number represents only a small
+package of the total packages on \Hackage, these packages are often used as
+dependencies for the other packages; therefore, correctness issues in these
+packages could also impact the correctness on the packages that rely on
+them.\ZGTODO{If time, figure out how many packages on Hackage have one of these
+as a transitive dependency.}
+
+At the time of writing, we have used \Rulecheck on six candidate packages, and
+have identified that three of them contain rewrite rules that can alter program
+behaviour. In the remainder of this section, we will focus on the testing
+results of one such package, \fastmath.
+
+\subsection{Case Study: \fastmath}
+
+The \fastmath\footnote{https://hackage.haskell.org/package/fast-math} package
+contains rewrite rules that implement compile-time optimizations for
+floating-point calculations. Although most of the included optimizations are
+sound in a mathematical sense (i.e. if they were applied to real numbers instead
+of floating-point numbers), the library does not attempt to strictly adhere to
+Haskell's floating-point semantics. Therefore, this library is especially
+interesting for \Rulecheck, as we should expect some of the rules to change
+program behaviour.
+
+Indeed, \Rulecheck was able to identify many instances where such changes were
+possible. Of the 72 rules defined in \fastmath, \Rulecheck was able to find
+failing test cases for 42 of them. We then performed a manual analysis of the
+failing test cases and found that they fell into two categories: calculations
+involving NaN values, and small numerical discrepencies.
+
+\subsubsection{Calculations involving \NaN values}
+
+Several of the test cases failed when considering rule applications for
+expressions that would normally produce a \NaN value. One such example is the
+rule \texttt{forall x. 0.0 / x = 0}. In the case when \texttt{x} itself is
+\texttt{0}, applying the rule would rewrite the expression \texttt{0.0 / 0} to
+\texttt{0}. However, in Haskell, the expression \texttt{0.0 / 0} evaluates to
+\NaN; not \texttt{0}. Therefore, applying this rule would could change the
+behaviour of the program. \Rulecheck was able to identify that applying this
+rule would yield a different result when \texttt{x} was \texttt{0}, resulting in
+a failing test case.
+
+\subsubsection{Numerical Discrepencies}
+
+It is well-known that operations on floating-point numbers may not yield precise
+results due to imprecision in the representation. Therefore, arithmetic
+expressions that would be equivalent in the mathematical domain may nonetheless
+produce different results when applied to floating-point numbers. This phenomena
+is observed in several cases in the \texttt{fast-math}.
+
+For example, the rule \texttt{forall x y1 y2. (x * y1) + (x * y2) = x * (y1 +
+y2)} defines an optimization based on a distributivity property, changing a
+computation involving two multiplications to one with only a single
+multiplication. However, applying this rule can lead to small numerical
+differences in the resulting computation.
+
+\smallskip
+As for the remaining 30 rules, \Rulecheck cannot definitively prove that they
+are correct. However, because it is unable to find a counterexample when
+considering many different applications of each rule, this result nonetheless
+serves to increase the confidence in the correctness of those rules.
