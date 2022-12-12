@@ -26,8 +26,27 @@ More sections here
   \item Pattern match on an argument (for function goals with known argument constructors)
 \end{itemize}
 
-\Rulecheck directs the search by incrementally performing first-order unification on types. It also eagerly substitutes types implementing typeclass constraints, so it is important that all relevant instance declarations be included in the interface file. This process yields terms and their monotypes until terminated or until the search space is exhausted.
+\Rulecheck directs the search by incrementally performing first-order unification on types. It also eagerly substitutes types implementing typeclass constraints, so it is important that all relevant instance declarations be included in the interface file. This process yields terms and their monotypes until terminated or until the search space is exhausted. \Rulecheck generally emits terms in A-normal form and does not support recursive definitions.
 
-Haskell's type system is quite complex, made moreso by the variety of extensions it has accumulated over the years. \Rulecheck supports that simple core of functionality that is expressible with first-order unification. The most significant shortcoming in the current implementation is lack of support for unification of higher-kinded types, which is problematic when trying to derive programs with monadic binds. We do not yet collect kind information from our interface files, which is a prerequisite to annotating unification variables with kinds, and there are also some minor changes that need to be made to our unification algorithm to support them. Though we were not able to do so with the time limitations of this project, we believe we can support this feature and intend to do so soon.
+Haskell's type system is quite complex, made moreso by the variety of extensions it has accumulated over the years. \Rulecheck supports that simple core of functionality that is expressible with first-order unification. The most significant shortcoming in the current implementation is lack of support for unification of higher-kinded types, which is problematic when trying to derive programs with monadic binds. For example, one might wish to generate terms of type \texttt{Gen (Int, Int)} using the following interface file:
+
+{
+\smallskip
+\begin{minted}{haskell}
+class Monad m
+return :: Monad m => a -> m a
+bind :: Monad m => m a -> (a -> m b) -> m b
+
+type Gen a
+instance Monad Gen
+
+class Arbitrary a
+arbitrary :: Arbitrary a => Gen a
+instance Arbitrary Int
+\end{minted}
+\smallskip
+}
+
+The problem arises when considering the declaration \texttt{class Monad m} in isolation; Haskell performs limited kind inference that we do not, from which it concludes that \texttt{m} is a type constructor, not a type. We do not yet collect kind information from our interface files, which is a prerequisite to annotating unification variables with kinds, and there are also some minor changes that need to be made to our unification algorithm to support them. Though we were not able to do so with the time limitations of this project, we believe we can support this feature and intend to do so soon.
 
 Another noteworthy limitation of \Rulecheck is that it does not support \textit{higher-rank} types (those with additional \texttt{forall} quantifiers to the left of a function arrow, not just on the outside of the type). One can see this feature used for encapsulation in the \texttt{ST} and \texttt{Cont} monads, or in the core definitions of lens libraries. It was not easy for Haskell implementors to support these types in the first place \cite{jones2007practical}, so we have not given their synthesis much thought!

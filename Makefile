@@ -58,3 +58,8 @@ report:
 full-report:
 	$(MAKE) clean-docs
 	$(MAKE) report
+
+# Need pygmentize to generate the report
+.PHONY: report-deps
+report-deps:
+	brew install python@3.11 pygments
