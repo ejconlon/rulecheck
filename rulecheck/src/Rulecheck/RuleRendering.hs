@@ -1,7 +1,8 @@
 -- | Logic for rendering rules and test modules
 
 module Rulecheck.RuleRendering
-  ( ruleSideDoc
+  ( ruleInputDoc
+  , ruleSideDoc
   , rulePairDoc
   , ruleTestDoc
   , ruleModuleHeaderDoc
@@ -10,22 +11,59 @@ module Rulecheck.RuleRendering
   , TestSuffix(..)
   ) where
 
-import Data.Char (isAlphaNum)
-import Data.Foldable (foldl', toList)
-import Data.Set as Set (Set)
-import Data.List (intercalate)
-import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
-import GHC.Core.Type
-import GHC.Data.FastString (fs_zenc, zString)
-import GHC.Driver.Session (HasDynFlags)
+import Data.Char ( isAlphaNum )
+import Data.Foldable ( foldl', toList )
+import Data.Set as Set ( Set )
+import Data.List ( intercalate )
+import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
+import GHC.Core.Type ( Kind, Var(..), noFreeVarsOfType )
+import GHC.Data.FastString ( fs_zenc, zString )
+import GHC.Driver.Session ( HasDynFlags )
 import GHC.Utils.Outputable
-import GHC.Types.Basic (RuleName)
-import Rulecheck.Rendering
+    ( Outputable(ppr),
+      SDoc,
+      text,
+      ($+$),
+      (<+>),
+      arrow,
+      blankLine,
+      empty,
+      parens,
+      pprWithCommas )
+import GHC.Types.Basic ( RuleName )
+import GHC.Tc.Utils.TcType ( isTyVarClassPred )
+import Rulecheck.Rendering ( outputString )
 import Rulecheck.Rule
+    ( getBoxType,
+      getSide,
+      BoxType(BoxType),
+      Rule(ruleTermArgs, ruleName, origRule, ruleType,
+           ruleTermAndTyArgs),
+      RuleSide(..) )
 
 data TestSuffix =
   TestSuffix Int Int -- RuleNum, TestNum
 
+asTuple :: Outputable a => NonEmpty a -> SDoc
+asTuple (el :| [])    = ppr el
+asTuple (el :| rest)  = parens $ pprWithCommas ppr (el : rest)
+
+asBoxedType :: Kind -> SDoc
+asBoxedType k | Just (BoxType c _) <- getBoxType k = text c
+asBoxedType k = ppr k
+
+ruleInputDoc :: Rule -> SDoc
+ruleInputDoc rule =
+  if not (null args) && not (null constraintArgs)
+    then constraintPart <+> text "=>" <+> argsPart
+    else constraintPart <+> argsPart
+  where
+    args           = ruleTermArgs rule
+    constraintArgs = filter (isTyVarClassPred . varType) $ ruleTermAndTyArgs rule
+    constraintPart =
+      maybe empty asTuple (nonEmpty (map varType constraintArgs))
+    argsPart =
+      maybe empty asTuple (nonEmpty (map (asBoxedType . varType) args))
 
 -- | Renders a single side of the rule like "fn_lhs_NAME :: ... \n fn_lhs_NAME ... = ..."
 --
@@ -36,34 +74,25 @@ data TestSuffix =
 ruleSideDoc :: (Rule, TestSuffix) -> RuleSide -> Maybe String -> SDoc
 ruleSideDoc (rule, idx) side overrideTypeSig =
   let
-    prefix    = "fn_" ++ sideString side ++ "_"
-    name      = prefix ++ sanitizeName (ruleName rule) idx
-    args      = valArgs rule
+    prefix         =  "fn_" ++ sideString side ++ "_"
+    name           = prefix ++ sanitizeName (ruleName rule) idx
+    args           = ruleTermArgs rule
+    constraintArgs = filter (isTyVarClassPred . varType) $ ruleTermAndTyArgs rule
 
     maybeBoxedArgs =
-      case nonEmpty (map asBoxedArg args) of
-        Just boxedArgs' -> asTuple boxedArgs'
-        Nothing         -> empty
+      maybe empty asTuple (nonEmpty (map asBoxedArg args))
     def       = text name <+> maybeBoxedArgs <+> text "=" <+> maybeBoxedBody
 
     resultTyp  = asBoxedType (ruleType rule)
     defaultSig =
-      case nonEmpty (map (asBoxedType . varType) args) of
-        Just argTypes -> text (name ++ " ::") <+> (asTuple argTypes) <+> arrow <+> resultTyp
-        Nothing       -> text (name ++ " ::") <+> resultTyp
+      if null args && null constraintArgs
+      then resultTyp
+      else ruleInputDoc rule <+> arr <+> resultTyp
+      where
+        arr = if null args then text "=>" else arrow
   in
-    case overrideTypeSig of
-      Just sig -> text (name ++ " ::") <+> text sig $+$ def
-      Nothing  ->
-        if noTyVarsInSig rule
-        then defaultSig $+$ def
-        else def -- Don't include a type sig, let Haskell infer it
-                 -- Currently we don't extract necessary type constraints
+    text (name ++ " ::") <+> maybe defaultSig text overrideTypeSig $+$ def
   where
-
-    asTuple :: Outputable a => NonEmpty a -> SDoc
-    asTuple (el :| [])    = ppr el
-    asTuple (el :| rest)  = parens $ pprWithCommas ppr (el : rest)
 
     body = getSide side rule
     maybeBoxedBody :: SDoc
@@ -75,9 +104,6 @@ ruleSideDoc (rule, idx) side overrideTypeSig =
                  = parens (text c <+> ppr v)
     asBoxedArg v = ppr v
 
-    asBoxedType :: Kind -> SDoc
-    asBoxedType k | Just (BoxType c _) <- getBoxType k = text c
-    asBoxedType k = ppr k
 
 -- | Renders the rule pair defn like "pair_NAME :: SomeTestableRule \n pair_NAME = ..."
 rulePairDoc :: (Rule, TestSuffix) -> SDoc
@@ -143,7 +169,7 @@ ruleModuleDoc opts rules =
           $+$ commentArgValues
           $+$ text "Result ::" <+> typeComment (ruleType rule)
           $+$ text "-}"
-        commentArgValues = foldl' ($+$) empty (map go (valArgs rule)) where
+        commentArgValues = foldl' ($+$) empty (map go (ruleTermAndTyArgs rule)) where
           go arg =  text "Arg" <+> ppr arg <+> text "::" <+> typeComment (varType arg)
         typeComment typ = ppr typ <+> text ("(closed: " ++ show (noFreeVarsOfType typ) ++ ")")
         lhs = ruleSideDoc (rule, suffix) LHS (fmap fst sigOpt)

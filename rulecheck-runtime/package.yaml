@@ -5,7 +5,7 @@ dependencies:
 - base >= 4.12 && < 5
 - ghc == 9.0.2
 - aeson
-# - basement
+- bytestring
 - containers
 - deepseq
 - directory

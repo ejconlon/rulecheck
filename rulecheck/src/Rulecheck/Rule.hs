@@ -7,32 +7,41 @@ module Rulecheck.Rule
   , getSide
   , ruleFromDecl
   , noTyVarsInSig
-  , valArgs
   ) where
 
-import Control.Monad.IO.Class (MonadIO (..))
-import Data.Maybe (fromJust)
-import GHC.Core.TyCon
+import Control.Monad.IO.Class ( MonadIO(..) )
+import Data.Maybe ( fromJust )
+import GHC.Core.TyCon ( isPrimTyCon, tyConRepName_maybe )
 import GHC.Core.Type
+    ( Kind, Var(..), noFreeVarsOfType, splitTyConApp_maybe )
 import GHC
-import GHC.Types.Basic (RuleName)
-import GHC.Types.Var
-import GHC.Types.Name (isValName, occName, occNameString)
-import GHC.Types.Name.Set
-import GHC.Utils.Outputable
-import Prelude hiding ((<>))
-import Rulecheck.Monad (GhcM)
-import Rulecheck.Typecheck (getType)
+    ( GhcMonad(getSession),
+      unLoc,
+      HsRuleRn(HsRuleRn),
+      LRuleDecl,
+      RuleBndr(RuleBndr),
+      RuleDecl(rd_name, rd_lhs, rd_rhs, rd_tmvs, rd_ext),
+      HsExpr,
+      LHsExpr,
+      GhcTc )
+import GHC.Types.Basic ( RuleName )
+import GHC.Types.Var ( Var(varName) )
+import GHC.Types.Name ( occName, occNameString )
+import GHC.Types.Name.Set ( elemNameSet, unionNameSet )
+import GHC.Utils.Outputable ( Outputable(ppr), SDoc )
+import Rulecheck.Monad ( GhcM )
+import Rulecheck.Typecheck ( getType )
 
 data RuleSide = LHS | RHS
 
 -- | A `Rule` is obtained from a Haskell RULES declaration (`LRuleDecl`);
 --   it contains all of the information necessary to construct fuzzing test cases
 data Rule = Rule
-  { ruleName    :: RuleName
-  , ruleArgs    :: [Var] -- IMPORTANT! This also includes type variables
-  , ruleLHS     :: HsExpr GhcTc
-  , ruleRHS     :: HsExpr GhcTc
+  { ruleName          :: RuleName
+  , ruleTermAndTyArgs :: [Var]
+  , ruleTermArgs      :: [Var]
+  , ruleLHS           :: HsExpr GhcTc
+  , ruleRHS           :: HsExpr GhcTc
 
   -- | The type of `ruleLHS`, presumably this is also the type of `ruleRHS`!
   , ruleType :: Kind
@@ -42,7 +51,7 @@ data Rule = Rule
 
 noTyVarsInSig :: Rule -> Bool
 noTyVarsInSig rule =
-  noFreeVarsOfType (ruleType rule) && all (noFreeVarsOfType . varType) (ruleArgs rule)
+  noFreeVarsOfType (ruleType rule) && all (noFreeVarsOfType . varType) (ruleTermArgs rule)
 
 getPrimitiveTypeName :: Kind -> Maybe String
 getPrimitiveTypeName ty
@@ -55,10 +64,6 @@ getPrimitiveTypeName ty
       else Nothing
   | otherwise = Nothing
 
-
--- Extract only the term arguments from the rule
-valArgs :: Rule -> [Var]
-valArgs = filter (isValName . varName) . ruleArgs
 
 getSide :: RuleSide -> Rule -> HsExpr GhcTc
 getSide LHS = ruleLHS
@@ -97,15 +102,10 @@ ruleFromDecl decl =
     let name = getRuleName decl
     let (HsRuleRn lhsVars rhsVars) = rd_ext (unLoc decl)
     let explicitVars = unionNameSet lhsVars rhsVars
-    -- mapM_ (go explicitVars) args
     let valueArgs = filter (\arg -> elemNameSet (varName arg) explicitVars) args
     session <- getSession
     lhsTyp  <- liftIO $ getType session lhs
-    return $ Rule name valueArgs (unLoc lhs) (unLoc rhs) (fromJust lhsTyp) (ppr decl)
-  -- where
-  --   go explicitVars arg =
-  --     liftIO $
-  --       putStrLn $ (showSDocUnsafe $ ppr arg) ++ " in? " ++ show (elemNameSet (varName arg) explicitVars)
+    return $ Rule name args valueArgs (unLoc lhs) (unLoc rhs) (fromJust lhsTyp) (ppr decl)
 
 data BoxType = BoxType
   {  boxedName   :: String

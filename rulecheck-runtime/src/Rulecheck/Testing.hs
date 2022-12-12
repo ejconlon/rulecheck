@@ -15,6 +15,9 @@ module Rulecheck.Testing
 
 import Control.DeepSeq
 import Control.Exception
+import qualified Data.ByteString as ByteString
+import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString (ByteString)
 import Data.Proxy
 import Data.Typeable
 import Test.QuickCheck (Arbitrary (..), Testable (..), (===))
@@ -22,9 +25,9 @@ import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Tasty.QuickCheck (Property, counterexample, testProperty, ioProperty)
 import Text.Printf
 
-data TestableRule a z = TestableRule
-  { trLhs :: !(a -> z)
-  , trRhs :: !(a -> z)
+data TestableRule a = TestableRule
+  { trLhs :: !a
+  , trRhs :: !a
   }
 
 
@@ -66,6 +69,12 @@ x =:= y = ioProperty $ do
 instance Arbitrary a => Arbitrary (Proxy a)  where
   arbitrary = return Proxy
 
+instance Arbitrary ByteString where
+  arbitrary = fmap ByteString.pack arbitrary
+
+instance Arbitrary LBS.ByteString where
+  arbitrary = fmap LBS.pack arbitrary
+
 -- TODO: This rule is probably bad, remove it eventually
 instance {-# OVERLAPS #-} (Num a) => Arbitrary a where
   arbitrary = fmap fromInteger arbitrary
@@ -76,15 +85,18 @@ instance Show (a -> b) where
 -- Don't re-order the following four declarations!
 -- GHC picks up incoherent instances by the order they appear
 -- We should prefer test cases in this order
+instance {-# INCOHERENT #-} (Comparable a) => Testable (TestableRule a) where
+  property x = property $ trLhs x =:= trRhs x
+
 instance {-# INCOHERENT #-} (
   Arbitrary a, Show a, Comparable z
-  ) => Testable (TestableRule a z) where
+  ) => Testable (TestableRule (a -> z)) where
   property x = property $ \a -> trLhs x a =:= trRhs x a
 
 instance {-# INCOHERENT #-} (
   Arbitrary a, Show a,
   Arbitrary b, Show b,
-  Comparable c) => Testable (TestableRule a (b -> c)) where
+  Comparable c) => Testable (TestableRule (a -> b -> c)) where
   property x =
       property $ \a b -> trLhs x a b =:= trRhs x a b
 
@@ -92,7 +104,7 @@ instance {-# INCOHERENT #-} (
   Arbitrary a, Show a,
   Arbitrary b, Show b,
   Arbitrary c, Show c,
-  Comparable d) => Testable (TestableRule a (b -> c -> d)) where
+  Comparable d) => Testable (TestableRule (a -> b -> c -> d)) where
   property x =
       property $ \a b c -> trLhs x a b c =:= trRhs x a b c
 
@@ -101,18 +113,15 @@ instance {-# INCOHERENT #-} (
   Arbitrary b, Show b,
   Arbitrary c, Show c,
   Arbitrary d, Show d,
-  Comparable e) => Testable (TestableRule a (b -> c -> d -> e)) where
+  Comparable e) => Testable (TestableRule (a -> b -> c -> d -> e)) where
   property x =
       property $ \a b c d -> trLhs x a b c d =:= trRhs x a b c d
 
-
-
-
-testTestableRule :: Testable (TestableRule a z) => TestName -> TestableRule a z -> TestTree
+testTestableRule :: Testable (TestableRule a) => TestName -> TestableRule a -> TestTree
 testTestableRule = testProperty
 
 data SomeTestableRule where
-  SomeTestableRule :: Testable (TestableRule a z) => TestableRule a z -> SomeTestableRule
+  SomeTestableRule :: Testable (TestableRule a) => TestableRule a -> SomeTestableRule
 
 testSomeTestableRule :: TestName -> SomeTestableRule -> TestTree
 testSomeTestableRule tn (SomeTestableRule tr) = testTestableRule tn tr

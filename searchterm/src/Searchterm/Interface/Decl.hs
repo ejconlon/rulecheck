@@ -8,23 +8,26 @@ module Searchterm.Interface.Decl
   , mkDecl
   , mkDecls
   , mkLineDecls
+  , MkDeclOptions(..)
   ) where
 
 import Control.Exception (Exception)
-import Control.Monad.Except (Except, MonadError (..), runExcept)
+import Control.Monad.Except (Except, MonadError (..), runExcept, catchError)
 import Control.Monad.State.Strict (StateT (..), gets, modify')
+import Data.Either
 import Data.Foldable (traverse_)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Debug.Trace
 import Prelude hiding (lines)
 import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), Lit, Partial, TmName (..), Ty,
                                   TyName, TyScheme (..), TyVar (..), explodeTy, instSchemeBody, tySchemeBody,
                                   tyToPartials)
 import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
 import Searchterm.Interface.Types (ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..))
+
+data MkDeclOptions = MkDeclOptions { optIgnoreMissingCons :: Bool }
 
 -- | A declared term (essentially name and type scheme)
 data Decl = Decl
@@ -65,7 +68,7 @@ data DeclErr =
   | DeclErrDupeTm !TmName
   | DeclErrDupeCons !TyName
   | DeclErrInst !(Inst TyVar) DeclErr
-  | DeclErrMissingCon !TmName String
+  | DeclErrMissingCon !TmName
   | DeclErrForbidStraint !TmName
   deriving stock (Eq, Ord, Show)
 
@@ -111,22 +114,24 @@ declToConSig (Decl nm ty _) =
     Nothing -> throwError (DeclErrForbidStraint nm)
     Just (tyEnd, argTys) -> pure (ConSig nm tyEnd argTys)
 
-prepSigM :: Show errCtx => errCtx -> TmName -> DeclM ConSig
-prepSigM ctx cn = do
+prepSigM :: TmName -> DeclM ConSig
+prepSigM cn = do
   tms <- gets dsMap
   case Map.lookup cn tms of
-    Nothing ->
-      trace ("No entry in tms " ++ show tms) $ throwError (DeclErrMissingCon cn (show ctx))
+    Nothing -> throwError (DeclErrMissingCon cn)
     Just decl -> declToConSig decl
 
-insertConsM :: Show errCtx => errCtx -> TyName -> Seq TmName -> DeclM ()
-insertConsM ctx tn cns = do
+insertConsM :: MkDeclOptions -> TyName -> Seq TmName -> DeclM ()
+insertConsM opts tn cns = do
   cons <- gets dsCons
   case Map.lookup tn cons of
     Just _ -> throwError (DeclErrDupeCons tn)
     Nothing -> do
-      sigs <- traverse (prepSigM ctx) cns
+      sigs <- (fmap (fromRight undefined) . Seq.filter isRight) <$> traverse prepSig cns
       modify' (\ds -> ds { dsCons = Map.insert tn sigs cons })
+  where
+    prepSig cn | optIgnoreMissingCons opts = catchError (Right <$> prepSigM cn) (pure . Left)
+    prepSig cn = Right <$> prepSigM cn
 
 appendUniq :: Eq a => Seq a -> Seq a -> Seq a
 appendUniq !xs = \case
@@ -143,11 +148,11 @@ insertLitM tyn vals = modify' $ \ds ->
         Just xvals -> Map.insert tyn (appendUniq xvals vals) m
   in ds { dsLits = m' }
 
-insertLineM :: Show errCtx => errCtx -> Line -> DeclM ()
-insertLineM ctx = \case
+insertLineM :: MkDeclOptions -> Line -> DeclM ()
+insertLineM opts = \case
     LineFunc (FuncLine n ts) -> insertTmDeclM n ts
     LineInst (InstLine is) -> insertInstM is
-    LineCons (ConsLine tmn cns) -> insertConsM ctx tmn cns
+    LineCons (ConsLine tmn cns) -> insertConsM opts tmn cns
     LineLit (LitLine tyn vals) -> insertLitM tyn vals
     -- Do we need to add anything else to the decl set for search?
     _ -> pure ()
@@ -155,7 +160,5 @@ insertLineM ctx = \case
 mkDecls :: [(TmName, TyScheme TyVar)] -> Either DeclErr DeclSet
 mkDecls = flip execDeclM emptyDeclSet . traverse_ (uncurry insertTmDeclM)
 
-mkLineDecls :: [Line] -> Either DeclErr DeclSet
-mkLineDecls lines = flip execDeclM emptyDeclSet $ traverse_ (uncurry insertLineM) lines'
-  where
-    lines' = map (\line -> (line, line)) lines
+mkLineDecls :: MkDeclOptions -> [Line] -> Either DeclErr DeclSet
+mkLineDecls opts lines = flip execDeclM emptyDeclSet $ traverse_ (insertLineM opts) lines

@@ -1,16 +1,73 @@
+
+class Eq a
+class Show a
+
 type Int
-primInt :: Int
+
+type ()
+() :: ()
+constructors () ()
+instance Eq ()
+instance Show ()
+
+type ([]) a
+([]) :: forall a. ([]) a
+(:) :: forall a. a -> ([]) a -> ([]) a
+constructors ([]) ([]) (:)
+instance (Eq a) => Eq (([]) a)
+instance (Show a) => Show (([]) a)
 
 type (,) a b
-(,) :: a -> b -> (,) a b
+(,) :: forall a b. a -> b -> (,) a b
 constructors (,) (,)
+instance (Eq a, Eq b) => Eq ((,) a b)
+instance (Show a, Show b) => Show ((,) a b)
+
+type (,,) a b c
+(,,) :: forall a b c. a -> b -> c -> (,,) a b c
+constructors (,,) (,,)
+instance (Eq a, Eq b, Eq c) => Eq ((,,) a b c)
+instance (Show a, Show b, Show c) => Show ((,,) a b c)
+
+type (,,,) a b c d
+(,,,) :: forall a b c d. a -> b -> c -> d -> (,,,) a b c d
+constructors (,,,) (,,,)
+instance (Eq a, Eq b, Eq c, Eq d) => Eq ((,,,) a b c d)
+instance (Show a, Show b, Show c, Show d) => Show ((,,,) a b c d)
+
+type (,,,,) a b c d e
+(,,,,) :: forall a b c d e. a -> b -> c -> d -> e -> (,,,,) a b c d e
+constructors (,,,,) (,,,,)
+instance (Eq a, Eq b, Eq c, Eq d, Eq e) => Eq ((,,,,) a b c d e)
+instance (Show a, Show b, Show c, Show d, Show e) => Show ((,,,,) a b c d e)
+
+type (,,,,,) a b c d e f
+(,,,,,) :: forall a b c d e f. a -> b -> c -> d -> e -> f -> (,,,,,) a b c d e f
+constructors (,,,,,) (,,,,,)
+instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) => Eq ((,,,,,) a b c d e f)
+instance (Show a, Show b, Show c, Show d, Show e, Show f) => Show ((,,,,,) a b c d e f)
 
 type Maybe a
-Nothing :: Maybe a
-Just :: a -> Maybe a
+Nothing :: forall a . Maybe a
+Just :: forall a . a -> Maybe a
 constructors Maybe Nothing Just
 
 module Data.Traversable
 
 class Data.Traversable t
 instance Data.Traversable Maybe
+
+class Functor f
+class Functor f => Applicative f
+
+
+class Applicative m => Monad m
+
+type Gen a
+instance Monad Gen
+
+class Arbitrary a
+arbitrary :: Arbitrary a => Gen a
+instance Arbitrary Int
+
+rcgen__Int :: Int
