@@ -7,7 +7,10 @@ requires that application of a rule should not change the meaning of a program.
 Therefore, we focus on this aspect of correctness: we define a rule to be
 \textit{correct} iff applying the rule preserves the semantics of the program.
 
-\subsection{Generating Tests for Rewrite Rules}
+In this section, we describe the methodology that \Rulecheck uses to test the
+correctness of rewrite rules.
+
+\subsection{Property-Based Testing of Rewrite Rules}\label{sec:methodology:testgen}
 
 Intuitively, one could test the correctness of rewrite rule applications for a
 program by compiling two versions: one with rewrite rules enabled, and one with
@@ -42,12 +45,44 @@ flhs x1, ..., xn = lhs
 frhs x1, ..., xn = rhs
 \end{minted}
 
-The property-based test for the rule, therefore, checks that \texttt{flhs} and
-\texttt{frhs} yield semantically equivalent values when applied to the same
-inputs. However, as we explain in the next section, checking for semantic
-equivalence is not necessarily straightforward.
+The property-based test for the rule, therefore, should check that \texttt{flhs}
+and \texttt{frhs} yield semantically equivalent values when applied to the same
+inputs. Testing this property requires generating suitable input values (i.e.
+values for $\rbinders$), and method for determining semantic equivalence of the
+result values at runtime. In the following sections, we describe how \Rulecheck
+fulfills these requirements.
 
-\subsection{Checking for Semantic Equivalence}
+\subsection{Generating Test Inputs}\label{sec:methodology:testinput}
+
+\begin{figure}
+  \begin{minted}{haskell}
+goal :: Either Char Int -> String
+goal = \case
+  Left y  -> showChar y
+  Right z -> showInt z
+  \end{minted}
+  \caption{An example term that could be used for testing a rule with a free
+variable of type \texttt{Either Char Int -> String}. In \Rulecheck, we
+synthesize such terms from their type definition.}
+  \label{fig:synthexample}
+\end{figure}
+
+Haskell does not impose any requirements on the binders \rbinders in a rewrite
+rule. Therefore, to test an arbitrary rule, we need a means to generate a term
+of potentially arbitrary type.
+
+Generating terms for primitive types (i.e. \texttt{Int}, \texttt{Bool}, etc) is
+relatively straightforward. However, as Haskell is a functional language, it is
+also necessary to construct arbitrary terms of function type. For example,
+consider a rule with a free variable of type \texttt{Either Char Int -> String},
+i.e. a function that takes as input either a \texttt{Char} or an \texttt{Int}
+value and returns a \texttt{String}. Generating a term of
+that type is analagous to synthesize a program from the type specification; for
+this reason, we approach the challenge of generating test values using a
+\textit{program synthesis} approach.
+
+
+\subsection{Comparing Test Outputs}\label{sec:methodology:testoutput}
 
 Because Haskell rewrite rules can apply to terms of any type; our methodology
 requires that we have some way to determine (or at least, approximate), whether
