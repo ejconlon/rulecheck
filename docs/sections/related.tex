@@ -5,4 +5,34 @@ There is a long history of using types to guide automated testing of functional 
 
 Types have also been used extensively to direct program synthesis. In this work, we have no requirements for our generated programs aside from type compatibility, but many works describe the type- \textit{and} example-directed synthesis. \cite{osera2015type, feser2015synthesizing} Types constrain the search space to valid programs, and examples constrain the search space to relevant programs. Where fully automated search is insufficient, offering the user a selection of tactics can guide the system toward an answer. \cite{delahaye2000tactic} Automata-based representations \cite{koppel2022searching} are another alternative to tactics-based search for enumeration of program spaces with constraints.
 
-Rewrite rules are a potential source of bugs in any term rewriting system. Notably, program generation has uncovered several bugs in SMT solvers. \cite{winterer2020validating}
+In addition to their use in defining program transformations, rewrite rules
+appear more broadly in the context of term rewriting; an overview on the subject
+is presented in \cite{klop1990term}. Early applications of term rewriting
+focused on its use to solve equational reasoning problems
+\cite{knuth1983simple}. Rewriting also appears as a tactic in interactive
+theorem provers, such as Coq\cite{coq} and Lean\cite{lean}, where it is used to
+automate axiom instantiation and therefore simplify proofs. Term rewriting
+systems have also been used to interpret and prove properties about programs
+\cite{Dershowitz1985ComputingWR}.
+
+There is a wide range of prior work on ensuring the correctness of rewrite-rule
+based optimizations. Notably, program generation has uncovered several bugs in
+the internal rewriting rules of SMT solvers. \cite{winterer2020validating}.
+Proving the correctness of rewriting-based transformations has previously been
+applied to Cobolt, a DSL for defining compile-time optimizations
+\cite{lerner2003automatically}. Some program transformatiosn implemented as
+Haskell rewrite rules, such as short cut fusion\cite{shortcutfusion}, have been
+proven to preserve program semantics\cite{johann2003short}. However, to the best
+of our knowledge, there is no previous work on testing the correctness of
+Haskell rewrite rules directly.
+
+In \Rulecheck, we focused on the semantics-preserving aspect of rewrite rules.
+However, confluence and termination are often considered as desirable properties
+of rewrite systems: in particular, the combination of the two is sufficient to
+ensure that every expression can be rewritten to a unique normal form. These
+aspects of correctness are essentially orthogonal: semantic correctness is a
+property of individual rewrite rules; while confluence and termination are
+properties about a set of rewrite rules. Therefore, proving confluence and
+termination is out of scope for our technique. The utility
+\texttt{GSOL}\cite{hamana2022gsol} can be used to prove confluence of rewrite
+rules in Haskell.
