@@ -29,8 +29,7 @@ candidate packages for consideration. While this number represents only a small
 package of the total packages on \Hackage, these packages are often used as
 dependencies for the other packages; therefore, correctness issues in these
 packages could also impact the correctness on the packages that rely on
-them.\ZGTODO{If time, figure out how many packages on Hackage have one of these
-as a transitive dependency.}
+them.
 
 \begin{figure}
   \begin{tabular}{ |l|c|c| }
@@ -51,11 +50,12 @@ counterexample is found for the property-based test derived from a rewrite rule.
   \label{fig:evalresults}
 \end{figure}
 
-At the time of writing, we have used \Rulecheck on six candidate packages; four
-of the generated test suites had at least one failing tests indicating that a
-rewrite rule in the package may be able to change program behaviour. The results
-are shown in \figref{evalresults}. In the remainder of this section, we will
-focus on the testing results of one such package, \fastmath.
+At the time of writing, we have used \Rulecheck on \packagestested candidate
+packages; \packagesfailed of the generated test suites had at least one failing
+test, indicating that a rewrite rule in the package may be able to change
+program behaviour. The results are shown in \figref{evalresults}. In the
+remainder of this section, we will focus on the testing results of one such
+package, \fastmath.
 
 \subsection{Case Study: \fastmath}
 
@@ -92,10 +92,10 @@ of the rule evaluate to different values when substituting \texttt{0} for \textt
 Several of the test cases failed when considering rule applications for
 expressions that would normally produce a \NaN value. One such failure is
 presented in \figref{div0}, for the test case generated from the rule
-\texttt{forall x. 0.0 / x = 0}. In the case when \texttt{x} itself is
+\mboxtt{forall x. 0.0 / x = 0}. In the case when \texttt{x} itself is
 \texttt{0}, applying the rule would rewrite the expression \texttt{0.0 / 0} to
-\texttt{0}. However, in Haskell, the expression \texttt{0.0 / 0} evaluates to
-\NaN; not \texttt{0}. Therefore, applying this rule would could change the
+\texttt{0}. However, in Haskell, the expression \mboxtt{0.0 / 0} evaluates to
+\NaN; not \texttt{0}. Therefore, applying this rule could change the
 behaviour of the program. \Rulecheck was able to identify that applying this
 rule would yield a different result when \texttt{x} was \texttt{0}, resulting in
 a failing test case.

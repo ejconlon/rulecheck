@@ -2,17 +2,18 @@
 
 Optimizing compilers employ a number of techniques that transform code to yield
 the same result with better runtime characteristics. For example, a compiler may
-choose to replace the statement \texttt{y = x * 8;} with the more efficient,
-equivalent version \texttt{y = x << 3}. Typically, these optimizations are
+choose to replace the statement \mboxtt{y = x * 8;} with the more efficient,
+equivalent version \mbox{\texttt{y = x << 3}}. Typically, these optimizations are
 baked-in to the compiler; in other words, the compiler can only apply
 transformations based on the semantics of operations built into the language
 itself.
 
 This limitation prevents the compiler from performing any higher-level
 optimizations that require domain-specific information. For example, consider a
-user-defined function \texttt{sum :: [Int] -> Int} that computes the sum of a
-list of numbers. The expression \texttt{sum [1..limit]}, which computes the sum
-of the numbers from 1 to \texttt{limit}, could in principle be optimized to
+user-defined function \texttt{sum :: [Int] \textrightarrow~Int} that computes the sum of a
+list of numbers. The expression \linebreak%hack for overflow
+\mboxtt{sum [1..limit]}, which computes the sum
+of the numbers from \texttt{1} to \texttt{limit}, could be optimized to
 \texttt{(limit * (limit + 1) / 2)}. However, the compiler will not be able to
 identify such an optimization, because \texttt{sum} is not built-in to the
 language.

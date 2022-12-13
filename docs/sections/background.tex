@@ -15,16 +15,11 @@ the variable names in \rbinders; the referenced variables are called
 the \textit{free variables} of that side.
 
 At compile time, GHC analyzes expressions in the abstract syntax tree, and
-replaces expressions that \textit{match} the left-hand side of a rewrite rule
-with their rewritten equivalents. An expression $\texttt{e}$ matches the
-left-hand side \rlhs iff \rlhs can be made syntactically equal to $\texttt{e}$
-by substituting the free variables in \rlhs with appropriate expressions. If
-there is a match, the compiler then applies the substitution to the
-right-hand-side of the rule, and replaces \texttt{e} with the resulting
-expression.
-
-\ZGTODO{Consider mentioning that rules are applied multiple times, order of
-  consideration not defined, considerations due to inlining, possible disabiling
-due to optimization flags, termination, confluence, etc.}
+replaces expressions that match the left-hand side of a rewrite rule with their
+rewritten equivalents. An expression $\texttt{e}$ matches the left-hand side
+\rlhs iff \rlhs can be made syntactically equal to $\texttt{e}$ by substituting
+the free variables in \rlhs with appropriate expressions. If there is a match,
+the compiler then applies the substitution to the right-hand-side of the rule,
+and replaces \texttt{e} with the resulting expression.
 
 \ECTODO{Also mention that information in rewrite rules is lost after their application - we have to look at program source}

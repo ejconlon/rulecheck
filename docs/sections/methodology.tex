@@ -4,8 +4,8 @@
 Although there is no universally accepted definition of what it means for a
 Haskell rewrite rule to be correct; intuitively any notion of correctness
 requires that application of a rule should not change the meaning of a program.
-Therefore, we focus on this aspect of correctness: we define a rule to be
-\textit{correct} iff applying the rule preserves the semantics of the program.
+Therefore, we focus on this aspect of correctness: we consider a rule to be
+\textit{correct} if applying the rule preserves the semantics of the program.
 
 In this section, we describe the methodology that \Rulecheck uses to test the
 correctness of rewrite rules.
@@ -119,4 +119,4 @@ sample the functions at various points (i.e. trying various \texttt{Int}
 values), and ensure the function always return the same result.
 
 We describe the implementation of our extensional equality check in
-\secref{implementation:testgen}.
+\secref{implementation:runtimelib}.

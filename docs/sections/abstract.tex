@@ -3,10 +3,11 @@
 In this paper, we introduce \Rulecheck, a tool for automatically testing the
 correctness of rewrite rules in Haskell. Given an arbitrary Haskell library,
 \Rulecheck extracts the rules defined in the module and generates a test suite
-containing a \texttt{QuickCheck} property-based test for each rule. \Rulecheck
-also includes a synthesis engine to generate well-typed test inputs for the
-generated tests. We evaluated \Rulecheck on several packages from \Hackage, and
-found many cases where application of a rewrite rule can result in observable
-changes in program output.
+containing a property-based test for each rule. \Rulecheck also includes a
+synthesis engine to generate well-typed test inputs for the generated tests. We
+used \Rulecheck to test \rulestested rules from \packagestested packages on
+\Hackage. \Rulecheck was able to find property violations in \rulesfailed of the
+resulting tests, indicating potential instances where the corresponding rewrite
+rule could change program behaviour.
 
 \end{abstract}
