@@ -5,15 +5,25 @@ There is a long history of using types to guide automated testing of functional 
 
 Types have also been used extensively to direct program synthesis. In this work, we have no requirements for our generated programs aside from type compatibility, but many works describe the type- \textit{and} example-directed synthesis. \cite{osera2015type, feser2015synthesizing} Types constrain the search space to valid programs, and examples constrain the search space to relevant programs. Where fully automated search is insufficient, offering the user a selection of tactics can guide the system toward an answer. \cite{delahaye2000tactic} Automata-based representations \cite{koppel2022searching} are another alternative to tactics-based search for enumeration of program spaces with constraints.
 
-In addition to their use in defining program transformations, rewrite rules
-appear more broadly in the context of term rewriting; an overview on the subject
-is presented in \cite{klop1990term}. Early applications of term rewriting
-focused on its use to solve equational reasoning problems
-\cite{knuth1983simple}. Rewriting also appears as a tactic in interactive
-theorem provers, such as Coq\cite{coq} and Lean\cite{lean}, where it is used to
-automate axiom instantiation and therefore simplify proofs. Term rewriting
-systems have also been used to interpret and prove properties about programs
-\cite{Dershowitz1985ComputingWR}.
+Rewrite rules form the basis of program transformations in many contexts, such
+as program compilation and optimization\cite{visser2005survey}. However, to the
+best of our knowledge, Haskell is the only widely-used language that allows
+users to define rewrite-rule based program optimizations in source code. Some
+parts of our methodology could possibly be applied to test the rewrite rules
+used to internally in program transformations. However, in general we expect
+that extracting these internal rewrite rules to be much more challenging and
+require deep knowledge about the tool implementation compared to the case of
+Haskell, where the rules can be extracted and type-checked via the compiler API.
+
+Some interactive theorem provers, such as Coq\cite{coq} and Lean\cite{lean},
+implement a rewrite tactic, in which equalities can be interpreted as directed
+rewrite rules and applied automatically for the purpose of simplifying proofs.
+Because the rules are derived from proven equalities, there is no need to test
+the rules. In principle, one could use a program verifier like Liquid
+Haskell\cite{vazou2016liquid} to prove the correctness of rewrite rules in
+Haskell (we are not aware of any such attempt). However, constructing
+correctness proofs would require significant manual effort; in contrast,
+\Rulecheck is able to test rewrite rules entirely automatically.
 
 There is a wide range of prior work on ensuring the correctness of rewrite-rule
 based optimizations. Notably, program generation has uncovered several bugs in
