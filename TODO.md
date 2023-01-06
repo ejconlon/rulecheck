@@ -1,5 +1,6 @@
-* Current
+* Past
   * Use single Scheme datatype
+* Present
   * Add kind datatype
   * Add kind information to Scheme
   * Print kind information

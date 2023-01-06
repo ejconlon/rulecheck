@@ -11,35 +11,20 @@ module Rulecheck.RuleRendering
   , TestSuffix(..)
   ) where
 
-import Data.Char ( isAlphaNum )
-import Data.Foldable ( foldl', toList )
-import Data.Set as Set ( Set )
-import Data.List ( intercalate )
-import Data.List.NonEmpty ( NonEmpty(..), nonEmpty )
-import GHC.Core.Type ( Kind, Var(..), noFreeVarsOfType )
-import GHC.Data.FastString ( fs_zenc, zString )
-import GHC.Driver.Session ( HasDynFlags )
-import GHC.Utils.Outputable
-    ( Outputable(ppr),
-      SDoc,
-      text,
-      ($+$),
-      (<+>),
-      arrow,
-      blankLine,
-      empty,
-      parens,
-      pprWithCommas )
-import GHC.Types.Basic ( RuleName )
-import GHC.Tc.Utils.TcType ( isTyVarClassPred )
-import Rulecheck.Rendering ( outputString )
-import Rulecheck.Rule
-    ( getBoxType,
-      getSide,
-      BoxType(BoxType),
-      Rule(ruleTermArgs, ruleName, origRule, ruleType,
-           ruleTermAndTyArgs),
-      RuleSide(..) )
+import Data.Char (isAlphaNum)
+import Data.Foldable (foldl', toList)
+import Data.List (intercalate)
+import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
+import Data.Set as Set (Set)
+import GHC.Core.Type (Kind, Var (..), noFreeVarsOfType)
+import GHC.Data.FastString (fs_zenc, zString)
+import GHC.Driver.Session (HasDynFlags)
+import GHC.Tc.Utils.TcType (isTyVarClassPred)
+import GHC.Types.Basic (RuleName)
+import GHC.Utils.Outputable (Outputable (ppr), SDoc, arrow, blankLine, empty, parens, pprWithCommas, text, ($+$), (<+>))
+import Rulecheck.Rendering (outputString)
+import Rulecheck.Rule (BoxType (BoxType), Rule (origRule, ruleName, ruleTermAndTyArgs, ruleTermArgs, ruleType),
+                       RuleSide (..), getBoxType, getSide)
 
 data TestSuffix =
   TestSuffix Int Int -- RuleNum, TestNum

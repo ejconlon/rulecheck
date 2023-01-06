@@ -26,10 +26,10 @@ module Searchterm.Interface.Core
   , Cls (..)
   , Strained (..)
   , strainedVars
-  , ClsScheme (..)
-  , InstScheme (..)
+  , ClsScheme
+  , InstScheme
   , instSchemeBody
-  , TyScheme (..)
+  , TyScheme
   , tySchemeBody
   , Rw (..)
   , RwScheme (..)
@@ -275,23 +275,17 @@ instance (Pretty b, Pretty a) => Pretty (Strained b a) where
 strainedVars :: Foldable f => Strained b (f b) -> [b]
 strainedVars (Strained x y) = (toList x >>= toList) ++ toList y
 
-newtype ClsScheme a = ClsScheme { unClsScheme :: Forall TyVar (Strained a (Cls a)) }
-  deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
+type ClsScheme a = Forall TyVar (Strained a (Cls a))
 
-newtype InstScheme a = InstScheme { unInstScheme :: Forall TyVar (Strained a (Inst a)) }
-  deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
+type InstScheme a = Forall TyVar (Strained a (Inst a))
 
 instSchemeBody :: InstScheme a -> Inst a
-instSchemeBody = strainedIn . faBody . unInstScheme
+instSchemeBody = strainedIn . faBody
 
-newtype TyScheme a = TyScheme { unTyScheme :: Forall TyVar (Strained a (Ty a)) }
-  deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
+type TyScheme a = Forall TyVar (Strained a (Ty a))
 
 tySchemeBody :: TyScheme a -> Ty a
-tySchemeBody = strainedIn . faBody . unTyScheme
+tySchemeBody = strainedIn . faBody
 
 data Rw tmf = Rw
   { rwLhs :: !(Tm TmVar tmf)
@@ -345,11 +339,11 @@ unrollTy = go Empty where
 -- | "Explode" a type scheme into result scheme and function arguments.
 -- NOTE: Forbids any constraints in the scheme.
 explodeTy :: TyScheme a -> Maybe (TyScheme a, Seq (Ty a))
-explodeTy (TyScheme (Forall tvs (Strained is tyStart))) =
+explodeTy (Forall tvs (Strained is tyStart)) =
   if Seq.null is
     then
       let (tyEnd, tyArgs) = unrollTy tyStart
-      in Just (TyScheme (Forall tvs (Strained Empty tyEnd)), tyArgs)
+      in Just (Forall tvs (Strained Empty tyEnd), tyArgs)
     else Nothing
 
 instance Pretty a => Pretty (Partial a) where

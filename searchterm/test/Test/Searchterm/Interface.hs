@@ -10,7 +10,7 @@ import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import Prettyprinter (pretty)
 import Searchterm.Interface.Core (ConPat (..), ConTy (..), Forall (..), Inst, Lit (..), Pat (..), PatPair (..),
-                                  Strained (..), Tm (..), TmName, TmVar, Ty (..), TyScheme (..), TyVar)
+                                  Strained (..), Tm (..), TmName, TmVar, Ty (..), TyScheme, TyVar)
 import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Parser (parseLine, parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printLines)
@@ -99,7 +99,7 @@ assertParseTy roundtrip expectedTxt expectedAst = do
   actualAst @?= expectedAst
 
 mkS :: [TyVar] -> [Inst TyVar] -> Ty TyVar -> TyScheme TyVar
-mkS tvs insts body = TyScheme (Forall (Seq.fromList tvs) (Strained (Seq.fromList insts) body))
+mkS tvs insts body = Forall (Seq.fromList tvs) (Strained (Seq.fromList insts) body)
 
 testParseTy :: TestTree
 testParseTy = testCase "parseTy" $ do

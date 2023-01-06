@@ -8,8 +8,7 @@ import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
-import Searchterm.Interface.Core (ClsScheme, InstScheme, Lit, ModName, Rule, TmName, TmVar, TyName, TyScheme (..),
-                                  TyVar)
+import Searchterm.Interface.Core (ClsScheme, InstScheme, Lit, ModName, Rule, TmName, TmVar, TyName, TyScheme, TyVar)
 
 data TypeLine = TypeLine
   { tlName :: !TyName

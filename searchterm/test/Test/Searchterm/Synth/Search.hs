@@ -3,9 +3,7 @@
 module Test.Searchterm.Synth.Search (testSearch) where
 
 import Control.Monad (unless, void, (<=<))
-import Control.Monad.Reader (MonadReader (..), Reader, runReader)
 import Data.Foldable (for_, toList)
-import Data.Functor.Foldable (cata)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
@@ -15,14 +13,14 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Searchterm.Interface.Core (Forall (..), Index (..), PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..),
-                                  TmVar (..), Ty (..), TyScheme (..), TyVar (..))
+import Searchterm.Interface.Core (Forall (..), Index (..), Strained (..), TmName (..),
+                                  TmVar (..), Ty (..), TyVar (..))
 import Searchterm.Interface.Decl (DeclSet (..), MkDeclOptions(..), mkLineDecls)
-import Searchterm.Interface.Names (AlphaTm (..), AlphaTyScheme (..), closeAlphaTm, closeAlphaTyScheme, mapAlphaTm,
-                                   namelessType, toListWithIndex, unsafeLookupSeq, namelessClosedTerm)
+import Searchterm.Interface.Names (AlphaTm (..), AlphaTyScheme, closeAlphaTm, closeAlphaTyScheme, mapAlphaTm,
+                                   namelessType, toListWithIndex, namelessClosedTerm)
 import Searchterm.Interface.Parser (parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
-import Searchterm.Synth.Search (Found (..), SearchConfig (..), SearchSusp, TmFound, TmUniq, TyFoundScheme (..),
+import Searchterm.Synth.Search (Found (..), SearchConfig (..), SearchSusp, TyFoundScheme,
                                 UseSkolem (..), constFillTyScheme, nextSearchResult, runSearchSusp)
 import Searchterm.Util
 import Test.Tasty (TestTree, testGroup)
@@ -39,9 +37,9 @@ printAlphaTm :: AlphaTm -> Text
 printAlphaTm = printTerm . fmap (TmVar . T.pack . ("?" ++) . show . unIndex) . unAlphaTm
 
 printAlphaTy :: AlphaTyScheme -> Text
-printAlphaTy (AlphaTyScheme (Forall bs st)) =
+printAlphaTy (Forall bs st) =
   let bs' = Seq.fromList (fmap (TyVar . T.pack . ("?" ++) . show . unIndex . snd) (toListWithIndex bs))
-      sc' = TyScheme (Forall bs' st)
+      sc' = Forall bs' st
   in printType sc'
 
 reportMissing :: Map AlphaTm AlphaTyScheme -> IO ()
@@ -89,7 +87,7 @@ findAll !lim !yesTms !noTms !susp =
               findAll (lim - 1) tms' noTms susp'
 
 forgetTyScheme :: TyFoundScheme -> AlphaTyScheme
-forgetTyScheme (TyFoundScheme (Forall bs st)) = AlphaTyScheme (Forall (void bs) st)
+forgetTyScheme (Forall bs st) = Forall (void bs) st
 
 data Match = Match
   { matchTm :: !Text
@@ -294,8 +292,8 @@ testSearchFinds = testGroup "finds"
 
 testSubst :: TestTree
 testSubst = testCase "subst" $ do
-  let s = TyFoundScheme (Forall (Seq.fromList [42]) (Strained Empty (TyFree 0)))
-      s' = TyScheme (Forall (Seq.fromList ["a"]) (Strained Empty (TyFree "a")))
+  let s = Forall (Seq.fromList [42]) (Strained Empty (TyFree 0))
+      s' = Forall (Seq.fromList ["a"]) (Strained Empty (TyFree "a"))
   Right s' @?= constFillTyScheme "a" s
 
 testSearch :: TestTree

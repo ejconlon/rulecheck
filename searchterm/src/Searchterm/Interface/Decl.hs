@@ -21,13 +21,13 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Prelude hiding (lines)
-import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme (..), Lit, Partial, TmName (..), Ty,
-                                  TyName, TyScheme (..), TyVar (..), explodeTy, instSchemeBody, tySchemeBody,
+import Searchterm.Interface.Core (ClsName, Index (..), Inst (..), InstScheme, Lit, Partial, TmName (..), Ty,
+                                  TyName, TyScheme, TyVar (..), explodeTy, instSchemeBody, tySchemeBody,
                                   tyToPartials)
 import Searchterm.Interface.Names (NamelessErr, namelessInst, namelessType)
 import Searchterm.Interface.Types (ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..))
 
-data MkDeclOptions = MkDeclOptions { optIgnoreMissingCons :: Bool }
+newtype MkDeclOptions = MkDeclOptions { optIgnoreMissingCons :: Bool }
 
 -- | A declared term (essentially name and type scheme)
 data Decl = Decl

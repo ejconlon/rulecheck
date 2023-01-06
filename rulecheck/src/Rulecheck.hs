@@ -1,79 +1,49 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Rulecheck where
 
-import Control.Exception ( catch, throwIO )
+import Control.Exception (catch, throwIO)
 import Control.Monad.State
-import Data.Aeson ( eitherDecodeFileStrict )
-import Data.Either ( fromRight )
-import Data.Functor.Foldable ( cata )
-import Data.List ( isInfixOf, nub )
-import Data.List.Utils ( replace )
-import Data.Maybe ( fromMaybe )
-import Data.Set ( Set )
-import qualified Data.Set as Set ( fromList, map, union )
-import qualified Data.Text as T
-    ( Text, concat, pack, append, isPrefixOf, lines, null, unpack )
-import Data.Text ( Text )
-import qualified Data.Text.IO as TIO ( readFile )
-import Debug.Trace ( trace )
-import Prettyprinter ( Pretty(pretty) )
-import Rulecheck.Config
-    ( arbitraryInstanceFile,
-      filesToSkip,
-      haskellPackagesDir,
-      importsForPackage,
-      internalToPublicMod,
-      overrideTypeSigs,
-      packageDescriptionsFile,
-      packageDir,
-      packagesToSkip,
-      skipRule,
-      startFromPackage,
-      testBaseDir,
-      testGenDir,
-      testSrcDir,
-      testTemplateFile,
-      PackageDescription(version, files, name) )
-import Rulecheck.Monad ( cradleGhcM, GhcM )
-import Rulecheck.Rendering
-    ( identifyRequiredImports, outputString )
-import Rulecheck.Rule ( Rule(ruleName, ruleTermArgs) )
-import Rulecheck.RuleRendering
-    ( TestModuleRenderOpts(..), ruleInputDoc, ruleModuleDoc )
-import Rulecheck.RuleExtraction ( getRulesFromFile )
-import Searchterm.Synth.Search
-    ( runSearchN,
-      Found(foundTm, foundTy),
-      SearchConfig(SearchConfig),
-      TmUniq(TmUniq),
-      TyFoundScheme(unTyFoundScheme),
-      UseSkolem(UseSkolemNo) )
-import Searchterm.Util ( rethrow, inlineLets )
-import Searchterm.Interface.Core
-    ( Tm(..),
-      TmF(TmCaseF, TmFreeF, TmLitF, TmKnownF, TmAppF, TmLamF, TmLetF),
-      TmName(TmName),
-      PatPair(PatPair) )
-import Searchterm.Interface.Decl ( mkLineDecls, DeclSet , MkDeclOptions(..) )
-import Searchterm.Interface.ParenPretty ( docToText )
-import Searchterm.Interface.Parser
-    ( ParseErr, parseLine, parseType )
-import Searchterm.Interface.Printer ( printTerm )
-import Searchterm.Interface.Names
-    ( namelessClosedTerm, namelessType, renameTerm )
-import Searchterm.Interface.Types ( Line )
-import System.Directory
-    ( copyFile,
-      createDirectoryIfMissing,
-      doesDirectoryExist,
-      doesFileExist,
-      removeDirectoryRecursive )
-import System.Environment ( getArgs )
-import System.Environment.Blank ( getEnvDefault )
+import Data.Aeson (eitherDecodeFileStrict)
+import Data.Either (fromRight)
+import Data.Functor.Foldable (cata)
+import Data.List (isInfixOf, nub)
+import Data.List.Utils (replace)
+import Data.Maybe (fromMaybe, isNothing)
+import Data.Set (Set)
+import qualified Data.Set as Set (fromList, map, union)
+import Data.Text (Text)
+import qualified Data.Text as T (Text, append, concat, isPrefixOf, lines, null, pack, unpack)
+import qualified Data.Text.IO as TIO (readFile)
+import Debug.Trace (trace)
+import Prettyprinter (Pretty (pretty))
+import Rulecheck.Config (PackageDescription (files, name, version), arbitraryInstanceFile, filesToSkip,
+                         haskellPackagesDir, importsForPackage, internalToPublicMod, overrideTypeSigs,
+                         packageDescriptionsFile, packageDir, packagesToSkip, skipRule, startFromPackage, testBaseDir,
+                         testGenDir, testSrcDir, testTemplateFile)
+import Rulecheck.Monad (GhcM, cradleGhcM)
+import Rulecheck.Rendering (identifyRequiredImports, outputString)
+import Rulecheck.Rule (Rule (ruleName, ruleTermArgs))
+import Rulecheck.RuleExtraction (getRulesFromFile)
+import Rulecheck.RuleRendering (TestModuleRenderOpts (..), ruleInputDoc, ruleModuleDoc)
+import Searchterm.Interface.Core (PatPair (PatPair), Tm (..),
+                                  TmF (TmAppF, TmCaseF, TmFreeF, TmKnownF, TmLamF, TmLetF, TmLitF), TmName (TmName))
+import Searchterm.Interface.Decl (DeclSet, MkDeclOptions (..), mkLineDecls)
+import Searchterm.Interface.Names (namelessClosedTerm, namelessType, renameTerm)
+import Searchterm.Interface.ParenPretty (docToText)
+import Searchterm.Interface.Parser (ParseErr, parseLine, parseType)
+import Searchterm.Interface.Printer (printTerm)
+import Searchterm.Interface.Types (Line)
+import Searchterm.Synth.Search (Found (foundTm, foundTy), SearchConfig (SearchConfig), TmUniq (TmUniq),
+                                UseSkolem (UseSkolemNo), runSearchN)
+import Searchterm.Util (inlineLets, rethrow)
+import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, doesFileExist,
+                         removeDirectoryRecursive)
+import System.Environment (getArgs)
+import System.Environment.Blank (getEnvDefault)
 import System.Timeout
-import Text.Printf ( printf )
+import Text.Printf (printf)
 
 packageFilePath :: String -> PackageDescription -> String -> FilePath
 packageFilePath prefix pkg file =
@@ -282,7 +252,7 @@ getSynthResultsForType typName ds = do
             mkVarName (TmUniq i) = "x" ++ show i
             namelessTm           = fromRight undefined $ namelessClosedTerm (const Nothing) $ inlineLets $ foundTm result
             tm                   = fromRight undefined $ renameTerm mkVarName namelessTm
-            ty                   = docToText $ pretty $ unTyFoundScheme $ foundTy result
+            ty                   = docToText $ pretty $ foundTy result
   where
     throwTypNameParseErr err = do
       printf "Error: cannot parse type %s for synthesis\n" typName
@@ -291,9 +261,9 @@ getSynthResultsForType typName ds = do
 getSynthResultsForRule :: DeclSet -> Rule -> GhcM [(Tm String String, T.Text)]
 getSynthResultsForRule decls rule = do
   typName <- outputString (ruleInputDoc rule)
-  liftIO $ printf "Synthesizing input terms for rule %s (type:  %s)\n" (show $ ruleName rule) (typName)
+  liftIO $ printf "Synthesizing input terms for rule %s (type:  %s)\n" (show (ruleName rule)) typName
   maybeResults <- liftIO $ timeout maxWaitTimeNs $ catch (getSynthResultsForType typName decls) reportErr
-  liftIO $ when (maybeResults == Nothing) $ putStrLn "Timed-out during synth"
+  liftIO $ when (isNothing maybeResults) $ putStrLn "Timed-out during synth"
   let results = fromMaybe [] maybeResults
   liftIO $ mapM_ showResult results
   return results

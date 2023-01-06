@@ -5,7 +5,7 @@
 module Searchterm.Synth.Search
   ( TmUniq (..)
   , TmFound
-  , TyFoundScheme (..)
+  , TyFoundScheme
   , fillTyScheme
   , constFillTyScheme
   , Found (..)
@@ -36,9 +36,9 @@ import Data.Traversable (for)
 import Data.Tuple (swap)
 import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
-import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (Forall), Index (..), Inst (..),
-                                  InstScheme (..), Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
-                                  Ty (..), TyF (..), TyScheme (..), TyVar (..), tySchemeBody)
+import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (..), Index (..), Inst (..),
+                                  InstScheme, Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
+                                  Ty (..), TyF (..), TyScheme, TyVar (..), tySchemeBody)
 import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials)
 import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith)
 import Searchterm.Interface.ParenPretty (prettyShow)
@@ -131,19 +131,17 @@ instance Pretty StraintUniq where
 type TmFound = Tm TmUniq Index
 
 -- | Search will yield closed type schemes with globally unique binders
-newtype TyFoundScheme = TyFoundScheme { unTyFoundScheme :: Forall TyUniq (Strained Index (Ty Index)) }
-  deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
+type TyFoundScheme = Forall TyUniq (Strained Index (Ty Index))
 
 -- | Fill the unique vars of the found type scheme with the given named vars
 -- Possible error if the scheme is not well formed (but it *should* be well formed
 -- by construction if you get it out of search - just error out).
 fillTyScheme :: Seq TyVar -> TyFoundScheme -> Either NamedErr (TyScheme TyVar)
-fillTyScheme ws (TyFoundScheme x) = fmap TyScheme (namedStrained ws x)
+fillTyScheme = namedStrained
 
 -- | Fill all unique vars of the found type scheme with a constant var
 constFillTyScheme :: TyVar -> TyFoundScheme -> Either NamedErr (TyScheme TyVar)
-constFillTyScheme w s@(TyFoundScheme (Forall vs _)) = fillTyScheme (Seq.replicate (Seq.length vs) w) s
+constFillTyScheme w s@(Forall vs _) = fillTyScheme (Seq.replicate (Seq.length vs) w) s
 
 data Found = Found
   { foundTm :: !TmFound
@@ -234,7 +232,7 @@ insertTyVars onVar tvs = res where
 -- | Insert the given constraint scheme with fresh type metavariables.
 -- Returns inserted (dependent constraints, given constraint)
 insertStraintScheme :: (MonadError SearchErr m, MonadState St m) => InstScheme Index -> m (Seq StraintUniq, StraintUniq)
-insertStraintScheme (InstScheme (Forall tvs (Strained cons inst))) = do
+insertStraintScheme (Forall tvs (Strained cons inst)) = do
   ctx <- insertTyVars TyVertMeta tvs
   ius <- for cons (insertStraint ctx)
   iu <- insertStraint ctx inst
@@ -257,7 +255,7 @@ insertStraint ctx _inst@(Inst cn tys) =  do
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
 insertTyScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertTyScheme onVar _ts@(TyScheme (Forall tvs (Strained cons ty))) = do
+insertTyScheme onVar _ts@(Forall tvs (Strained cons ty)) = do
   -- traceM ("*** INSERT TY SCHEME")
   -- traceM ("Ty: " ++ prettyShow ts)
   ctx <- insertTyVars onVar tvs
@@ -314,7 +312,7 @@ insertMetaScheme = insertTyScheme TyVertMeta
 --   the key for the function
 --   the type of the function
 insertPartial :: TyScheme Index -> Partial Index -> SearchM (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertPartial _ts@(TyScheme (Forall tvs (Strained cons _))) (Partial args retTy) = do
+insertPartial _ts@(Forall tvs (Strained cons _)) (Partial args retTy) = do
   -- traceM ("**** INSERT PARTIAL")
   -- traceM ("TS: " ++ prettyShow ts)
   ctx <- insertTyVars TyVertMeta tvs
@@ -601,7 +599,7 @@ resolveTy _useSkolem _outerVars tyuRoot = res where
       Left e -> do
         -- traceM ("Graph " ++ T.unpack (TL.toStrict (pShow tyGraph)))
         error ("Type resolution error: " ++ show e)
-      Right a -> pure (TyFoundScheme a)
+      Right a -> pure a
   expand :: TyGraph -> TyUniq -> Ty TyUniq
   expand tyGraph tyu =
     let (mp, _) = UM.find tyu tyGraph

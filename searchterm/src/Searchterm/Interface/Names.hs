@@ -17,7 +17,7 @@ module Searchterm.Interface.Names
   , AlphaTm (..)
   , mapAlphaTm
   , closeAlphaTm
-  , AlphaTyScheme (..)
+  , AlphaTyScheme
   , closeAlphaTyScheme
   , renameTerm
   ) where
@@ -34,8 +34,8 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)
-import Searchterm.Interface.Core (ConPat (..), Forall (..), Index (..), Inst (..), InstScheme (..), Pat (..),
-                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme (..), TyVar)
+import Searchterm.Interface.Core (ConPat (..), Forall (..), Index (..), Inst (..), InstScheme, Pat (..),
+                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme, TyVar)
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss =
@@ -90,10 +90,10 @@ namelessStrained (Forall tvs x) = Forall tvs <$> bindStr x where
   bindCon (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
 
 namelessType :: TyScheme TyVar -> Either (NamelessErr TyVar) (TyScheme Index)
-namelessType = fmap TyScheme . namelessStrained . unTyScheme
+namelessType = namelessStrained
 
 namelessInst :: InstScheme TyVar -> Either (NamelessErr TyVar) (InstScheme Index)
-namelessInst = fmap InstScheme . namelessStrained . unInstScheme
+namelessInst = namelessStrained
 
 type M b v a = ReaderT (Seq b) (State (Seq v)) a
 
@@ -187,10 +187,8 @@ mapAlphaTm = AlphaTm . cata goTm where
 closeAlphaTm :: Eq v => (v -> Maybe TmName) -> Tm v v -> Either (NamelessErr v) AlphaTm
 closeAlphaTm isKnown = fmap mapAlphaTm . namelessClosedTerm isKnown
 
-newtype AlphaTyScheme = AlphaTyScheme { unAlphaTyScheme :: Forall () (Strained Index (Ty Index)) }
-  deriving stock (Show)
-  deriving newtype (Eq, Ord)
+type AlphaTyScheme = Forall () (Strained Index (Ty Index))
 
 closeAlphaTyScheme :: TyScheme TyVar -> Either (NamelessErr TyVar) AlphaTyScheme
 closeAlphaTyScheme = fmap forget . namelessType where
-  forget (TyScheme (Forall bs st)) = AlphaTyScheme (Forall (void bs) st)
+  forget (Forall bs st) = Forall (void bs) st

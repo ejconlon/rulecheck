@@ -21,10 +21,10 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), ConPat (..), ConTy (..), Forall (..),
-                                  Inst (..), InstScheme (..), Lit (..), ModName (..), Pat (..), PatPair (..), Rule (..),
+import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme, ConPat (..), ConTy (..), Forall (..),
+                                  Inst (..), InstScheme, Lit (..), ModName (..), Pat (..), PatPair (..), Rule (..),
                                   Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..), TmVar (..), Ty (..),
-                                  TyName (..), TyScheme (..), TyVar (..), strainedVars)
+                                  TyName (..), TyScheme, TyVar (..), strainedVars)
 import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..),
                                    ModLine (..), RuleLine (..), TypeLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
@@ -279,7 +279,7 @@ forallStrainedP :: Foldable f => P (f TyVar) -> P (Forall TyVar (Strained TyVar 
 forallStrainedP = forallP (nub . strainedVars) tyVarP . strainedP
 
 tySchemeP :: P (TyScheme TyVar)
-tySchemeP = fmap TyScheme (forallStrainedP (tyP False False))
+tySchemeP = forallStrainedP (tyP False False)
 
 clsNameP :: P ClsName
 clsNameP = fmap ClsName upperP
@@ -306,7 +306,7 @@ clsP = do
   pure (Cls cn (Seq.fromList as))
 
 clsSchemeP :: P (ClsScheme TyVar)
-clsSchemeP = fmap ClsScheme (forallStrainedP clsP)
+clsSchemeP = forallStrainedP clsP
 
 instP :: P (Inst TyVar)
 instP = do
@@ -315,7 +315,7 @@ instP = do
   pure (Inst cn (Seq.fromList as))
 
 instSchemeP :: P (InstScheme TyVar)
-instSchemeP = fmap InstScheme (forallStrainedP instP)
+instSchemeP = forallStrainedP instP
 
 lineP :: P Line
 lineP = moreLexP $ foldr1 (<|>)

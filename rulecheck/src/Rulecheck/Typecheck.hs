@@ -11,9 +11,10 @@ module Rulecheck.Typecheck
 import Control.Monad.IO.Class (liftIO)
 import Data.List (find)
 import Data.Maybe (fromJust)
-import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, ModSummary, ModuleName, Name, ParsedModule (pm_mod_summary),
-            TyThing (..), TypecheckedMod (..), TypecheckedModule (..), getModuleGraph, mgModSummaries,
-            modInfoLookupName, modInfoTopLevelScope, moduleName, ms_mod, parseModule, typecheckModule, pprModule)
+import GHC (GhcTc, HscEnv, Kind, LHsBindLR, LHsExpr, LRuleDecl, ModSummary, ModuleName, Name,
+            ParsedModule (pm_mod_summary), TyThing (..), TypecheckedMod (..), TypecheckedModule (..), getModuleGraph,
+            mgModSummaries, modInfoLookupName, modInfoTopLevelScope, moduleName, ms_mod, parseModule, pprModule,
+            typecheckModule)
 import GHC.Core.Utils (exprType)
 import GHC.Data.Bag (bagToList)
 import GHC.HsToCore (deSugarExpr)

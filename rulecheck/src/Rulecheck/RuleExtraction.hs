@@ -1,4 +1,4 @@
--- | 
+-- |
 
 module Rulecheck.RuleExtraction where
 

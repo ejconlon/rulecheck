@@ -11,8 +11,8 @@ import Control.DeepSeq
 import Control.Exception (Exception)
 import Control.Monad.Catch (MonadThrow, throwM)
 import Control.Monad.IO.Class
-import Data.Set as Set (Set, empty, insert)
 import Data.IORef
+import Data.Set as Set (Set, empty, insert)
 import GHC.Hs.Decls (LHsDecl)
 import GHC.Hs.Extension (GhcPs)
 import GHC.Plugins

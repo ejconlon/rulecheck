@@ -9,28 +9,19 @@ module Rulecheck.Rule
   , noTyVarsInSig
   ) where
 
-import Control.Monad.IO.Class ( MonadIO(..) )
-import Data.Maybe ( fromJust )
-import GHC.Core.TyCon ( isPrimTyCon, tyConRepName_maybe )
-import GHC.Core.Type
-    ( Kind, Var(..), noFreeVarsOfType, splitTyConApp_maybe )
-import GHC
-    ( GhcMonad(getSession),
-      unLoc,
-      HsRuleRn(HsRuleRn),
-      LRuleDecl,
-      RuleBndr(RuleBndr),
-      RuleDecl(rd_name, rd_lhs, rd_rhs, rd_tmvs, rd_ext),
-      HsExpr,
-      LHsExpr,
-      GhcTc )
-import GHC.Types.Basic ( RuleName )
-import GHC.Types.Var ( Var(varName) )
-import GHC.Types.Name ( occName, occNameString )
-import GHC.Types.Name.Set ( elemNameSet, unionNameSet )
-import GHC.Utils.Outputable ( Outputable(ppr), SDoc )
-import Rulecheck.Monad ( GhcM )
-import Rulecheck.Typecheck ( getType )
+import Control.Monad.IO.Class (MonadIO (..))
+import Data.Maybe (fromJust)
+import GHC (GhcMonad (getSession), GhcTc, HsExpr, HsRuleRn (HsRuleRn), LHsExpr, LRuleDecl, RuleBndr (RuleBndr),
+            RuleDecl (rd_ext, rd_lhs, rd_name, rd_rhs, rd_tmvs), unLoc)
+import GHC.Core.TyCon (isPrimTyCon, tyConRepName_maybe)
+import GHC.Core.Type (Kind, Var (..), noFreeVarsOfType, splitTyConApp_maybe)
+import GHC.Types.Basic (RuleName)
+import GHC.Types.Name (occName, occNameString)
+import GHC.Types.Name.Set (elemNameSet, unionNameSet)
+import GHC.Types.Var (Var (varName))
+import GHC.Utils.Outputable (Outputable (ppr), SDoc)
+import Rulecheck.Monad (GhcM)
+import Rulecheck.Typecheck (getType)
 
 data RuleSide = LHS | RHS
 
