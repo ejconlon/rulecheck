@@ -22,7 +22,7 @@ import Searchterm.Interface.Parser (parseTerm, parseType)
 import Searchterm.Interface.Printer (printTerm, printType)
 import Searchterm.Synth.Search (Found (..), SearchConfig (..), SearchSusp, TyFoundScheme,
                                 UseSkolem (..), constFillTyScheme, nextSearchResult, runSearchSusp)
-import Searchterm.Util
+import Searchterm.Util (inlineLets, rethrow, DeclSrc(..), loadDeclLines)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 import Test.Tasty.Providers (TestName)
