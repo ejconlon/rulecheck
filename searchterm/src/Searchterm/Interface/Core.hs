@@ -21,6 +21,8 @@ module Searchterm.Interface.Core
   , TyF (..)
   , TmF (..)
   , bitraverseTyF
+  , Kind (..)
+  , KindAnno (..)
   , Forall (..)
   , Inst (..)
   , Cls (..)
@@ -228,6 +230,27 @@ instance (Pretty b, Pretty a) => ParenPretty (Tm b a) where
 
 instance (Pretty b, Pretty a) => Pretty (Tm b a) where
   pretty = parenPrettyToDoc
+
+data Kind =
+    KindTy
+  | KindTyCon !(Seq Kind)
+  deriving stock (Eq, Ord, Show)
+
+instance ParenPretty Kind where
+  parenPretty xs = \case
+    KindTy -> "Type"
+    KindTyCon ks -> parenList True (fmap (parenPretty (Nothing:xs)) (toList ks) ++ ["Type"])
+
+instance Pretty Kind where
+  pretty = parenPrettyToDoc
+
+data KindAnno b = KindAnno
+  { kaName :: !b
+  , kaKind :: !Kind
+  } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Pretty b => Pretty (KindAnno b) where
+  pretty (KindAnno n k) = P.parens (P.hsep [pretty n, "::", pretty k])
 
 data Forall b a = Forall
   { faBinders :: !(Seq b)
