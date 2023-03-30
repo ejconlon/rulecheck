@@ -129,7 +129,8 @@ instance Pretty a => Pretty (ConTy a) where
 -- | Type with a hole for variables (can later be filled in with indices)
 data Ty a =
     TyFree !a
-  | TyCon !(ConTy a) !(Seq (Ty a))
+  | TyKnown !TyName
+  | TyApp (Ty a) !(Seq (Ty a))
   | TyFun (Ty a) (Ty a)
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -178,14 +179,16 @@ deriving instance (Show a, Show b, Show r) => Show (TmF a b r)
 bitraverseTyF :: Applicative m => (w -> m v) -> TyF w w -> m (TyF v v)
 bitraverseTyF f = \case
   TyFreeF w -> fmap TyFreeF (f w)
-  TyConF cn ws -> TyConF <$> traverse f cn <*> traverse f ws
+  TyKnownF n -> pure (TyKnownF n)
+  TyAppF w ws -> TyAppF <$> f w <*> traverse f ws
   TyFunF wl wr -> TyFunF <$> f wl <*> f wr
 
 instance (Pretty a, ParenPretty r) => ParenPretty (TyF a r) where
   parenPretty s = res where
     res = \case
       TyFreeF w -> parenAtom w
-      TyConF ct ws -> parenList isSubCon (parenAtom ct : fmap (parenPretty (Just "app":s)) (toList ws))
+      TyKnownF n -> parenAtom n
+      TyAppF w ws -> parenList isSubCon (parenPretty (Just "app":s) w : fmap (parenPretty (Just "app":s)) (toList ws))
       TyFunF wl wr -> parenList isLhsFun [parenPretty (Just "funl":s) wl, "->", parenPretty (Just "funr":s) wr]
     isSubCon = case s of
       Just "app" : _ -> True
@@ -298,14 +301,14 @@ instance (Pretty b, Pretty a) => Pretty (Strained b a) where
 strainedVars :: Foldable f => Strained b (f b) -> [b]
 strainedVars (Strained x y) = (toList x >>= toList) ++ toList y
 
-type ClsScheme a = Forall TyVar (Strained a (Cls a))
+type ClsScheme a = Forall (KindAnno TyVar) (Strained a (Cls a))
 
-type InstScheme a = Forall TyVar (Strained a (Inst a))
+type InstScheme a = Forall (KindAnno TyVar) (Strained a (Inst a))
 
 instSchemeBody :: InstScheme a -> Inst a
 instSchemeBody = strainedIn . faBody
 
-type TyScheme a = Forall TyVar (Strained a (Ty a))
+type TyScheme a = Forall (KindAnno TyVar) (Strained a (Ty a))
 
 tySchemeBody :: TyScheme a -> Ty a
 tySchemeBody = strainedIn . faBody

@@ -9,11 +9,12 @@ import Control.Monad.State.Strict (MonadState (..), StateT (..))
 import Data.Either (isRight)
 import qualified Data.Sequence as Seq
 import Prettyprinter (Pretty (..))
-import Searchterm.Interface.Core (ConTy (..), TyF (..), TyName, TyVar, bitraverseTyF)
+import Searchterm.Interface.Core (ConTy (..), TyF (..), TyName, TyVar, bitraverseTyF, KindAnno (..), Kind (..))
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom)
 import Searchterm.Synth.UnionFind (MergeRes (..))
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
+import Data.Sequence (Seq(..))
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =
@@ -91,14 +92,16 @@ data TyVert =
 -- | Something that can go wrong when aligning two vertices
 data AlignErr =
     AlignErrEmbed !AlignTyErr
-  -- ^ When types don't align (normal error)
+  -- ^ When types don't align
   | AlignErrSkol !TyVar
-  -- ^ When trying to align with a skolem var (normal error)
+  -- ^ When trying to align with a skolem var
+  | AlignErrKind !Kind !Kind
+  -- ^ When kinds don't align
   deriving stock (Eq, Ord, Show)
 
 instance Exception AlignErr
 
-type AlignState = UnionMap TyUniq TyVert
+type AlignState = UnionMap TyUniq (KindAnno TyVert)
 
 -- | The alignment monad - just keeps track of the type graph and lets us abort with error
 newtype AlignM a = AlignM { unAlignM :: StateT AlignState (Except AlignErr) a }
@@ -109,8 +112,8 @@ runAlignM m s = runExcept (runStateT (unAlignM m) s)
 
 -- | Align two vertices (by value) (recursing as new constraints are uncovered)
 -- This will never be called on two vertices with the same original id.
-alignVertsM :: TyVert -> TyVert -> AlignM TyVert
-alignVertsM vl vr = do
+alignVertM :: TyVert -> TyVert -> AlignM TyVert
+alignVertM vl vr = do
   case (vl, vr) of
     -- Meta vars always align
     (TyVertMeta _, _) -> pure vr
@@ -127,11 +130,36 @@ alignVertsM vl vr = do
         -- When they do align, we may have additional constraints
         Right tw -> fmap TyVertNode (bitraverseTyF (uncurry alignUniqM) tw)
 
+-- Stupid utility function to zip effectfully
+seqZipWithM :: Applicative m => (a -> b -> m c) -> Seq a -> Seq b -> m (Seq c)
+seqZipWithM f = go where
+  go as bs =
+    case (as, bs) of
+      (Empty, _) -> pure Empty
+      (_, Empty) -> pure Empty
+      (a :<| as', b :<| bs') -> (:<|) <$> f a b <*> go as' bs'
+
+-- | Aligns two kinds
+alignKindM :: Kind -> Kind -> AlignM Kind
+alignKindM k1 k2 =
+  case (k1, k2) of
+    (KindTy, KindTy) -> pure k1
+    (KindTyCon x1, KindTyCon x2) | Seq.length x1 == Seq.length x2 ->
+      fmap KindTyCon (seqZipWithM alignKindM x1 x2)
+    _ -> throwError (AlignErrKind k1 k2)
+
+-- | Aligns two kind-annotated vertices
+alignAnnoM :: KindAnno TyVert -> KindAnno TyVert -> AlignM (KindAnno TyVert)
+alignAnnoM (KindAnno v1 k1) (KindAnno v2 k2) = do
+  k3 <- alignKindM k1 k2
+  v3 <- alignVertM v1 v2
+  pure (KindAnno v3 k3)
+
 -- | Aligns two vertices (by id)
 alignUniqM :: TyUniq -> TyUniq -> AlignM TyUniq
 alignUniqM ul ur = do
   -- Merge them the union map by value
-  res <- UM.stateMerge alignVertsM ul ur
+  res <- UM.stateMerge alignAnnoM ul ur
   case res of
     -- Calling this with an unknown vertex id indicates a logic bug higher up
     MergeResMissing u -> error ("Missing vertex: " ++ show u)
@@ -139,5 +167,5 @@ alignUniqM ul ur = do
     MergeResChanged u _ -> pure u
 
 -- | Align two vertices (by id) and yield the solution with updated graph
-recAlignTys :: TyUniq -> TyUniq -> UnionMap TyUniq TyVert -> Either AlignErr (TyUniq, UnionMap TyUniq TyVert)
+recAlignTys :: TyUniq -> TyUniq -> UnionMap TyUniq (KindAnno TyVert) -> Either AlignErr (TyUniq, UnionMap TyUniq (KindAnno TyVert))
 recAlignTys ul0 ur0 = runAlignM (alignUniqM ul0 ur0)

@@ -38,7 +38,7 @@ import Prettyprinter (Pretty (..))
 import qualified Prettyprinter as P
 import Searchterm.Interface.Core (ClsName, ConPat (..), ConTy (..), Forall (..), Index (..), Inst (..),
                                   InstScheme, Partial (..), Pat (..), PatPair (..), Strained (..), Tm (..),
-                                  Ty (..), TyF (..), TyScheme, TyVar (..), tySchemeBody)
+                                  Ty (..), TyF (..), TyScheme, TyVar (..), tySchemeBody, KindAnno (..), Kind (..))
 import Searchterm.Interface.Decl (ConSig (..), Decl (..), DeclSet (..), declPartials)
 import Searchterm.Interface.Names (NamedErr, namedStrained, namelessStrained, toListWithIndex, unsafeIndexSeqWith)
 import Searchterm.Interface.ParenPretty (prettyShow)
@@ -51,31 +51,33 @@ import qualified Searchterm.Synth.UnionMap as UM
 -- import qualified Data.Text as T
 -- import qualified Data.Text.Lazy as TL
 
--- | Trace a single message - swap definitions to turn on/off
+-- | Flip this to turn on trace logging
+verbose :: Bool
+verbose = False
+
+-- | Trace a single message
 traceM :: Applicative m => String -> m ()
--- traceM = DT.traceM
-traceM _ = pure ()
+traceM = if verbose then DT.traceM else const (pure ())
 
 -- | Trace entering and exiting a scope
 traceScopeM :: (MonadLogic m, Pretty a) => String -> m a -> m a
--- traceScopeM ctx act = do
---   traceM ("Enter: " ++ ctx)
---   ifte act
---     (\a -> a <$ traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a))
---     (traceM ("Exit: " ++ ctx ++ " (empty)") *> empty)
-traceScopeM _ = id
+traceScopeM ctx act = if verbose then go else act where
+  go = do
+    traceM ("Enter: " ++ ctx)
+    ifte act
+      (\a -> a <$ traceM ("Exit: " ++ ctx ++ " with value: " ++ prettyShow a))
+      (traceM ("Exit: " ++ ctx ++ " (empty)") *> empty)
 
 -- | Tracing for search failures
 traceEmptyM :: (Alternative m) => String -> m a
--- traceEmptyM msg = traceM ("Empty: " ++ msg) *> empty
-traceEmptyM _ = empty
+traceEmptyM msg = if verbose then traceM ("Empty: " ++ msg) *> empty else empty
 
 -- | Log on success/failure
 traceTryM :: MonadLogic m => String -> m a -> m a
--- traceTryM ctx act = ifte act
---   (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
---   (traceM ("Try failed: " ++ ctx) *> empty)
-traceTryM _ = id
+traceTryM ctx act = if verbose then go else act where
+  go = ifte act
+    (\a -> a <$ traceM ("Try succeeded: " ++ ctx) )
+    (traceM ("Try failed: " ++ ctx) *> empty)
 
 -- boilerplate
 runReaderStateT :: r -> s -> ReaderT r (StateT s m) a -> m (a, s)
@@ -131,7 +133,7 @@ instance Pretty StraintUniq where
 type TmFound = Tm TmUniq Index
 
 -- | Search will yield closed type schemes with globally unique binders
-type TyFoundScheme = Forall TyUniq (Strained Index (Ty Index))
+type TyFoundScheme = Forall (KindAnno TyUniq) (Strained Index (Ty Index))
 
 -- | Fill the unique vars of the found type scheme with the given named vars
 -- Possible error if the scheme is not well formed (but it *should* be well formed
@@ -152,7 +154,7 @@ instance Pretty Found where
   pretty (Found tm ty) = P.hsep [pretty tm, "::", pretty ty]
 
 -- | Type unification graph
-type TyGraph = UnionMap TyUniq TyVert
+type TyGraph = UnionMap TyUniq (KindAnno TyVert)
 
 -- | Local environment for search (usable with 'MonadReader')
 data Env = Env
@@ -222,18 +224,18 @@ lookupCtx i = do
     Just x -> pure x
 
 -- | Instantiate the type variables and return their ids.
-insertTyVars :: MonadState St m => (TyVar -> TyVert) -> Seq TyVar -> m (Seq TyUniq)
-insertTyVars onVar tvs = res where
+insertTyVars :: MonadState St m => (TyVar -> TyVert) -> Seq (KindAnno TyVar) -> m (Seq TyUniq)
+insertTyVars onVar ktvs = res where
   insertRaw v (TrackSt (StFwd srcx zz) (StBwd umx)) =
     (srcx, TrackSt (StFwd (srcx + 1) zz) (StBwd (UM.insert srcx v umx)))
-  acc (stx, ctxx) tv = let (u, sty) = insertRaw (onVar tv) stx in (sty, ctxx :|> u)
-  res = state (\stStart -> swap (foldl' acc (stStart, Seq.empty) tvs))
+  acc (stx, ctxx) (KindAnno tv k) = let (u, sty) = insertRaw (KindAnno (onVar tv) k) stx in (sty, ctxx :|> u)
+  res = state (\stStart -> swap (foldl' acc (stStart, Seq.empty) ktvs))
 
 -- | Insert the given constraint scheme with fresh type metavariables.
 -- Returns inserted (dependent constraints, given constraint)
 insertStraintScheme :: (MonadError SearchErr m, MonadState St m) => InstScheme Index -> m (Seq StraintUniq, StraintUniq)
-insertStraintScheme (Forall tvs (Strained cons inst)) = do
-  ctx <- insertTyVars TyVertMeta tvs
+insertStraintScheme (Forall ktvs (Strained cons inst)) = do
+  ctx <- insertTyVars TyVertMeta ktvs
   ius <- for cons (insertStraint ctx)
   iu <- insertStraint ctx inst
   pure (ius, iu)
@@ -255,20 +257,20 @@ insertStraint ctx _inst@(Inst cn tys) =  do
 -- (non-unifiable / "externally-chosen" vars) at the top level or simple meta vars (plain old unifiable vars) below.
 -- NOTE: The constraints returned are not unified with instance derivations. You have to do that after calling this.
 insertTyScheme :: (MonadError SearchErr m, MonadState St m) => (TyVar -> TyVert) -> TyScheme Index -> m (Seq StraintUniq, Seq TyUniq, TyUniq, TyUnify)
-insertTyScheme onVar _ts@(Forall tvs (Strained cons ty)) = do
+insertTyScheme onVar _ts@(Forall ktvs (Strained cons ty)) = do
   -- traceM ("*** INSERT TY SCHEME")
   -- traceM ("Ty: " ++ prettyShow ts)
-  ctx <- insertTyVars onVar tvs
+  ctx <- insertTyVars onVar ktvs
   ius <- for cons (insertStraint ctx)
   (u, v) <- insertTy ctx ty
   pure (ius, ctx, u, v)
 
 -- | Used in 'insertScheme' to do the type insertion.
-insertTy :: (MonadError SearchErr m, MonadState St m) => Seq TyUniq -> Ty Index -> m (TyUniq, TyUnify)
+insertTy :: (MonadError SearchErr m, MonadState St m) => Seq (KindAnno TyUniq) -> Ty Index -> m (TyUniq, TyUnify)
 insertTy ctx ty = res where
   insertRaw v (TrackSt (StFwd srcx zz) (StBwd umx)) =
     (srcx, TrackSt (StFwd (srcx + 1) zz) (StBwd (UM.insert srcx v umx)))
-  insert v = fmap (,v) (state (insertRaw (TyVertNode v)))
+  insert (KindAnno v k) = fmap (,v) (state (insertRaw (KindAnno (TyVertNode v) k)))
   onTy = \case
     TyFreeF i -> do
       u <- lookupCtx i
@@ -276,11 +278,12 @@ insertTy ctx ty = res where
     TyConF tn ps -> do
       us <- fmap (fmap fst) (sequence ps)
       tn' <- traverse lookupCtx tn
-      insert (TyConF tn' us)
+      -- TODO don't assume everything is fully applied
+      insert (KindAnno (TyConF tn' us) KindTy)
     TyFunF am bm -> do
       au <- fmap fst am
       bu <- fmap fst bm
-      insert (TyFunF au bu)
+      insert (KindAnno (TyFunF au bu) KindTy)
   res = do
     -- traceM ("**** INSERT Ty")
     -- traceM ("Insert ty TY: " ++ prettyShow ty)
@@ -593,7 +596,7 @@ resolveTy _useSkolem _outerVars tyuRoot = res where
     tyGraph <- gets (stBwdTyGraph . tsBwd)
     let tyBody = expand tyGraph tyuRoot
         finalVars = Seq.fromList (nub (toList tyBody))
-        -- TODO actually carry constraints along
+        -- TODO actually carry constraints along when using skolem
         fv = Forall finalVars (Strained Empty tyBody)
     case namelessStrained fv of
       Left e -> do
@@ -605,7 +608,7 @@ resolveTy _useSkolem _outerVars tyuRoot = res where
     let (mp, _) = UM.find tyu tyGraph
     in case mp of
       Nothing -> error ("Missing key: " ++ show tyu)
-      Just (_, v) -> case v of
+      Just (_, KindAnno v _) -> case v of
         TyVertMeta _ -> TyFree tyu
         TyVertSkolem _ -> TyFree tyu
         TyVertNode tf -> embed (fmap (expand tyGraph) tf)

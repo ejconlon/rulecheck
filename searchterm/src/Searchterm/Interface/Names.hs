@@ -35,7 +35,7 @@ import qualified Data.Sequence as Seq
 import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)
 import Searchterm.Interface.Core (ConPat (..), Forall (..), Index (..), Inst (..), InstScheme, Pat (..),
-                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme, TyVar)
+                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme, TyVar, KindAnno (..), Kind)
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss =
@@ -67,14 +67,16 @@ data NamedErr =
 
 instance Exception NamedErr
 
-namedStrained :: Seq w -> Forall v (Strained Index (Ty Index)) -> Either NamedErr (Forall w (Strained w (Ty w)))
-namedStrained ws (Forall vs (Strained is ty)) = res where
+namedStrained :: Seq w -> Forall (KindAnno v) (Strained Index (Ty Index)) -> Either NamedErr (Forall (KindAnno w) (Strained w (Ty w)))
+namedStrained ws (Forall kvs (Strained is ty)) = res where
   res =
     let wl = Seq.length ws
-        vl = Seq.length vs
+        vl = Seq.length kvs
     in if wl /= vl
       then Left (NamedErrMismatch wl vl)
-      else Forall ws <$> (Strained <$> traverse namedInst is <*> namedTy ty)
+      else
+        let kws = Seq.zipWith (\(KindAnno _ k) w -> KindAnno w k) kvs ws
+        in Forall kws <$> (Strained <$> traverse namedInst is <*> namedTy ty)
   namedInst (Inst cn tys) = Inst cn <$> traverse namedTy tys
   namedTy = traverse (\i -> maybe (Left (NamedErrMissing i)) Right (lookupSeq ws i))
 
@@ -83,8 +85,9 @@ newtype NamelessErr v = NamelessErrMissing (Seq v)
 
 instance (Show v, Typeable v) => Exception (NamelessErr v)
 
-namelessStrained :: (Traversable f, Eq v) => Forall v (Strained v (f v)) -> Either (NamelessErr v) (Forall v (Strained Index (f Index)))
-namelessStrained (Forall tvs x) = Forall tvs <$> bindStr x where
+namelessStrained :: (Traversable f, Eq v) => Forall (KindAnno v) (Strained v (f v)) -> Either (NamelessErr v) (Forall (KindAnno v) (Strained Index (f Index)))
+namelessStrained (Forall ktvs x) = Forall ktvs <$> bindStr x where
+  tvs = fmap kaName ktvs
   bindStr (Strained cons fy) = Strained <$> traverse bindCon cons <*> traverse bind fy
   bind a = maybe (Left (NamelessErrMissing (Seq.singleton a))) Right (indexSeq tvs a)
   bindCon (Inst cn tys) = Inst cn <$> traverse (traverse bind) tys
@@ -192,3 +195,10 @@ type AlphaTyScheme = Forall () (Strained Index (Ty Index))
 closeAlphaTyScheme :: TyScheme TyVar -> Either (NamelessErr TyVar) AlphaTyScheme
 closeAlphaTyScheme = fmap forget . namelessType where
   forget (Forall bs st) = Forall (void bs) st
+
+-- data KindErr v
+
+-- inferKind :: Seq (KindAnno v) -> Ty v -> Either (KindErr v) Kind
+-- inferKind kvs = cata go where
+--   go = \case
+--     _ -> _
