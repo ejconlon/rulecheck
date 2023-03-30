@@ -6,9 +6,6 @@ cradle:
     - path: "demo-domain/test"
       component: "demo-domain:test:demo-domain-test"
 
-    - path: "demo-test/test"
-      component: "demo-test:test:demo-test"
-
     - path: "rulecheck/src"
       component: "rulecheck:lib"
 
@@ -21,8 +18,17 @@ cradle:
     - path: "rulecheck/test"
       component: "rulecheck:test:rulecheck-test"
 
+    - path: "rulecheck-runtime/src"
+      component: "rulecheck-runtime:lib"
+
     - path: "searchterm/src"
       component: "searchterm:lib"
+
+    - path: "searchterm/exe/Main.hs"
+      component: "searchterm:exe:searchterm-exe"
+
+    - path: "searchterm/exe/Paths_searchterm.hs"
+      component: "searchterm:exe:searchterm-exe"
 
     - path: "searchterm/test"
       component: "searchterm:test:searchterm-test"

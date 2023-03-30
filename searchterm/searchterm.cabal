@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.35.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -10,6 +10,12 @@ build-type:     Simple
 
 library
   exposed-modules:
+      Searchterm.Grammar.Gen.Abs
+      Searchterm.Grammar.Gen.ErrM
+      Searchterm.Grammar.Gen.Lex
+      Searchterm.Grammar.Gen.Par
+      Searchterm.Grammar.Gen.Print
+      Searchterm.Grammar.Gen.Skel
       Searchterm.Interface.Core
       Searchterm.Interface.Decl
       Searchterm.Interface.Names
@@ -32,7 +38,6 @@ library
       BangPatterns
       ConstraintKinds
       DataKinds
-      DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
       DeriveGeneric
@@ -57,8 +62,12 @@ library
       TypeOperators
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.12 && <5
+      array
+    , base >=4.12 && <5
     , containers
     , exceptions
     , int-like
@@ -73,23 +82,16 @@ library
     , transformers
   default-language: Haskell2010
 
-test-suite searchterm-test
-  type: exitcode-stdio-1.0
+executable searchterm-exe
   main-is: Main.hs
   other-modules:
-      Test.Searchterm.Interface
-      Test.Searchterm.State
-      Test.Searchterm.Synth.Monad
-      Test.Searchterm.Synth.Search
-      Test.Searchterm.Synth.UnionMap
       Paths_searchterm
   hs-source-dirs:
-      test
+      exe
   default-extensions:
       BangPatterns
       ConstraintKinds
       DataKinds
-      DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
       DeriveGeneric
@@ -114,8 +116,73 @@ test-suite searchterm-test
       TypeOperators
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.12 && <5
+      array
+    , base >=4.12 && <5
+    , containers
+    , exceptions
+    , int-like
+    , logict
+    , megaparsec
+    , mtl
+    , pretty-simple
+    , prettyprinter
+    , recursion-schemes
+    , scientific
+    , searchterm
+    , text
+    , transformers
+  default-language: Haskell2010
+
+test-suite searchterm-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Test.Searchterm.Interface
+      Test.Searchterm.State
+      Test.Searchterm.Synth.Monad
+      Test.Searchterm.Synth.Search
+      Test.Searchterm.Synth.UnionMap
+      Paths_searchterm
+  hs-source-dirs:
+      test
+  default-extensions:
+      BangPatterns
+      ConstraintKinds
+      DataKinds
+      DeriveFunctor
+      DeriveFoldable
+      DeriveGeneric
+      DeriveTraversable
+      DerivingStrategies
+      DerivingVia
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      LambdaCase
+      KindSignatures
+      MultiParamTypeClasses
+      MultiWayIf
+      Rank2Types
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
+  build-tools:
+      alex
+    , happy
+  build-depends:
+      array
+    , base >=4.12 && <5
     , containers
     , exceptions
     , int-like

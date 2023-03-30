@@ -8,7 +8,7 @@ docs:
 
 .PHONY: deps
 deps:
-	stack build --copy-compiler-tool hlint implicit-hie ghcid
+	stack build --copy-compiler-tool hlint implicit-hie BNFC
 
 .PHONY: format
 format:
