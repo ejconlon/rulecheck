@@ -35,7 +35,7 @@ import qualified Data.Sequence as Seq
 import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)
 import Searchterm.Interface.Core (ConPat (..), Forall (..), Index (..), Inst (..), InstScheme, Pat (..),
-                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme, TyVar, KindAnno (..), Kind)
+                                  PatPair (..), Strained (..), Tm (..), TmF (..), TmName (..), Ty, TyScheme, TyVar, KindAnno (..))
 
 toListWithIndex :: Seq a -> [(a, Index)]
 toListWithIndex ss =

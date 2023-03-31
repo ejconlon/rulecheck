@@ -6,50 +6,40 @@ module Searchterm.Synth.Align where
 import Control.Exception (Exception)
 import Control.Monad.Except (Except, MonadError (..), runExcept)
 import Control.Monad.State.Strict (MonadState (..), StateT (..))
-import Data.Either (isRight)
 import qualified Data.Sequence as Seq
 import Prettyprinter (Pretty (..))
-import Searchterm.Interface.Core (ConTy (..), TyF (..), TyName, TyVar, bitraverseTyF, KindAnno (..), Kind (..))
+import Searchterm.Interface.Core (TyF (..), TyName, TyVar, bitraverseTyF, KindAnno (..), Kind (..))
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom)
 import Searchterm.Synth.UnionFind (MergeRes (..))
 import Searchterm.Synth.UnionMap (UnionMap)
 import qualified Searchterm.Synth.UnionMap as UM
 import Data.Sequence (Seq(..))
+import Data.Maybe (fromMaybe)
 
 -- | Something that can go wrong when aligning two types
 data AlignTyErr =
     AlignTyErrConHead !TyName !TyName
   -- ^ They mismatch on constructor head
-  | AlignTyErrConArity !(Maybe TyName) !Int !Int
-  -- ^ They mismatch on constructor arity
+  | AlignTyErrAppArity !Int !Int
+  -- ^ They mismatch on application arity
   | AlignTyErrMismatch
   -- ^ They totally mismatch on type shape (e.g. fun vs con vs var)
   deriving stock (Eq, Ord, Show)
 
 instance Exception AlignTyErr
 
--- | Align two ty con heads
-alignConHead :: ConTy a -> ConTy b -> Either AlignTyErr (ConTy (a, b))
-alignConHead ea eb =
-  case ea of
-    ConTyKnown na ->
-      case eb of
-        ConTyKnown nb -> if na == nb then Right (ConTyKnown na) else Left (AlignTyErrConHead na nb)
-        -- ConTyFree _ -> Right (ConTyKnown na)
-    -- ConTyFree va -> Right (fmap (va,) eb)
-
 -- | Align (match) two types by lining up all the holes
 alignTys :: TyF x a -> TyF y b -> Either AlignTyErr (TyF (x, y) (a, b))
 alignTys one two =
   case (one, two) of
     (TyFreeF x, TyFreeF y) -> Right (TyFreeF (x, y))
-    (TyConF n as, TyConF m bs) -> do
-      hd <- alignConHead n m
+    (TyKnownF a, TyKnownF b) | a == b -> Right (TyKnownF a)
+    (TyAppF n as, TyAppF m bs) -> do
       let la = Seq.length as
           lb = Seq.length bs
       if la == lb
-        then Right (TyConF hd (Seq.zip as bs))
-        else Left (AlignTyErrConArity (case hd of { ConTyKnown na -> Just na {-; ConTyFree _ -> Nothing-}}) la lb)
+        then Right (TyAppF (n, m) (Seq.zip as bs))
+        else Left (AlignTyErrAppArity la lb)
     (TyFunF q1 r1, TyFunF q2 r2) -> Right (TyFunF (q1, q2) (r1, r2))
     _ -> Left AlignTyErrMismatch
 
@@ -61,7 +51,8 @@ mightAlign one two =
   case (one, two) of
     (TyFreeF _, _) -> True
     (_, TyFreeF _) -> True
-    (TyConF n as, TyConF m bs) -> isRight (alignConHead n m) && Seq.length as == Seq.length bs
+    (TyKnownF a, TyKnownF b) -> a == b
+    (TyAppF _ as, TyAppF _ bs) -> Seq.length as == Seq.length bs
     (TyFunF _ _, TyFunF _ _) -> True
     _ -> False
 
@@ -151,9 +142,11 @@ alignKindM k1 k2 =
 -- | Aligns two kind-annotated vertices
 alignAnnoM :: KindAnno TyVert -> KindAnno TyVert -> AlignM (KindAnno TyVert)
 alignAnnoM (KindAnno v1 k1) (KindAnno v2 k2) = do
-  k3 <- alignKindM k1 k2
+  let k1' = fromMaybe KindTy k1
+      k2' = fromMaybe KindTy k2
+  k3 <- alignKindM k1' k2'
   v3 <- alignVertM v1 v2
-  pure (KindAnno v3 k3)
+  pure (KindAnno v3 (Just k3))
 
 -- | Aligns two vertices (by id)
 alignUniqM :: TyUniq -> TyUniq -> AlignM TyUniq

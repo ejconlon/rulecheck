@@ -12,7 +12,6 @@ module Searchterm.Interface.Core
   , ModName (..)
   , RuleName (..)
   , Lit (..)
-  , ConTy (..)
   , Ty (..)
   , ConPat (..)
   , Pat (..)
@@ -47,7 +46,7 @@ import Control.Monad (join)
 import Data.Foldable (toList)
 import Data.Functor.Foldable (project)
 import Data.Functor.Foldable.TH (makeBaseFunctor)
-import Data.List (intercalate)
+import Data.List (intercalate, intersperse)
 import Data.Scientific (Scientific)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
@@ -113,18 +112,6 @@ instance Pretty Lit where
     LitScientific s -> pretty (show s)
     LitChar c -> pretty (show c)
     LitString txt -> pretty (show txt)
-
--- | Type constructor (only known constructors for now)
--- Allowing variables requires more complicated unification.
-newtype ConTy a =
-    ConTyKnown TyName
-  -- | ConTyFree a
-  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
-
-instance Pretty a => Pretty (ConTy a) where
-  pretty = \case
-    ConTyKnown tn -> pretty tn
-    -- ConTyFree a -> pretty a
 
 -- | Type with a hole for variables (can later be filled in with indices)
 data Ty a =
@@ -242,18 +229,21 @@ data Kind =
 instance ParenPretty Kind where
   parenPretty xs = \case
     KindTy -> "Type"
-    KindTyCon ks -> parenList True (fmap (parenPretty (Nothing:xs)) (toList ks) ++ ["Type"])
+    KindTyCon ks -> parenList False (intersperse "->" (fmap (parenPretty (Nothing:xs)) (toList ks) ++ ["Type"]))
 
 instance Pretty Kind where
   pretty = parenPrettyToDoc
 
 data KindAnno b = KindAnno
   { kaName :: !b
-  , kaKind :: !Kind
+  , kaKind :: !(Maybe Kind)
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Pretty b => Pretty (KindAnno b) where
-  pretty (KindAnno n k) = P.parens (P.hsep [pretty n, "::", pretty k])
+  pretty (KindAnno n mk) =
+    case mk of
+      Nothing -> pretty n
+      Just k -> P.parens (P.hsep [pretty n, "::", pretty k])
 
 data Forall b a = Forall
   { faBinders :: !(Seq b)

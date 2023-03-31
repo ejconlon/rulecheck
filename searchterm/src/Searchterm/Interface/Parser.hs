@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Searchterm.Interface.Parser
-  ( parseTerm
-  , parseType
-  , parseLine
-  , parseLines
-  , parseLinesIO
-  , ParseErr
-  ) where
+module Searchterm.Interface.Parser where
+  -- ( parseTerm
+  -- , parseType
+  -- , parseLine
+  -- , parseLines
+  -- , parseLinesIO
+  -- , ParseErr
+  -- ) where
 
 import Control.Applicative (Alternative (..))
 import Control.Exception (throwIO)
@@ -21,20 +21,18 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme, ConPat (..), ConTy (..), Forall (..),
+import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme, ConPat (..), Forall (..),
                                   Inst (..), InstScheme, Lit (..), ModName (..), Pat (..), PatPair (..), Rule (..),
                                   Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..), TmVar (..), Ty (..),
-                                  TyName (..), TyScheme, TyVar (..), strainedVars)
+                                  TyName (..), TyScheme, TyVar (..), strainedVars, KindAnno (..), Kind (..))
 import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..),
                                    ModLine (..), RuleLine (..), TypeLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MPC
 import qualified Text.Megaparsec.Char.Lexer as MPCL
--- import qualified Text.Megaparsec.Debug as MPD
 import Data.Scientific (Scientific)
 import Data.String (fromString)
-import Text.Printf (printf)
 import Text.Read (readMaybe)
 
 newtype P a = P { unP :: Parsec Void Text a }
@@ -43,10 +41,6 @@ newtype P a = P { unP :: Parsec Void Text a }
 instance Alternative P where
   empty = P empty
   P a <|> P b = P (MP.try a <|> MP.try b)
-
-dbg :: {-Show a =>-} String -> P a -> P a
-dbg _ p = p
--- dbg msg (P inner) = P (MPD.dbg msg inner)
 
 spaceP :: P ()
 spaceP = P (MPCL.space MPC.hspace1 (MPCL.skipLineComment "--") empty)
@@ -101,10 +95,10 @@ sepBy :: P a -> P () -> P [a]
 sepBy p x = P (MP.sepBy (unP p) (unP x))
 
 isIdentChar :: Char -> Bool
-isIdentChar c = isAlphaNum c || c == '_'
+isIdentChar c = isAlphaNum c || c == '_' || c == '\''
 
 isSymChar :: Char -> Bool
-isSymChar c = not (isSpace c || c == ')')
+isSymChar c = not (isSpace c || c == '(' || c == ')')
 
 -- Raw `UpperIdent_string` (no post-lex)
 rawUpperP :: P Text
@@ -189,30 +183,24 @@ tyVarP = fmap TyVar lowerP
 tmVarP :: P TmVar
 tmVarP = fmap TmVar lowerP
 
-conTyP :: P (ConTy TyVar)
-conTyP = ConTyKnown <$> tyNameP
--- NOTE Once unification if fixed for higher kinded types,
--- we can parse variables in this position.
--- <|> (ConTyFree <$> tyVarP)
-
 -- Parse a "plain" type constructor - no special logic for lists
-plainTyConP :: P (Ty TyVar)
-plainTyConP = do
-  cn <- dbg "Parse plainTyConP.cn" conTyP
-  as <- dbg (printf "Parse plainTyConP.as (cn=%s)" (show cn)) $ some (tyP True True)
-  pure (TyCon cn (Seq.fromList as))
+plainTyAppP :: P (Ty TyVar)
+plainTyAppP = do
+  hd <- tyP True True  -- TODO are these paren rules right?
+  as <- some (tyP True True)
+  pure (TyApp hd (Seq.fromList as))
 
 -- Parse an infix list constructor
-listTyConP :: P (Ty TyVar)
-listTyConP = do
-  _ <- dbg "listTyConP.[" $ keywordP "["
+listTyAppP :: P (Ty TyVar)
+listTyAppP = do
+  _ <- keywordP "["
   ty <- tyP False False
   _ <- keywordP "]"
-  pure (TyCon (ConTyKnown "([])") (Seq.singleton ty))
+  pure (TyApp (TyKnown "([])") (Seq.singleton ty))
 
 -- Parse an infix tuple constructor (of arbitrary arity)
-tupTyConP :: P (Ty TyVar)
-tupTyConP = do
+tupTyAppP :: P (Ty TyVar)
+tupTyAppP = do
   _ <- openParenP
   ty1 <- tyP False False
   tys <- some $ do
@@ -220,17 +208,17 @@ tupTyConP = do
     tyP False False
   _ <- closeParenP
   let tn = fromString ("(" ++ replicate (length tys) ',' ++ ")")
-  pure (TyCon (ConTyKnown tn) (Seq.fromList (ty1:tys)))
+  pure (TyApp (TyKnown tn) (Seq.fromList (ty1:tys)))
 
 -- Parse the unit type
-unitTyConP :: P (Ty TyVar)
-unitTyConP = TyCon (ConTyKnown "()") Empty <$ keywordP "()"
+unitTyAppP :: P (Ty TyVar)
+unitTyAppP = TyKnown "()" <$ keywordP "()"
 
-builtinTyConP :: P (Ty TyVar)
-builtinTyConP = unitTyConP <|> listTyConP <|> tupTyConP
+builtinTyAppP :: P (Ty TyVar)
+builtinTyAppP = unitTyAppP <|> listTyAppP <|> tupTyAppP
 
-tyConP :: P (Ty TyVar)
-tyConP = builtinTyConP <|> plainTyConP
+tyAppP :: P (Ty TyVar)
+tyAppP = builtinTyAppP <|> plainTyAppP
 
 tyArrP :: P (Ty TyVar)
 tyArrP = do
@@ -240,16 +228,19 @@ tyArrP = do
     [_] -> empty
     ty:tys -> pure (assocFn ty tys)
 
-innerTyP :: P (Ty TyVar)
-innerTyP = fmap TyFree tyVarP <|> tyConP
+tyFreeP :: P (Ty TyVar)
+tyFreeP = fmap TyFree tyVarP
+
+tyKnownP :: P (Ty TyVar)
+tyKnownP = fmap TyKnown tyNameP
 
 singleTyP :: P (Ty TyVar)
-singleTyP = fmap TyFree tyVarP <|> fmap (`TyCon` Empty) conTyP
+singleTyP = tyFreeP <|> tyKnownP
 
 tyP :: Bool -> Bool -> P (Ty TyVar)
 tyP conNeedParen arrNeedParen =
   (if arrNeedParen then inParensP tyArrP else tyArrP) <|>
-  (if conNeedParen then listTyConP <|> tupTyConP <|> inParensP tyConP else tyConP) <|>
+  (if conNeedParen then listTyAppP <|> tupTyAppP <|> inParensP tyAppP else tyAppP) <|>
   singleTyP
 
 assocFn :: Ty TyVar -> [Ty TyVar] -> Ty TyVar
@@ -275,8 +266,26 @@ forallP xtract binderP bodyP = withForall <|> withoutForall where
     let bs = Seq.fromList (xtract body)
     pure (Forall bs body)
 
-forallStrainedP :: Foldable f => P (f TyVar) -> P (Forall TyVar (Strained TyVar (f TyVar)))
-forallStrainedP = forallP (nub . strainedVars) tyVarP . strainedP
+kindP :: Bool -> P Kind
+kindP arrNeedParen = (if arrNeedParen then inParensP con else con) <|> one where
+  one = KindTy <$ keywordP "Type"
+  con = fmap (KindTyCon . Seq.fromList) con'
+  con' = do
+    hd <- kindP True
+    keywordP "->"
+    tl <- con' <|> ([] <$ one)
+    pure (hd : tl)
+
+kindAnnoP :: P a -> P (KindAnno a)
+kindAnnoP p = yesAnno <|> noAnno where
+  yesAnno = inParensP $ do
+    a <- p
+    keywordP "::"
+    KindAnno a . Just <$> kindP False
+  noAnno = fmap (`KindAnno` Nothing) p
+
+forallStrainedP :: Foldable f => P (f TyVar) -> P (Forall (KindAnno TyVar) (Strained TyVar (f TyVar)))
+forallStrainedP = forallP (fmap (`KindAnno` Nothing) . nub . strainedVars) (kindAnnoP tyVarP) . strainedP
 
 tySchemeP :: P (TyScheme TyVar)
 tySchemeP = forallStrainedP (tyP False False)

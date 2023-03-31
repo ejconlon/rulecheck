@@ -9,8 +9,8 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import Prettyprinter (pretty)
-import Searchterm.Interface.Core (ConPat (..), ConTy (..), Forall (..), Inst, Lit (..), Pat (..), PatPair (..),
-                                  Strained (..), Tm (..), TmName, TmVar, Ty (..), TyScheme, TyVar)
+import Searchterm.Interface.Core (ConPat (..), Forall (..), Inst (..), Lit (..), Pat (..), PatPair (..),
+                                  Strained (..), Tm (..), TmName, TmVar, Ty (..), TyScheme, TyVar, KindAnno (..), Kind (..), ClsName)
 import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Parser (parseLine, parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printLines)
@@ -98,35 +98,42 @@ assertParseTy roundtrip expectedTxt expectedAst = do
   actualAst <- either dieOnParseErr pure (parseType expectedTxt)
   actualAst @?= expectedAst
 
-mkS :: [TyVar] -> [Inst TyVar] -> Ty TyVar -> TyScheme TyVar
+mkS :: [KindAnno TyVar] -> [Inst TyVar] -> Ty TyVar -> TyScheme TyVar
 mkS tvs insts body = Forall (Seq.fromList tvs) (Strained (Seq.fromList insts) body)
+
+mkA :: [TyVar] -> [KindAnno TyVar]
+mkA = fmap (`KindAnno` Nothing)
+
+mkI :: ClsName -> [Ty TyVar] -> Inst TyVar
+mkI cn tas = Inst cn (Seq.fromList tas)
 
 testParseTy :: TestTree
 testParseTy = testCase "parseTy" $ do
-  assertParseTy True "Int" (mkS [] [] (tyCon "Int" []))
+  assertParseTy True "Int" (mkS [] [] (TyKnown "Int"))
+  assertParseTy True "forall f a. f a" $
+    mkS (mkA ["f", "a"]) [] (tyAppFree "f" [TyFree "a"])
   assertParseTy True "forall a. ([]) a" $
-    mkS ["a"] [] (tyCon "([])" [TyFree "a"])
+    mkS (mkA ["a"]) [] (tyAppKnown "([])" [TyFree "a"])
   assertParseTy False "forall a. [a]" $
-    mkS ["a"] [] (tyCon "([])" [TyFree "a"])
+    mkS (mkA ["a"]) [] (tyAppKnown "([])" [TyFree "a"])
   assertParseTy True "forall a b. (,) a b" $
-    mkS ["a", "b"] [] (tyCon "(,)" [TyFree "a", TyFree "b"])
+    mkS (mkA ["a", "b"]) [] (tyAppKnown "(,)" [TyFree "a", TyFree "b"])
   assertParseTy False "forall a b. (a, b)" $
-    mkS ["a", "b"] [] (TyCon (ConTyKnown "(,)") (Seq.fromList [TyFree "a", TyFree "b"]))
+    mkS (mkA ["a", "b"]) [] (tyAppKnown "(,)" [TyFree "a", TyFree "b"])
   assertParseTy True "forall a b c d. (,,,) a b c d" $
-    mkS ["a", "b", "c", "d"] [] $ TyCon (ConTyKnown "(,,,)") $
-      Seq.fromList (fmap TyFree ["a", "b", "c", "d"])
+    mkS (mkA ["a", "b", "c", "d"]) [] (tyAppKnown "(,,,)" (fmap TyFree ["a", "b", "c", "d"]))
   assertParseTy False "forall a b c d. (a, b, c, d)" $
-    mkS ["a", "b", "c", "d"] [] $ TyCon (ConTyKnown "(,,,)") $
-      Seq.fromList (fmap TyFree ["a", "b", "c", "d"])
-  assertParseTy True "()" (mkS [] [] (TyCon (ConTyKnown "()") Empty))
-  -- assertParseTy True "forall a b q. (a -> b) -> q a -> q b" $ mkS ["a", "b", "q"] [] $
-  --   TyFun
-  --     (TyFun (TyFree "a") (TyFree "b"))
-  --     (TyFun
-  --       (TyCon (ConTyFree "q") (Seq.singleton (TyFree "a")))
-  --       (TyCon (ConTyFree "q") (Seq.singleton (TyFree "b"))))
+    mkS (mkA ["a", "b", "c", "d"]) [] (tyAppKnown "(,,,)" (fmap TyFree ["a", "b", "c", "d"]))
+  assertParseTy True "()" (mkS [] [] (TyKnown "()"))
+  assertParseTy True "forall a. Show a => a -> String" $
+    mkS (mkA ["a"]) [mkI "Show" [TyFree "a"]] (TyFun (TyFree "a") (TyKnown "String"))
+  assertParseTy True "forall (m :: Type -> Type) (a :: Type). a -> m a" $
+    mkS
+      [KindAnno "m" (Just (KindTyCon (Seq.singleton KindTy))), KindAnno "a" (Just KindTy)]
+      [] (TyFun (TyFree "a") (TyApp (TyFree "m") (Seq.singleton (TyFree "a"))))
   where
-    tyCon s xs = TyCon (ConTyKnown s) (Seq.fromList xs)
+    tyAppKnown s xs = TyApp (TyKnown s) (Seq.fromList xs)
+    tyAppFree s xs = TyApp (TyFree s) (Seq.fromList xs)
 
 assertParseLine :: Text -> Line -> IO ()
 assertParseLine expectedTxt expectedLine = do
