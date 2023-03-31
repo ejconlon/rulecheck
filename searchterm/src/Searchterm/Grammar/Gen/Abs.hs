@@ -16,37 +16,25 @@ data Lines = Lines [Line]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Line
-    = LineType TyName [TyVar]
-    | LineCons TyName [ConName]
-    | LineMod ModName
-    | LineLit [Lit]
+    = LineType Name [Name]
+    | LineCons Name [Name]
+    | LineMod Name
+    | LineLit Name [Lit]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Lit
-    = LitFloat SignedFloat
-    | LitInteger SignedInt
+    = LitScientific SignedScientific
+    | LitInteger SignedInteger
     | LitString String
     | LitChar Char
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-newtype SignedInt = SignedInt Data.Text.Text
+newtype Name = Name Data.Text.Text
   deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
 
-newtype SignedFloat = SignedFloat Data.Text.Text
+newtype SignedInteger = SignedInteger Data.Text.Text
   deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
 
-newtype TyName = TyName Data.Text.Text
-  deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
-
-newtype TyVar = TyVar Data.Text.Text
-  deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
-
-newtype ConName = ConName Data.Text.Text
-  deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
-
-newtype TmName = TmName Data.Text.Text
-  deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
-
-newtype ModName = ModName Data.Text.Text
+newtype SignedScientific = SignedScientific Data.Text.Text
   deriving (C.Eq, C.Ord, C.Show, C.Read, Data.String.IsString)
 

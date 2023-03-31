@@ -1,38 +1,34 @@
+layout toplevel ;
+
 comment "--" ;
 comment "{-" "-}" ;
 
-token SignedInt (('+' | '-')? digit+) ;
-token SignedFloat (('+' | '-')? digit+ '.' digit+) ;
-token TyName (upper char*) ;
-token TyVar (lower char*) ;
-token ConName (upper char*) ;
-token TmName (char+) ;
-token ModName (char+) ;
+-- This has to be maximally permissive... for some reason...
+token Name (('(' ["!#$%&*+./<=>?@\\^|-~:"]+ ')') | (((letter | '_') (letter | '_' | digit | '\'')*) ('.' ((letter | '_') (letter | '_' | digit | '\'')*))*)) ;
+
+token SignedInteger ('-'? digit+) ;
+token SignedScientific ('-'? digit+ '.' digit+ ('e' '-'? digit+)?) ;
 
 Lines. Lines ::= [Line] ;
 
-LineType. Line ::= "type" TyName [TyVar] ;
-LineCons. Line ::= "constructors" TyName [ConName] ;
+LineType. Line ::= "type" Name [Name] ;
+LineCons. Line ::= "constructors" Name [Name] ;
 -- LineInst. Line ::= "instance" ... ;
 -- LineFunc. Line ::= ... "::" ... ;
 -- LineCls. Line ::= "class" ... ;
-LineMod. Line ::= "module" ModName ;
+LineMod. Line ::= "module" Name ;
 -- LineRule. Line ::= "rule" ... ;
-LineLit. Line ::= "literals" [Lit] ;
+LineLit. Line ::= "literals" Name [Lit] ;
 
-LitFloat. Lit ::= SignedFloat ;
-LitInteger. Lit ::= SignedInt ;
+separator Line ";" ;
+
+LitScientific. Lit ::= SignedScientific ;
+LitInteger. Lit ::= SignedInteger ;
 LitString. Lit ::= String ;
 LitChar. Lit ::= Char ;
-
-[]. [Line] ::= ;
-(:). [Line] ::= Line "\n" [Line] ;
 
 []. [Lit] ::= ;
 (:). [Lit] ::= Lit " " [Lit] ;
 
-[]. [TyVar] ::= ;
-(:). [TyVar] ::= TyVar " " [TyVar] ;
-
-[]. [ConName] ::= ;
-(:). [ConName] ::= ConName " " [ConName] ;
+[]. [Name] ::= ;
+(:). [Name] ::= Name " " [Name] ;

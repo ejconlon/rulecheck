@@ -24,30 +24,14 @@ except ``"`` unless preceded by ``\``.
 
 
 
+Name literals are recognized by the regular expression
+`````'(' ["!#$%&*+-./:<=>?@\^|~"]+ ')' | ('_' | letter) (["'_"] | digit | letter)* ('.' ('_' | letter) (["'_"] | digit | letter)*)*`````
 
+SignedInteger literals are recognized by the regular expression
+`````'-'? digit+`````
 
-
-
-SignedInt literals are recognized by the regular expression
-`````["+-"]? digit+`````
-
-SignedFloat literals are recognized by the regular expression
-`````["+-"]? digit+ '.' digit+`````
-
-TyName literals are recognized by the regular expression
-`````upper char*`````
-
-TyVar literals are recognized by the regular expression
-`````lower char*`````
-
-ConName literals are recognized by the regular expression
-`````upper char*`````
-
-TmName literals are recognized by the regular expression
-`````char+`````
-
-ModName literals are recognized by the regular expression
-`````char+`````
+SignedScientific literals are recognized by the regular expression
+`````'-'? digit+ '.' digit+ ('e' '-'? digit+)?`````
 
 
 ===Reserved words and symbols===
@@ -56,8 +40,8 @@ The set of reserved words is the set of terminals appearing in the grammar. Thos
 The reserved words used in Gen are the following:
   | ``constructors`` | ``literals`` | ``module`` | ``type``
 
-
-There are no symbols in Gen.
+The symbols used in Gen are the following:
+  | ; |  |  |
 
 ===Comments===
 Single-line comments begin with --.Multiple-line comments are  enclosed with {- and -}.
@@ -69,22 +53,21 @@ and **eps** (empty rule) belong to the BNF notation.
 All other symbols are terminals.
 
   | //Lines// | -> | //[Line]//
-  | //Line// | -> | ``type`` //TyName// //[TyVar]//
-  |  |  **|**  | ``constructors`` //TyName// //[ConName]//
-  |  |  **|**  | ``module`` //ModName//
-  |  |  **|**  | ``literals`` //[Lit]//
-  | //Lit// | -> | //SignedFloat//
-  |  |  **|**  | //SignedInt//
+  | //Line// | -> | ``type`` //Name// //[Name]//
+  |  |  **|**  | ``constructors`` //Name// //[Name]//
+  |  |  **|**  | ``module`` //Name//
+  |  |  **|**  | ``literals`` //Name// //[Lit]//
+  | //[Line]// | -> | **eps**
+  |  |  **|**  | //Line//
+  |  |  **|**  | //Line// ``;`` //[Line]//
+  | //Lit// | -> | //SignedScientific//
+  |  |  **|**  | //SignedInteger//
   |  |  **|**  | //String//
   |  |  **|**  | //Char//
-  | //[Line]// | -> | **eps**
-  |  |  **|**  | //Line// //[Line]//
   | //[Lit]// | -> | **eps**
   |  |  **|**  | //Lit// //[Lit]//
-  | //[TyVar]// | -> | **eps**
-  |  |  **|**  | //TyVar// //[TyVar]//
-  | //[ConName]// | -> | **eps**
-  |  |  **|**  | //ConName// //[ConName]//
+  | //[Name]// | -> | **eps**
+  |  |  **|**  | //Name// //[Name]//
 
 
 

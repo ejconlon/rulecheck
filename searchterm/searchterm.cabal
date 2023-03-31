@@ -12,10 +12,12 @@ library
   exposed-modules:
       Searchterm.Grammar.Gen.Abs
       Searchterm.Grammar.Gen.ErrM
+      Searchterm.Grammar.Gen.Layout
       Searchterm.Grammar.Gen.Lex
       Searchterm.Grammar.Gen.Par
       Searchterm.Grammar.Gen.Print
       Searchterm.Grammar.Gen.Skel
+      Searchterm.Grammar.Manual.NewInterface
       Searchterm.Interface.Core
       Searchterm.Interface.Decl
       Searchterm.Interface.Names
@@ -142,6 +144,7 @@ test-suite searchterm-test
   main-is: Main.hs
   other-modules:
       Test.Searchterm.Interface
+      Test.Searchterm.NewInterface
       Test.Searchterm.State
       Test.Searchterm.Synth.Monad
       Test.Searchterm.Synth.Search

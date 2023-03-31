@@ -6,6 +6,7 @@ module Main where
 
 import Prelude
   ( ($), (.)
+  , Bool(..)
   , Either(..)
   , Int, (>)
   , String, (++), concat, unlines
@@ -19,11 +20,12 @@ import System.Environment ( getArgs )
 import System.Exit        ( exitFailure )
 import Control.Monad      ( when )
 
-import Searchterm.Grammar.Gen.Abs   ()
-import Searchterm.Grammar.Gen.Lex   ( Token, mkPosToken )
-import Searchterm.Grammar.Gen.Par   ( pLines, myLexer )
-import Searchterm.Grammar.Gen.Print ( Print, printTree )
-import Searchterm.Grammar.Gen.Skel  ()
+import Searchterm.Grammar.Gen.Abs    ()
+import Searchterm.Grammar.Gen.Layout ( resolveLayout )
+import Searchterm.Grammar.Gen.Lex    ( Token, mkPosToken )
+import Searchterm.Grammar.Gen.Par    ( pLines, myLexer )
+import Searchterm.Grammar.Gen.Print  ( Print, printTree )
+import Searchterm.Grammar.Gen.Skel   ()
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -48,7 +50,7 @@ run v p s =
       putStrLn "\nParse Successful!"
       showTree v tree
   where
-  ts = myLexer s
+  ts = resolveLayout True $ myLexer s
   showPosToken ((l,c),t) = concat [ show l, ":", show c, "\t", show t ]
 
 showTree :: (Show a, Print a) => Int -> a -> IO ()

@@ -10,11 +10,10 @@ module Searchterm.Grammar.Gen.Par
   , myLexer
   , pLines
   , pLine
-  , pLit
   , pListLine
+  , pLit
   , pListLit
-  , pListTyVar
-  , pListConName
+  , pListName
   ) where
 
 import Prelude
@@ -27,28 +26,24 @@ import qualified Data.Text
 
 %name pLines Lines
 %name pLine Line
-%name pLit Lit
 %name pListLine ListLine
+%name pLit Lit
 %name pListLit ListLit
-%name pListTyVar ListTyVar
-%name pListConName ListConName
+%name pListName ListName
 -- no lexer declaration
 %monad { Err } { (>>=) } { return }
 %tokentype {Token}
 %token
-  'constructors' { PT _ (TS _ 1)           }
-  'literals'     { PT _ (TS _ 2)           }
-  'module'       { PT _ (TS _ 3)           }
-  'type'         { PT _ (TS _ 4)           }
-  L_charac       { PT _ (TC $$)            }
-  L_quoted       { PT _ (TL $$)            }
-  L_SignedInt    { PT _ (T_SignedInt $$)   }
-  L_SignedFloat  { PT _ (T_SignedFloat $$) }
-  L_TyName       { PT _ (T_TyName $$)      }
-  L_TyVar        { PT _ (T_TyVar $$)       }
-  L_ConName      { PT _ (T_ConName $$)     }
-  L_TmName       { PT _ (T_TmName $$)      }
-  L_ModName      { PT _ (T_ModName $$)     }
+  ';'                { PT _ (TS _ 1)                }
+  'constructors'     { PT _ (TS _ 2)                }
+  'literals'         { PT _ (TS _ 3)                }
+  'module'           { PT _ (TS _ 4)                }
+  'type'             { PT _ (TS _ 5)                }
+  L_charac           { PT _ (TC $$)                 }
+  L_quoted           { PT _ (TL $$)                 }
+  L_Name             { PT _ (T_Name $$)             }
+  L_SignedInteger    { PT _ (T_SignedInteger $$)    }
+  L_SignedScientific { PT _ (T_SignedScientific $$) }
 
 %%
 
@@ -58,56 +53,43 @@ Char     : L_charac { (read (Data.Text.unpack $1)) :: Char }
 String  :: { String }
 String   : L_quoted { (Data.Text.unpack $1) }
 
-SignedInt :: { Searchterm.Grammar.Gen.Abs.SignedInt }
-SignedInt  : L_SignedInt { Searchterm.Grammar.Gen.Abs.SignedInt $1 }
+Name :: { Searchterm.Grammar.Gen.Abs.Name }
+Name  : L_Name { Searchterm.Grammar.Gen.Abs.Name $1 }
 
-SignedFloat :: { Searchterm.Grammar.Gen.Abs.SignedFloat }
-SignedFloat  : L_SignedFloat { Searchterm.Grammar.Gen.Abs.SignedFloat $1 }
+SignedInteger :: { Searchterm.Grammar.Gen.Abs.SignedInteger }
+SignedInteger  : L_SignedInteger { Searchterm.Grammar.Gen.Abs.SignedInteger $1 }
 
-TyName :: { Searchterm.Grammar.Gen.Abs.TyName }
-TyName  : L_TyName { Searchterm.Grammar.Gen.Abs.TyName $1 }
-
-TyVar :: { Searchterm.Grammar.Gen.Abs.TyVar }
-TyVar  : L_TyVar { Searchterm.Grammar.Gen.Abs.TyVar $1 }
-
-ConName :: { Searchterm.Grammar.Gen.Abs.ConName }
-ConName  : L_ConName { Searchterm.Grammar.Gen.Abs.ConName $1 }
-
-TmName :: { Searchterm.Grammar.Gen.Abs.TmName }
-TmName  : L_TmName { Searchterm.Grammar.Gen.Abs.TmName $1 }
-
-ModName :: { Searchterm.Grammar.Gen.Abs.ModName }
-ModName  : L_ModName { Searchterm.Grammar.Gen.Abs.ModName $1 }
+SignedScientific :: { Searchterm.Grammar.Gen.Abs.SignedScientific }
+SignedScientific  : L_SignedScientific { Searchterm.Grammar.Gen.Abs.SignedScientific $1 }
 
 Lines :: { Searchterm.Grammar.Gen.Abs.Lines }
 Lines : ListLine { Searchterm.Grammar.Gen.Abs.Lines $1 }
 
 Line :: { Searchterm.Grammar.Gen.Abs.Line }
 Line
-  : 'type' TyName ListTyVar { Searchterm.Grammar.Gen.Abs.LineType $2 $3 }
-  | 'constructors' TyName ListConName { Searchterm.Grammar.Gen.Abs.LineCons $2 $3 }
-  | 'module' ModName { Searchterm.Grammar.Gen.Abs.LineMod $2 }
-  | 'literals' ListLit { Searchterm.Grammar.Gen.Abs.LineLit $2 }
+  : 'type' Name ListName { Searchterm.Grammar.Gen.Abs.LineType $2 $3 }
+  | 'constructors' Name ListName { Searchterm.Grammar.Gen.Abs.LineCons $2 $3 }
+  | 'module' Name { Searchterm.Grammar.Gen.Abs.LineMod $2 }
+  | 'literals' Name ListLit { Searchterm.Grammar.Gen.Abs.LineLit $2 $3 }
+
+ListLine :: { [Searchterm.Grammar.Gen.Abs.Line] }
+ListLine
+  : {- empty -} { [] }
+  | Line { (:[]) $1 }
+  | Line ';' ListLine { (:) $1 $3 }
 
 Lit :: { Searchterm.Grammar.Gen.Abs.Lit }
 Lit
-  : SignedFloat { Searchterm.Grammar.Gen.Abs.LitFloat $1 }
-  | SignedInt { Searchterm.Grammar.Gen.Abs.LitInteger $1 }
+  : SignedScientific { Searchterm.Grammar.Gen.Abs.LitScientific $1 }
+  | SignedInteger { Searchterm.Grammar.Gen.Abs.LitInteger $1 }
   | String { Searchterm.Grammar.Gen.Abs.LitString $1 }
   | Char { Searchterm.Grammar.Gen.Abs.LitChar $1 }
-
-ListLine :: { [Searchterm.Grammar.Gen.Abs.Line] }
-ListLine : {- empty -} { [] } | Line ListLine { (:) $1 $2 }
 
 ListLit :: { [Searchterm.Grammar.Gen.Abs.Lit] }
 ListLit : {- empty -} { [] } | Lit ListLit { (:) $1 $2 }
 
-ListTyVar :: { [Searchterm.Grammar.Gen.Abs.TyVar] }
-ListTyVar : {- empty -} { [] } | TyVar ListTyVar { (:) $1 $2 }
-
-ListConName :: { [Searchterm.Grammar.Gen.Abs.ConName] }
-ListConName
-  : {- empty -} { [] } | ConName ListConName { (:) $1 $2 }
+ListName :: { [Searchterm.Grammar.Gen.Abs.Name] }
+ListName : {- empty -} { [] } | Name ListName { (:) $1 $2 }
 
 {
 

@@ -139,50 +139,39 @@ instance Print Integer where
 instance Print Double where
   prt _ x = doc (shows x)
 
-instance Print Searchterm.Grammar.Gen.Abs.SignedInt where
-  prt _ (Searchterm.Grammar.Gen.Abs.SignedInt i) = doc $ showString (Data.Text.unpack i)
-instance Print Searchterm.Grammar.Gen.Abs.SignedFloat where
-  prt _ (Searchterm.Grammar.Gen.Abs.SignedFloat i) = doc $ showString (Data.Text.unpack i)
-instance Print Searchterm.Grammar.Gen.Abs.TyName where
-  prt _ (Searchterm.Grammar.Gen.Abs.TyName i) = doc $ showString (Data.Text.unpack i)
-instance Print Searchterm.Grammar.Gen.Abs.TyVar where
-  prt _ (Searchterm.Grammar.Gen.Abs.TyVar i) = doc $ showString (Data.Text.unpack i)
-instance Print Searchterm.Grammar.Gen.Abs.ConName where
-  prt _ (Searchterm.Grammar.Gen.Abs.ConName i) = doc $ showString (Data.Text.unpack i)
-instance Print Searchterm.Grammar.Gen.Abs.TmName where
-  prt _ (Searchterm.Grammar.Gen.Abs.TmName i) = doc $ showString (Data.Text.unpack i)
-instance Print Searchterm.Grammar.Gen.Abs.ModName where
-  prt _ (Searchterm.Grammar.Gen.Abs.ModName i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.Name where
+  prt _ (Searchterm.Grammar.Gen.Abs.Name i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.SignedInteger where
+  prt _ (Searchterm.Grammar.Gen.Abs.SignedInteger i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.SignedScientific where
+  prt _ (Searchterm.Grammar.Gen.Abs.SignedScientific i) = doc $ showString (Data.Text.unpack i)
 instance Print Searchterm.Grammar.Gen.Abs.Lines where
   prt i = \case
     Searchterm.Grammar.Gen.Abs.Lines lines -> prPrec i 0 (concatD [prt 0 lines])
 
 instance Print Searchterm.Grammar.Gen.Abs.Line where
   prt i = \case
-    Searchterm.Grammar.Gen.Abs.LineType tyname tyvars -> prPrec i 0 (concatD [doc (showString "type"), prt 0 tyname, prt 0 tyvars])
-    Searchterm.Grammar.Gen.Abs.LineCons tyname connames -> prPrec i 0 (concatD [doc (showString "constructors"), prt 0 tyname, prt 0 connames])
-    Searchterm.Grammar.Gen.Abs.LineMod modname -> prPrec i 0 (concatD [doc (showString "module"), prt 0 modname])
-    Searchterm.Grammar.Gen.Abs.LineLit lits -> prPrec i 0 (concatD [doc (showString "literals"), prt 0 lits])
-
-instance Print Searchterm.Grammar.Gen.Abs.Lit where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.LitFloat signedfloat -> prPrec i 0 (concatD [prt 0 signedfloat])
-    Searchterm.Grammar.Gen.Abs.LitInteger signedint -> prPrec i 0 (concatD [prt 0 signedint])
-    Searchterm.Grammar.Gen.Abs.LitString str -> prPrec i 0 (concatD [printString str])
-    Searchterm.Grammar.Gen.Abs.LitChar c -> prPrec i 0 (concatD [prt 0 c])
+    Searchterm.Grammar.Gen.Abs.LineType name names -> prPrec i 0 (concatD [doc (showString "type"), prt 0 name, prt 0 names])
+    Searchterm.Grammar.Gen.Abs.LineCons name names -> prPrec i 0 (concatD [doc (showString "constructors"), prt 0 name, prt 0 names])
+    Searchterm.Grammar.Gen.Abs.LineMod name -> prPrec i 0 (concatD [doc (showString "module"), prt 0 name])
+    Searchterm.Grammar.Gen.Abs.LineLit name lits -> prPrec i 0 (concatD [doc (showString "literals"), prt 0 name, prt 0 lits])
 
 instance Print [Searchterm.Grammar.Gen.Abs.Line] where
   prt _ [] = concatD []
-  prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
+  prt _ [x] = concatD [prt 0 x]
+  prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
+
+instance Print Searchterm.Grammar.Gen.Abs.Lit where
+  prt i = \case
+    Searchterm.Grammar.Gen.Abs.LitScientific signedscientific -> prPrec i 0 (concatD [prt 0 signedscientific])
+    Searchterm.Grammar.Gen.Abs.LitInteger signedinteger -> prPrec i 0 (concatD [prt 0 signedinteger])
+    Searchterm.Grammar.Gen.Abs.LitString str -> prPrec i 0 (concatD [printString str])
+    Searchterm.Grammar.Gen.Abs.LitChar c -> prPrec i 0 (concatD [prt 0 c])
 
 instance Print [Searchterm.Grammar.Gen.Abs.Lit] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
-instance Print [Searchterm.Grammar.Gen.Abs.TyVar] where
-  prt _ [] = concatD []
-  prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
-
-instance Print [Searchterm.Grammar.Gen.Abs.ConName] where
+instance Print [Searchterm.Grammar.Gen.Abs.Name] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]

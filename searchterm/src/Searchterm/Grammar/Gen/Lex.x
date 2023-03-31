@@ -27,6 +27,9 @@ $d = [0-9]           -- digit
 $i = [$l $d _ ']     -- identifier character
 $u = [. \n]          -- universal: any character
 
+-- Symbols and non-identifier-like reserved words
+
+@rsyms = \;
 
 :-
 
@@ -39,33 +42,21 @@ $u = [. \n]          -- universal: any character
 -- Whitespace (skipped)
 $white+ ;
 
--- token SignedInt
-[\+ \-]? $d +
-    { tok (eitherResIdent T_SignedInt) }
+-- Symbols
+@rsyms
+    { tok (eitherResIdent TV) }
 
--- token SignedFloat
-[\+ \-]? $d + \. $d +
-    { tok (eitherResIdent T_SignedFloat) }
+-- token Name
+\( [\! \# \$ \% \& \* \+ \- \. \/ \: \< \= \> \? \@ \\ \^ \| \~]+ \) | (\_ | $l)([\' \_]| ($d | $l)) * (\. (\_ | $l)([\' \_]| ($d | $l)) *)*
+    { tok (eitherResIdent T_Name) }
 
--- token TyName
-$c $u *
-    { tok (eitherResIdent T_TyName) }
+-- token SignedInteger
+\- ? $d +
+    { tok (eitherResIdent T_SignedInteger) }
 
--- token TyVar
-$s $u *
-    { tok (eitherResIdent T_TyVar) }
-
--- token ConName
-$c $u *
-    { tok (eitherResIdent T_ConName) }
-
--- token TmName
-$u +
-    { tok (eitherResIdent T_TmName) }
-
--- token ModName
-$u +
-    { tok (eitherResIdent T_ModName) }
+-- token SignedScientific
+\- ? $d + \. $d + (e \- ? $d +)?
+    { tok (eitherResIdent T_SignedScientific) }
 
 -- Keywords and Ident
 $l $i*
@@ -92,13 +83,9 @@ data Tok
   | TV !Data.Text.Text            -- ^ Identifier.
   | TD !Data.Text.Text            -- ^ Float literal.
   | TC !Data.Text.Text            -- ^ Character literal.
-  | T_SignedInt !Data.Text.Text
-  | T_SignedFloat !Data.Text.Text
-  | T_TyName !Data.Text.Text
-  | T_TyVar !Data.Text.Text
-  | T_ConName !Data.Text.Text
-  | T_TmName !Data.Text.Text
-  | T_ModName !Data.Text.Text
+  | T_Name !Data.Text.Text
+  | T_SignedInteger !Data.Text.Text
+  | T_SignedScientific !Data.Text.Text
   deriving (Eq, Show, Ord)
 
 -- | Smart constructor for 'Tok' for the sake of backwards compatibility.
@@ -161,13 +148,9 @@ tokenText t = case t of
   PT _ (TD s)   -> s
   PT _ (TC s)   -> s
   Err _         -> Data.Text.pack "#error"
-  PT _ (T_SignedInt s) -> s
-  PT _ (T_SignedFloat s) -> s
-  PT _ (T_TyName s) -> s
-  PT _ (T_TyVar s) -> s
-  PT _ (T_ConName s) -> s
-  PT _ (T_TmName s) -> s
-  PT _ (T_ModName s) -> s
+  PT _ (T_Name s) -> s
+  PT _ (T_SignedInteger s) -> s
+  PT _ (T_SignedScientific s) -> s
 
 -- | Convert a token to a string.
 prToken :: Token -> String
@@ -194,8 +177,9 @@ eitherResIdent tv s = treeFind resWords
 -- | The keywords and symbols of the language organized as binary search tree.
 resWords :: BTree
 resWords =
-  b "module" 3
-    (b "literals" 2 (b "constructors" 1 N N) N) (b "type" 4 N N)
+  b "literals" 3
+    (b "constructors" 2 (b ";" 1 N N) N)
+    (b "type" 5 (b "module" 4 N N) N)
   where
   b s n = B bs (TS bs n)
     where

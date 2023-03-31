@@ -15,33 +15,17 @@ type Result = Err String
 failure :: Show a => a -> Result
 failure x = Left $ "Undefined case: " ++ show x
 
-transSignedInt :: Searchterm.Grammar.Gen.Abs.SignedInt -> Result
-transSignedInt x = case x of
-  Searchterm.Grammar.Gen.Abs.SignedInt string -> failure x
+transName :: Searchterm.Grammar.Gen.Abs.Name -> Result
+transName x = case x of
+  Searchterm.Grammar.Gen.Abs.Name string -> failure x
 
-transSignedFloat :: Searchterm.Grammar.Gen.Abs.SignedFloat -> Result
-transSignedFloat x = case x of
-  Searchterm.Grammar.Gen.Abs.SignedFloat string -> failure x
+transSignedInteger :: Searchterm.Grammar.Gen.Abs.SignedInteger -> Result
+transSignedInteger x = case x of
+  Searchterm.Grammar.Gen.Abs.SignedInteger string -> failure x
 
-transTyName :: Searchterm.Grammar.Gen.Abs.TyName -> Result
-transTyName x = case x of
-  Searchterm.Grammar.Gen.Abs.TyName string -> failure x
-
-transTyVar :: Searchterm.Grammar.Gen.Abs.TyVar -> Result
-transTyVar x = case x of
-  Searchterm.Grammar.Gen.Abs.TyVar string -> failure x
-
-transConName :: Searchterm.Grammar.Gen.Abs.ConName -> Result
-transConName x = case x of
-  Searchterm.Grammar.Gen.Abs.ConName string -> failure x
-
-transTmName :: Searchterm.Grammar.Gen.Abs.TmName -> Result
-transTmName x = case x of
-  Searchterm.Grammar.Gen.Abs.TmName string -> failure x
-
-transModName :: Searchterm.Grammar.Gen.Abs.ModName -> Result
-transModName x = case x of
-  Searchterm.Grammar.Gen.Abs.ModName string -> failure x
+transSignedScientific :: Searchterm.Grammar.Gen.Abs.SignedScientific -> Result
+transSignedScientific x = case x of
+  Searchterm.Grammar.Gen.Abs.SignedScientific string -> failure x
 
 transLines :: Searchterm.Grammar.Gen.Abs.Lines -> Result
 transLines x = case x of
@@ -49,14 +33,14 @@ transLines x = case x of
 
 transLine :: Searchterm.Grammar.Gen.Abs.Line -> Result
 transLine x = case x of
-  Searchterm.Grammar.Gen.Abs.LineType tyname tyvars -> failure x
-  Searchterm.Grammar.Gen.Abs.LineCons tyname connames -> failure x
-  Searchterm.Grammar.Gen.Abs.LineMod modname -> failure x
-  Searchterm.Grammar.Gen.Abs.LineLit lits -> failure x
+  Searchterm.Grammar.Gen.Abs.LineType name names -> failure x
+  Searchterm.Grammar.Gen.Abs.LineCons name names -> failure x
+  Searchterm.Grammar.Gen.Abs.LineMod name -> failure x
+  Searchterm.Grammar.Gen.Abs.LineLit name lits -> failure x
 
 transLit :: Searchterm.Grammar.Gen.Abs.Lit -> Result
 transLit x = case x of
-  Searchterm.Grammar.Gen.Abs.LitFloat signedfloat -> failure x
-  Searchterm.Grammar.Gen.Abs.LitInteger signedint -> failure x
+  Searchterm.Grammar.Gen.Abs.LitScientific signedscientific -> failure x
+  Searchterm.Grammar.Gen.Abs.LitInteger signedinteger -> failure x
   Searchterm.Grammar.Gen.Abs.LitString string -> failure x
   Searchterm.Grammar.Gen.Abs.LitChar char -> failure x
