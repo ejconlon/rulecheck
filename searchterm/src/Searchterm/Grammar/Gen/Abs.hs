@@ -18,8 +18,17 @@ data Lines = Lines [Line]
 data Line
     = LineType Name [Name]
     | LineCons Name [Name]
+    | LineInst Straints InstName
+    | LineFunc Name FuncSig
+    | LineCls Straints InstName
     | LineMod Name
     | LineLit Name [Lit]
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data FuncSig
+    = FuncSigBase Name
+    | FuncSigParen FuncSig
+    | FuncSigArr FuncSig FuncSig
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Lit
@@ -27,6 +36,16 @@ data Lit
     | LitInteger SignedInteger
     | LitString String
     | LitChar Char
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data Straints
+    = StraintsNone | StraintsOne InstName | StraintsMany [InstName]
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data TyName = TyNameBase Name | TyNameParen TyName [TyName]
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data InstName = InstName Name
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 newtype Name = Name Data.Text.Text

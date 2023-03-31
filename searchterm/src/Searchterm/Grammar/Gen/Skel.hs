@@ -35,8 +35,17 @@ transLine :: Searchterm.Grammar.Gen.Abs.Line -> Result
 transLine x = case x of
   Searchterm.Grammar.Gen.Abs.LineType name names -> failure x
   Searchterm.Grammar.Gen.Abs.LineCons name names -> failure x
+  Searchterm.Grammar.Gen.Abs.LineInst straints instname -> failure x
+  Searchterm.Grammar.Gen.Abs.LineFunc name funcsig -> failure x
+  Searchterm.Grammar.Gen.Abs.LineCls straints instname -> failure x
   Searchterm.Grammar.Gen.Abs.LineMod name -> failure x
   Searchterm.Grammar.Gen.Abs.LineLit name lits -> failure x
+
+transFuncSig :: Searchterm.Grammar.Gen.Abs.FuncSig -> Result
+transFuncSig x = case x of
+  Searchterm.Grammar.Gen.Abs.FuncSigBase name -> failure x
+  Searchterm.Grammar.Gen.Abs.FuncSigParen funcsig -> failure x
+  Searchterm.Grammar.Gen.Abs.FuncSigArr funcsig1 funcsig2 -> failure x
 
 transLit :: Searchterm.Grammar.Gen.Abs.Lit -> Result
 transLit x = case x of
@@ -44,3 +53,18 @@ transLit x = case x of
   Searchterm.Grammar.Gen.Abs.LitInteger signedinteger -> failure x
   Searchterm.Grammar.Gen.Abs.LitString string -> failure x
   Searchterm.Grammar.Gen.Abs.LitChar char -> failure x
+
+transStraints :: Searchterm.Grammar.Gen.Abs.Straints -> Result
+transStraints x = case x of
+  Searchterm.Grammar.Gen.Abs.StraintsNone -> failure x
+  Searchterm.Grammar.Gen.Abs.StraintsOne instname -> failure x
+  Searchterm.Grammar.Gen.Abs.StraintsMany instnames -> failure x
+
+transTyName :: Searchterm.Grammar.Gen.Abs.TyName -> Result
+transTyName x = case x of
+  Searchterm.Grammar.Gen.Abs.TyNameBase name -> failure x
+  Searchterm.Grammar.Gen.Abs.TyNameParen tyname tynames -> failure x
+
+transInstName :: Searchterm.Grammar.Gen.Abs.InstName -> Result
+transInstName x = case x of
+  Searchterm.Grammar.Gen.Abs.InstName name -> failure x

@@ -153,6 +153,9 @@ instance Print Searchterm.Grammar.Gen.Abs.Line where
   prt i = \case
     Searchterm.Grammar.Gen.Abs.LineType name names -> prPrec i 0 (concatD [doc (showString "type"), prt 0 name, prt 0 names])
     Searchterm.Grammar.Gen.Abs.LineCons name names -> prPrec i 0 (concatD [doc (showString "constructors"), prt 0 name, prt 0 names])
+    Searchterm.Grammar.Gen.Abs.LineInst straints instname -> prPrec i 0 (concatD [doc (showString "instance"), prt 0 straints, prt 0 instname])
+    Searchterm.Grammar.Gen.Abs.LineFunc name funcsig -> prPrec i 0 (concatD [prt 0 name, doc (showString "::"), prt 0 funcsig])
+    Searchterm.Grammar.Gen.Abs.LineCls straints instname -> prPrec i 0 (concatD [doc (showString "class"), prt 0 straints, prt 0 instname])
     Searchterm.Grammar.Gen.Abs.LineMod name -> prPrec i 0 (concatD [doc (showString "module"), prt 0 name])
     Searchterm.Grammar.Gen.Abs.LineLit name lits -> prPrec i 0 (concatD [doc (showString "literals"), prt 0 name, prt 0 lits])
 
@@ -161,6 +164,12 @@ instance Print [Searchterm.Grammar.Gen.Abs.Line] where
   prt _ [x] = concatD [prt 0 x]
   prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
+instance Print Searchterm.Grammar.Gen.Abs.FuncSig where
+  prt i = \case
+    Searchterm.Grammar.Gen.Abs.FuncSigBase name -> prPrec i 0 (concatD [prt 0 name])
+    Searchterm.Grammar.Gen.Abs.FuncSigParen funcsig -> prPrec i 0 (concatD [doc (showString "("), prt 0 funcsig, doc (showString ")")])
+    Searchterm.Grammar.Gen.Abs.FuncSigArr funcsig1 funcsig2 -> prPrec i 0 (concatD [prt 0 funcsig1, doc (showString "->"), prt 0 funcsig2])
+
 instance Print Searchterm.Grammar.Gen.Abs.Lit where
   prt i = \case
     Searchterm.Grammar.Gen.Abs.LitScientific signedscientific -> prPrec i 0 (concatD [prt 0 signedscientific])
@@ -168,10 +177,33 @@ instance Print Searchterm.Grammar.Gen.Abs.Lit where
     Searchterm.Grammar.Gen.Abs.LitString str -> prPrec i 0 (concatD [printString str])
     Searchterm.Grammar.Gen.Abs.LitChar c -> prPrec i 0 (concatD [prt 0 c])
 
+instance Print Searchterm.Grammar.Gen.Abs.Straints where
+  prt i = \case
+    Searchterm.Grammar.Gen.Abs.StraintsNone -> prPrec i 0 (concatD [])
+    Searchterm.Grammar.Gen.Abs.StraintsOne instname -> prPrec i 0 (concatD [prt 0 instname, doc (showString "=>")])
+    Searchterm.Grammar.Gen.Abs.StraintsMany instnames -> prPrec i 0 (concatD [doc (showString "("), prt 0 instnames, doc (showString ")"), doc (showString "=>")])
+
+instance Print Searchterm.Grammar.Gen.Abs.TyName where
+  prt i = \case
+    Searchterm.Grammar.Gen.Abs.TyNameBase name -> prPrec i 0 (concatD [prt 0 name])
+    Searchterm.Grammar.Gen.Abs.TyNameParen tyname tynames -> prPrec i 0 (concatD [doc (showString "("), prt 0 tyname, prt 0 tynames, doc (showString ")")])
+
+instance Print Searchterm.Grammar.Gen.Abs.InstName where
+  prt i = \case
+    Searchterm.Grammar.Gen.Abs.InstName name -> prPrec i 0 (concatD [prt 0 name])
+
 instance Print [Searchterm.Grammar.Gen.Abs.Lit] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
 instance Print [Searchterm.Grammar.Gen.Abs.Name] where
+  prt _ [] = concatD []
+  prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
+
+instance Print [Searchterm.Grammar.Gen.Abs.InstName] where
+  prt _ [] = concatD []
+  prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
+
+instance Print [Searchterm.Grammar.Gen.Abs.TyName] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]

@@ -38,10 +38,12 @@ SignedScientific literals are recognized by the regular expression
 The set of reserved words is the set of terminals appearing in the grammar. Those reserved words that consist of non-letter characters are called symbols, and they are treated in a different way from those that are similar to identifiers. The lexer follows rules familiar from languages like Haskell, C, and Java, including longest match and spacing conventions.
 
 The reserved words used in Gen are the following:
-  | ``constructors`` | ``literals`` | ``module`` | ``type``
+  | ``class`` | ``constructors`` | ``instance`` | ``literals``
+  | ``module`` | ``type`` |  |
 
 The symbols used in Gen are the following:
-  | ; |  |  |
+  | :: | ; | ( | )
+  | -> | => | , |
 
 ===Comments===
 Single-line comments begin with --.Multiple-line comments are  enclosed with {- and -}.
@@ -55,19 +57,35 @@ All other symbols are terminals.
   | //Lines// | -> | //[Line]//
   | //Line// | -> | ``type`` //Name// //[Name]//
   |  |  **|**  | ``constructors`` //Name// //[Name]//
+  |  |  **|**  | ``instance`` //Straints// //InstName//
+  |  |  **|**  | //Name// ``::`` //FuncSig//
+  |  |  **|**  | ``class`` //Straints// //InstName//
   |  |  **|**  | ``module`` //Name//
   |  |  **|**  | ``literals`` //Name// //[Lit]//
   | //[Line]// | -> | **eps**
   |  |  **|**  | //Line//
   |  |  **|**  | //Line// ``;`` //[Line]//
+  | //FuncSig// | -> | //Name//
+  |  |  **|**  | ``(`` //FuncSig// ``)``
+  |  |  **|**  | //FuncSig// ``->`` //FuncSig//
   | //Lit// | -> | //SignedScientific//
   |  |  **|**  | //SignedInteger//
   |  |  **|**  | //String//
   |  |  **|**  | //Char//
+  | //Straints// | -> | **eps**
+  |  |  **|**  | //InstName// ``=>``
+  |  |  **|**  | ``(`` //[InstName]// ``)`` ``=>``
+  | //TyName// | -> | //Name//
+  |  |  **|**  | ``(`` //TyName// //[TyName]// ``)``
+  | //InstName// | -> | //Name//
   | //[Lit]// | -> | **eps**
   |  |  **|**  | //Lit// //[Lit]//
   | //[Name]// | -> | **eps**
   |  |  **|**  | //Name// //[Name]//
+  | //[InstName]// | -> | **eps**
+  |  |  **|**  | //InstName// ``,`` //[InstName]//
+  | //[TyName]// | -> | **eps**
+  |  |  **|**  | //TyName// //[TyName]//
 
 
 

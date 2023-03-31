@@ -13,22 +13,45 @@ Lines. Lines ::= [Line] ;
 
 LineType. Line ::= "type" Name [Name] ;
 LineCons. Line ::= "constructors" Name [Name] ;
--- LineInst. Line ::= "instance" ... ;
--- LineFunc. Line ::= ... "::" ... ;
--- LineCls. Line ::= "class" ... ;
+LineInst. Line ::= "instance" Straints InstName ;
+LineFunc. Line ::= Name "::" FuncSig ;
+LineCls. Line ::= "class" Straints InstName ;
 LineMod. Line ::= "module" Name ;
 -- LineRule. Line ::= "rule" ... ;
 LineLit. Line ::= "literals" Name [Lit] ;
 
 separator Line ";" ;
 
+FuncSigBase. FuncSig ::= Name ;
+FuncSigParen. FuncSig ::= "(" FuncSig ")" ;
+FuncSigArr. FuncSig ::= FuncSig "->" FuncSig ;
+
 LitScientific. Lit ::= SignedScientific ;
 LitInteger. Lit ::= SignedInteger ;
 LitString. Lit ::= String ;
 LitChar. Lit ::= Char ;
+
+- StraintsNone. Straints ::= ;
+- StraintsSome. Straints ::= StraintsList "=>" ;
+
+StraintsNone. Straints ::= ;
+StraintsOne. Straints ::= InstName "=>" ;
+StraintsMany. Straints ::= "(" [InstName] ")" "=>" ;
+
+TyNameBase. TyName ::= Name ;
+TyNameParen. TyName ::= "(" TyName [TyName] ")" ;
+
+InstName. InstName ::= Name ;
+-- [TyName] ;
 
 []. [Lit] ::= ;
 (:). [Lit] ::= Lit " " [Lit] ;
 
 []. [Name] ::= ;
 (:). [Name] ::= Name " " [Name] ;
+
+[]. [InstName] ::= ;
+(:). [InstName] ::= InstName "," [InstName] ;
+
+[]. [TyName] ::= ;
+(:). [TyName] ::= TyName " " [TyName] ;

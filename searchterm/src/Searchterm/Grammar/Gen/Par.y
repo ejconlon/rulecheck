@@ -11,9 +11,15 @@ module Searchterm.Grammar.Gen.Par
   , pLines
   , pLine
   , pListLine
+  , pFuncSig
   , pLit
+  , pStraints
+  , pTyName
+  , pInstName
   , pListLit
   , pListName
+  , pListInstName
+  , pListTyName
   ) where
 
 import Prelude
@@ -27,18 +33,32 @@ import qualified Data.Text
 %name pLines Lines
 %name pLine Line
 %name pListLine ListLine
+%name pFuncSig FuncSig
 %name pLit Lit
+%name pStraints Straints
+%name pTyName TyName
+%name pInstName InstName
 %name pListLit ListLit
 %name pListName ListName
+%name pListInstName ListInstName
+%name pListTyName ListTyName
 -- no lexer declaration
 %monad { Err } { (>>=) } { return }
 %tokentype {Token}
 %token
-  ';'                { PT _ (TS _ 1)                }
-  'constructors'     { PT _ (TS _ 2)                }
-  'literals'         { PT _ (TS _ 3)                }
-  'module'           { PT _ (TS _ 4)                }
-  'type'             { PT _ (TS _ 5)                }
+  '('                { PT _ (TS _ 1)                }
+  ')'                { PT _ (TS _ 2)                }
+  ','                { PT _ (TS _ 3)                }
+  '->'               { PT _ (TS _ 4)                }
+  '::'               { PT _ (TS _ 5)                }
+  ';'                { PT _ (TS _ 6)                }
+  '=>'               { PT _ (TS _ 7)                }
+  'class'            { PT _ (TS _ 8)                }
+  'constructors'     { PT _ (TS _ 9)                }
+  'instance'         { PT _ (TS _ 10)               }
+  'literals'         { PT _ (TS _ 11)               }
+  'module'           { PT _ (TS _ 12)               }
+  'type'             { PT _ (TS _ 13)               }
   L_charac           { PT _ (TC $$)                 }
   L_quoted           { PT _ (TL $$)                 }
   L_Name             { PT _ (T_Name $$)             }
@@ -69,6 +89,9 @@ Line :: { Searchterm.Grammar.Gen.Abs.Line }
 Line
   : 'type' Name ListName { Searchterm.Grammar.Gen.Abs.LineType $2 $3 }
   | 'constructors' Name ListName { Searchterm.Grammar.Gen.Abs.LineCons $2 $3 }
+  | 'instance' Straints InstName { Searchterm.Grammar.Gen.Abs.LineInst $2 $3 }
+  | Name '::' FuncSig { Searchterm.Grammar.Gen.Abs.LineFunc $1 $3 }
+  | 'class' Straints InstName { Searchterm.Grammar.Gen.Abs.LineCls $2 $3 }
   | 'module' Name { Searchterm.Grammar.Gen.Abs.LineMod $2 }
   | 'literals' Name ListLit { Searchterm.Grammar.Gen.Abs.LineLit $2 $3 }
 
@@ -78,6 +101,12 @@ ListLine
   | Line { (:[]) $1 }
   | Line ';' ListLine { (:) $1 $3 }
 
+FuncSig :: { Searchterm.Grammar.Gen.Abs.FuncSig }
+FuncSig
+  : Name { Searchterm.Grammar.Gen.Abs.FuncSigBase $1 }
+  | '(' FuncSig ')' { Searchterm.Grammar.Gen.Abs.FuncSigParen $2 }
+  | FuncSig '->' FuncSig { Searchterm.Grammar.Gen.Abs.FuncSigArr $1 $3 }
+
 Lit :: { Searchterm.Grammar.Gen.Abs.Lit }
 Lit
   : SignedScientific { Searchterm.Grammar.Gen.Abs.LitScientific $1 }
@@ -85,11 +114,32 @@ Lit
   | String { Searchterm.Grammar.Gen.Abs.LitString $1 }
   | Char { Searchterm.Grammar.Gen.Abs.LitChar $1 }
 
+Straints :: { Searchterm.Grammar.Gen.Abs.Straints }
+Straints
+  : {- empty -} { Searchterm.Grammar.Gen.Abs.StraintsNone }
+  | InstName '=>' { Searchterm.Grammar.Gen.Abs.StraintsOne $1 }
+  | '(' ListInstName ')' '=>' { Searchterm.Grammar.Gen.Abs.StraintsMany $2 }
+
+TyName :: { Searchterm.Grammar.Gen.Abs.TyName }
+TyName
+  : Name { Searchterm.Grammar.Gen.Abs.TyNameBase $1 }
+  | '(' TyName ListTyName ')' { Searchterm.Grammar.Gen.Abs.TyNameParen $2 $3 }
+
+InstName :: { Searchterm.Grammar.Gen.Abs.InstName }
+InstName : Name { Searchterm.Grammar.Gen.Abs.InstName $1 }
+
 ListLit :: { [Searchterm.Grammar.Gen.Abs.Lit] }
 ListLit : {- empty -} { [] } | Lit ListLit { (:) $1 $2 }
 
 ListName :: { [Searchterm.Grammar.Gen.Abs.Name] }
 ListName : {- empty -} { [] } | Name ListName { (:) $1 $2 }
+
+ListInstName :: { [Searchterm.Grammar.Gen.Abs.InstName] }
+ListInstName
+  : {- empty -} { [] } | InstName ',' ListInstName { (:) $1 $3 }
+
+ListTyName :: { [Searchterm.Grammar.Gen.Abs.TyName] }
+ListTyName : {- empty -} { [] } | TyName ListTyName { (:) $1 $2 }
 
 {
 

@@ -29,7 +29,7 @@ $u = [. \n]          -- universal: any character
 
 -- Symbols and non-identifier-like reserved words
 
-@rsyms = \;
+@rsyms = \: \: | \; | \( | \) | \- \> | \= \> | \,
 
 :-
 
@@ -177,9 +177,12 @@ eitherResIdent tv s = treeFind resWords
 -- | The keywords and symbols of the language organized as binary search tree.
 resWords :: BTree
 resWords =
-  b "literals" 3
-    (b "constructors" 2 (b ";" 1 N N) N)
-    (b "type" 5 (b "module" 4 N N) N)
+  b "=>" 7
+    (b "->" 4
+       (b ")" 2 (b "(" 1 N N) (b "," 3 N N)) (b ";" 6 (b "::" 5 N N) N))
+    (b "literals" 11
+       (b "constructors" 9 (b "class" 8 N N) (b "instance" 10 N N))
+       (b "type" 13 (b "module" 12 N N) N))
   where
   b s n = B bs (TS bs n)
     where
