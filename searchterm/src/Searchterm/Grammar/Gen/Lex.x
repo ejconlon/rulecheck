@@ -27,24 +27,45 @@ $d = [0-9]           -- digit
 $i = [$l $d _ ']     -- identifier character
 $u = [. \n]          -- universal: any character
 
--- Symbols and non-identifier-like reserved words
-
-@rsyms = \; | \{ | \} | \( | \) | \= | \. | \! | \= \= | \! \= | \> | \> \= | \< | \< \= | \+ | \- | \* | \/ | \+ \+ | \,
 
 :-
 
--- Line comment "//"
-"//" [.]* ;
+-- Line comment "--"
+"--" [.]* ;
 
--- Block comment "/*" "*/"
-\/ \* [$u # \*]* \* ([$u # [\* \/]] [$u # \*]* \* | \*)* \/ ;
+-- Block comment "{-" "-}"
+\{ \- [$u # \-]* \- ([$u # [\- \}]] [$u # \-]* \- | \-)* \} ;
 
 -- Whitespace (skipped)
 $white+ ;
 
--- Symbols
-@rsyms
-    { tok (eitherResIdent TV) }
+-- token SignedInt
+[\+ \-]? $d +
+    { tok (eitherResIdent T_SignedInt) }
+
+-- token SignedFloat
+[\+ \-]? $d + \. $d +
+    { tok (eitherResIdent T_SignedFloat) }
+
+-- token TyName
+$c $u *
+    { tok (eitherResIdent T_TyName) }
+
+-- token TyVar
+$s $u *
+    { tok (eitherResIdent T_TyVar) }
+
+-- token ConName
+$c $u *
+    { tok (eitherResIdent T_ConName) }
+
+-- token TmName
+$u +
+    { tok (eitherResIdent T_TmName) }
+
+-- token ModName
+$u +
+    { tok (eitherResIdent T_ModName) }
 
 -- Keywords and Ident
 $l $i*
@@ -54,9 +75,9 @@ $l $i*
 \" ([$u # [\" \\ \n]] | (\\ (\" | \\ | \' | n | t | r | f)))* \"
     { tok (TL . unescapeInitTail) }
 
--- Integer
-$d+
-    { tok TI }
+-- Char
+\' ($u # [\' \\] | \\ [\\ \' n t r f]) \'
+    { tok TC }
 
 {
 -- | Create a token with position.
@@ -71,6 +92,13 @@ data Tok
   | TV !Data.Text.Text            -- ^ Identifier.
   | TD !Data.Text.Text            -- ^ Float literal.
   | TC !Data.Text.Text            -- ^ Character literal.
+  | T_SignedInt !Data.Text.Text
+  | T_SignedFloat !Data.Text.Text
+  | T_TyName !Data.Text.Text
+  | T_TyVar !Data.Text.Text
+  | T_ConName !Data.Text.Text
+  | T_TmName !Data.Text.Text
+  | T_ModName !Data.Text.Text
   deriving (Eq, Show, Ord)
 
 -- | Smart constructor for 'Tok' for the sake of backwards compatibility.
@@ -133,6 +161,13 @@ tokenText t = case t of
   PT _ (TD s)   -> s
   PT _ (TC s)   -> s
   Err _         -> Data.Text.pack "#error"
+  PT _ (T_SignedInt s) -> s
+  PT _ (T_SignedFloat s) -> s
+  PT _ (T_TyName s) -> s
+  PT _ (T_TyVar s) -> s
+  PT _ (T_ConName s) -> s
+  PT _ (T_TmName s) -> s
+  PT _ (T_ModName s) -> s
 
 -- | Convert a token to a string.
 prToken :: Token -> String
@@ -159,22 +194,8 @@ eitherResIdent tv s = treeFind resWords
 -- | The keywords and symbols of the language organized as binary search tree.
 resWords :: BTree
 resWords =
-  b "and" 19
-    (b "." 10
-       (b "*" 5
-          (b "(" 3 (b "!=" 2 (b "!" 1 N N) N) (b ")" 4 N N))
-          (b "," 8 (b "++" 7 (b "+" 6 N N) N) (b "-" 9 N N)))
-       (b "=" 15
-          (b "<" 13 (b ";" 12 (b "/" 11 N N) N) (b "<=" 14 N N))
-          (b ">" 17 (b "==" 16 N N) (b ">=" 18 N N))))
-    (b "print" 28
-       (b "fun" 24
-          (b "false" 22 (b "else" 21 (b "class" 20 N N) N) (b "for" 23 N N))
-          (b "nil" 26 (b "if" 25 N N) (b "or" 27 N N)))
-       (b "var" 33
-          (b "this" 31
-             (b "super" 30 (b "return" 29 N N) N) (b "true" 32 N N))
-          (b "{" 35 (b "while" 34 N N) (b "}" 36 N N))))
+  b "module" 3
+    (b "literals" 2 (b "constructors" 1 N N) N) (b "type" 4 N N)
   where
   b s n = B bs (TS bs n)
     where

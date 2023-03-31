@@ -139,240 +139,50 @@ instance Print Integer where
 instance Print Double where
   prt _ x = doc (shows x)
 
-instance Print Searchterm.Grammar.Gen.Abs.Ident where
-  prt _ (Searchterm.Grammar.Gen.Abs.Ident i) = doc $ showString (Data.Text.unpack i)
-instance Print (Searchterm.Grammar.Gen.Abs.Prog' a) where
+instance Print Searchterm.Grammar.Gen.Abs.SignedInt where
+  prt _ (Searchterm.Grammar.Gen.Abs.SignedInt i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.SignedFloat where
+  prt _ (Searchterm.Grammar.Gen.Abs.SignedFloat i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.TyName where
+  prt _ (Searchterm.Grammar.Gen.Abs.TyName i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.TyVar where
+  prt _ (Searchterm.Grammar.Gen.Abs.TyVar i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.ConName where
+  prt _ (Searchterm.Grammar.Gen.Abs.ConName i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.TmName where
+  prt _ (Searchterm.Grammar.Gen.Abs.TmName i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.ModName where
+  prt _ (Searchterm.Grammar.Gen.Abs.ModName i) = doc $ showString (Data.Text.unpack i)
+instance Print Searchterm.Grammar.Gen.Abs.Lines where
   prt i = \case
-    Searchterm.Grammar.Gen.Abs.Prog _ decls -> prPrec i 0 (concatD [prt 0 decls])
+    Searchterm.Grammar.Gen.Abs.Lines lines -> prPrec i 0 (concatD [prt 0 lines])
 
-instance Print (Searchterm.Grammar.Gen.Abs.Decl' a) where
+instance Print Searchterm.Grammar.Gen.Abs.Line where
   prt i = \case
-    Searchterm.Grammar.Gen.Abs.DeclClass _ classdecl -> prPrec i 0 (concatD [prt 0 classdecl])
-    Searchterm.Grammar.Gen.Abs.DeclFunc _ funcdecl -> prPrec i 0 (concatD [prt 0 funcdecl])
-    Searchterm.Grammar.Gen.Abs.DeclVar _ vardecl -> prPrec i 0 (concatD [prt 0 vardecl, doc (showString ";")])
-    Searchterm.Grammar.Gen.Abs.DeclStmt _ stmt -> prPrec i 0 (concatD [prt 0 stmt])
+    Searchterm.Grammar.Gen.Abs.LineType tyname tyvars -> prPrec i 0 (concatD [doc (showString "type"), prt 0 tyname, prt 0 tyvars])
+    Searchterm.Grammar.Gen.Abs.LineCons tyname connames -> prPrec i 0 (concatD [doc (showString "constructors"), prt 0 tyname, prt 0 connames])
+    Searchterm.Grammar.Gen.Abs.LineMod modname -> prPrec i 0 (concatD [doc (showString "module"), prt 0 modname])
+    Searchterm.Grammar.Gen.Abs.LineLit lits -> prPrec i 0 (concatD [doc (showString "literals"), prt 0 lits])
 
-instance Print (Searchterm.Grammar.Gen.Abs.ClassDecl' a) where
+instance Print Searchterm.Grammar.Gen.Abs.Lit where
   prt i = \case
-    Searchterm.Grammar.Gen.Abs.ClassDecl _ id_ mayextend funcdecls -> prPrec i 0 (concatD [doc (showString "class"), prt 0 id_, prt 0 mayextend, doc (showString "{"), prt 0 funcdecls, doc (showString "}")])
+    Searchterm.Grammar.Gen.Abs.LitFloat signedfloat -> prPrec i 0 (concatD [prt 0 signedfloat])
+    Searchterm.Grammar.Gen.Abs.LitInteger signedint -> prPrec i 0 (concatD [prt 0 signedint])
+    Searchterm.Grammar.Gen.Abs.LitString str -> prPrec i 0 (concatD [printString str])
+    Searchterm.Grammar.Gen.Abs.LitChar c -> prPrec i 0 (concatD [prt 0 c])
 
-instance Print (Searchterm.Grammar.Gen.Abs.FuncDecl' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.FuncDecl _ id_ params block -> prPrec i 0 (concatD [doc (showString "fun"), prt 0 id_, doc (showString "("), prt 0 params, doc (showString ")"), prt 0 block])
-
-instance Print (Searchterm.Grammar.Gen.Abs.VarDecl' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.VarDecl _ id_ maydef -> prPrec i 0 (concatD [doc (showString "var"), prt 0 id_, prt 0 maydef])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Extend' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Extend _ id_ -> prPrec i 0 (concatD [prt 0 id_])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Def' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Def _ exp -> prPrec i 0 (concatD [prt 0 exp])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Stmt' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.StmtFor _ forstmt -> prPrec i 0 (concatD [prt 0 forstmt])
-    Searchterm.Grammar.Gen.Abs.StmtIf _ ifstmt -> prPrec i 0 (concatD [prt 0 ifstmt])
-    Searchterm.Grammar.Gen.Abs.StmtPrint _ exp -> prPrec i 0 (concatD [doc (showString "print"), prt 0 exp, doc (showString ";")])
-    Searchterm.Grammar.Gen.Abs.StmtReturn _ exp -> prPrec i 0 (concatD [doc (showString "return"), prt 0 exp, doc (showString ";")])
-    Searchterm.Grammar.Gen.Abs.StmtWhile _ whilestmt -> prPrec i 0 (concatD [prt 0 whilestmt])
-    Searchterm.Grammar.Gen.Abs.StmtBlock _ block -> prPrec i 0 (concatD [prt 0 block])
-    Searchterm.Grammar.Gen.Abs.StmtAssign _ assign -> prPrec i 0 (concatD [prt 0 assign, doc (showString ";")])
-    Searchterm.Grammar.Gen.Abs.StmtCall _ call -> prPrec i 0 (concatD [prt 0 call, doc (showString ";")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.ForStmt' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.ForStmt _ mayforinit mayexp maystmt stmt -> prPrec i 0 (concatD [doc (showString "for"), doc (showString "("), prt 0 mayforinit, doc (showString ";"), prt 0 mayexp, doc (showString ";"), prt 0 maystmt, doc (showString ")"), prt 0 stmt])
-
-instance Print (Searchterm.Grammar.Gen.Abs.ForInit' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.ForInitDecl _ vardecl -> prPrec i 0 (concatD [prt 0 vardecl])
-    Searchterm.Grammar.Gen.Abs.ForInitAssign _ assign -> prPrec i 0 (concatD [prt 0 assign])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Assign' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Assign _ target exp -> prPrec i 0 (concatD [prt 0 target, doc (showString "="), prt 0 exp])
-
-instance Print (Searchterm.Grammar.Gen.Abs.IfStmt' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.IfStmt _ exp stmt mayelse -> prPrec i 0 (concatD [doc (showString "if"), doc (showString "("), prt 0 exp, doc (showString ")"), prt 0 stmt, prt 0 mayelse])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Else' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Else _ stmt -> prPrec i 0 (concatD [doc (showString "else"), prt 0 stmt])
-
-instance Print (Searchterm.Grammar.Gen.Abs.WhileStmt' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.WhileStmt _ exp stmt -> prPrec i 0 (concatD [doc (showString "while"), doc (showString "("), prt 0 exp, doc (showString ")"), prt 0 stmt])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Block' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Block _ decls -> prPrec i 0 (concatD [doc (showString "{"), prt 0 decls, doc (showString "}")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.KnownTarget' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.KnownTarget _ knowntargethead mayknowntargettail -> prPrec i 0 (concatD [prt 0 knowntargethead, prt 0 mayknowntargettail])
-
-instance Print (Searchterm.Grammar.Gen.Abs.KnownTargetHead' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.KnownTargetHeadThis _ -> prPrec i 0 (concatD [doc (showString "this")])
-    Searchterm.Grammar.Gen.Abs.KnownTargetHeadSuper _ -> prPrec i 0 (concatD [doc (showString "super")])
-    Searchterm.Grammar.Gen.Abs.KnownTargetHeadIdent _ id_ -> prPrec i 0 (concatD [prt 0 id_])
-
-instance Print (Searchterm.Grammar.Gen.Abs.KnownTargetTail' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.KnownTargetTail _ id_ mayknowntargettail -> prPrec i 0 (concatD [doc (showString "."), prt 0 id_, prt 0 mayknowntargettail])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Exp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.ExpNil _ -> prPrec i 0 (concatD [doc (showString "nil")])
-    Searchterm.Grammar.Gen.Abs.ExpTarget _ target -> prPrec i 0 (concatD [prt 0 target])
-    Searchterm.Grammar.Gen.Abs.ExpVar _ id_ -> prPrec i 0 (concatD [prt 0 id_])
-    Searchterm.Grammar.Gen.Abs.ExpLit _ lit -> prPrec i 0 (concatD [prt 0 lit])
-    Searchterm.Grammar.Gen.Abs.ExpOp _ op -> prPrec i 0 (concatD [prt 0 op])
-    Searchterm.Grammar.Gen.Abs.ExpCall _ call -> prPrec i 0 (concatD [prt 0 call])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Call' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Call _ target args -> prPrec i 0 (concatD [prt 0 target, doc (showString "("), prt 0 args, doc (showString ")")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Target' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.TargetKnown _ knowntarget -> prPrec i 0 (concatD [prt 0 knowntarget])
-    Searchterm.Grammar.Gen.Abs.TargetExp _ exp -> prPrec i 0 (concatD [doc (showString "("), prt 0 exp, doc (showString ")")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Lit' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.LitBool _ boollit -> prPrec i 0 (concatD [prt 0 boollit])
-    Searchterm.Grammar.Gen.Abs.LitInt _ n -> prPrec i 0 (concatD [prt 0 n])
-    Searchterm.Grammar.Gen.Abs.LitString _ str -> prPrec i 0 (concatD [printString str])
-
-instance Print (Searchterm.Grammar.Gen.Abs.BoolLit' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.BoolLitTrue _ -> prPrec i 0 (concatD [doc (showString "true")])
-    Searchterm.Grammar.Gen.Abs.BoolLitFalse _ -> prPrec i 0 (concatD [doc (showString "false")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Op' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.OpBool _ boolop -> prPrec i 0 (concatD [prt 0 boolop])
-    Searchterm.Grammar.Gen.Abs.OpNum _ numop -> prPrec i 0 (concatD [prt 0 numop])
-    Searchterm.Grammar.Gen.Abs.OpCmp _ cmpop -> prPrec i 0 (concatD [prt 0 cmpop])
-    Searchterm.Grammar.Gen.Abs.OpStr _ strop -> prPrec i 0 (concatD [prt 0 strop])
-
-instance Print (Searchterm.Grammar.Gen.Abs.BoolOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.BoolOpBin _ exp1 boolbinop exp2 -> prPrec i 0 (concatD [prt 0 exp1, prt 0 boolbinop, prt 0 exp2])
-    Searchterm.Grammar.Gen.Abs.BoolOpUn _ boolunop exp -> prPrec i 0 (concatD [prt 0 boolunop, prt 0 exp])
-
-instance Print (Searchterm.Grammar.Gen.Abs.BoolBinOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.BoolBinOpOr _ -> prPrec i 0 (concatD [doc (showString "or")])
-    Searchterm.Grammar.Gen.Abs.BoolBinOpAnd _ -> prPrec i 0 (concatD [doc (showString "and")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.BoolUnOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.BoolUnOpNot _ -> prPrec i 0 (concatD [doc (showString "!")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.CmpOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.CmpOpBin _ exp1 cmpbinop exp2 -> prPrec i 0 (concatD [prt 0 exp1, prt 0 cmpbinop, prt 0 exp2])
-
-instance Print (Searchterm.Grammar.Gen.Abs.CmpBinOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.CmpBinOpEq _ -> prPrec i 0 (concatD [doc (showString "==")])
-    Searchterm.Grammar.Gen.Abs.CmpBinOpNe _ -> prPrec i 0 (concatD [doc (showString "!=")])
-    Searchterm.Grammar.Gen.Abs.CmpBinOpGt _ -> prPrec i 0 (concatD [doc (showString ">")])
-    Searchterm.Grammar.Gen.Abs.CmpBinOpGe _ -> prPrec i 0 (concatD [doc (showString ">=")])
-    Searchterm.Grammar.Gen.Abs.CmpBinOpLt _ -> prPrec i 0 (concatD [doc (showString "<")])
-    Searchterm.Grammar.Gen.Abs.CmpBinOpLe _ -> prPrec i 0 (concatD [doc (showString "<=")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.NumOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.NumOpBin _ exp1 numbinop exp2 -> prPrec i 0 (concatD [prt 0 exp1, prt 0 numbinop, prt 0 exp2])
-    Searchterm.Grammar.Gen.Abs.NumOpUn _ numunop exp -> prPrec i 0 (concatD [prt 0 numunop, prt 0 exp])
-
-instance Print (Searchterm.Grammar.Gen.Abs.NumBinOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.NumBinOpAdd _ -> prPrec i 0 (concatD [doc (showString "+")])
-    Searchterm.Grammar.Gen.Abs.NumBinOpSub _ -> prPrec i 0 (concatD [doc (showString "-")])
-    Searchterm.Grammar.Gen.Abs.NumBinOpMul _ -> prPrec i 0 (concatD [doc (showString "*")])
-    Searchterm.Grammar.Gen.Abs.NumBinOpDiv _ -> prPrec i 0 (concatD [doc (showString "/")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.NumUnOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.NumUnOpNeg _ -> prPrec i 0 (concatD [doc (showString "-")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.StrOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.StrOpBin _ exp1 strbinop exp2 -> prPrec i 0 (concatD [prt 0 exp1, prt 0 strbinop, prt 0 exp2])
-
-instance Print (Searchterm.Grammar.Gen.Abs.StrBinOp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.StrBinOpAppend _ -> prPrec i 0 (concatD [doc (showString "++")])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Param' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Param _ id_ -> prPrec i 0 (concatD [prt 0 id_])
-
-instance Print (Searchterm.Grammar.Gen.Abs.Arg' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.Arg _ exp -> prPrec i 0 (concatD [prt 0 exp])
-
-instance Print [Searchterm.Grammar.Gen.Abs.Decl' a] where
+instance Print [Searchterm.Grammar.Gen.Abs.Line] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
-instance Print [Searchterm.Grammar.Gen.Abs.FuncDecl' a] where
+instance Print [Searchterm.Grammar.Gen.Abs.Lit] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
-instance Print [Searchterm.Grammar.Gen.Abs.Param' a] where
+instance Print [Searchterm.Grammar.Gen.Abs.TyVar] where
   prt _ [] = concatD []
-  prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
+  prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
 
-instance Print [Searchterm.Grammar.Gen.Abs.Arg' a] where
+instance Print [Searchterm.Grammar.Gen.Abs.ConName] where
   prt _ [] = concatD []
-  prt _ (x:xs) = concatD [prt 0 x, doc (showString ","), prt 0 xs]
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayExtend' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayExtendNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayExtendSome _ extend -> prPrec i 0 (concatD [doc (showString "<"), prt 0 extend])
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayDef' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayDefNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayDefSome _ def -> prPrec i 0 (concatD [doc (showString "="), prt 0 def])
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayExp' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayExpNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayExpSome _ exp -> prPrec i 0 (concatD [prt 0 exp])
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayVarDecl' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayVarDeclNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayVarDeclSome _ vardecl -> prPrec i 0 (concatD [prt 0 vardecl])
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayElse' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayElseNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayElseSome _ else_ -> prPrec i 0 (concatD [prt 0 else_])
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayStmt' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayStmtNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayStmtSome _ stmt -> prPrec i 0 (concatD [prt 0 stmt])
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayForInit' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayForInitNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayForInitSome _ forinit -> prPrec i 0 (concatD [prt 0 forinit])
-
-instance Print (Searchterm.Grammar.Gen.Abs.MayKnownTargetTail' a) where
-  prt i = \case
-    Searchterm.Grammar.Gen.Abs.MayKnownTargetTailNone _ -> prPrec i 0 (concatD [])
-    Searchterm.Grammar.Gen.Abs.MayKnownTargetTailSome _ knowntargettail -> prPrec i 0 (concatD [prt 0 knowntargettail])
+  prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]

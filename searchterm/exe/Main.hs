@@ -21,7 +21,7 @@ import Control.Monad      ( when )
 
 import Searchterm.Grammar.Gen.Abs   ()
 import Searchterm.Grammar.Gen.Lex   ( Token, mkPosToken )
-import Searchterm.Grammar.Gen.Par   ( pProg, myLexer )
+import Searchterm.Grammar.Gen.Par   ( pLines, myLexer )
 import Searchterm.Grammar.Gen.Print ( Print, printTree )
 import Searchterm.Grammar.Gen.Skel  ()
 
@@ -71,7 +71,7 @@ main = do
   args <- getArgs
   case args of
     ["--help"] -> usage
-    []         -> getContents >>= run 2 pProg
-    "-s":fs    -> mapM_ (runFile 0 pProg) fs
-    fs         -> mapM_ (runFile 2 pProg) fs
+    []         -> getContents >>= run 2 pLines
+    "-s":fs    -> mapM_ (runFile 0 pLines) fs
+    fs         -> mapM_ (runFile 2 pLines) fs
 

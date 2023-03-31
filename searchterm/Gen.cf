@@ -1,146 +1,38 @@
-comment "//" ;
-comment "/*" "*/" ;
+comment "--" ;
+comment "{-" "-}" ;
 
-Prog. Prog ::= [Decl] ;
+token SignedInt (('+' | '-')? digit+) ;
+token SignedFloat (('+' | '-')? digit+ '.' digit+) ;
+token TyName (upper char*) ;
+token TyVar (lower char*) ;
+token ConName (upper char*) ;
+token TmName (char+) ;
+token ModName (char+) ;
 
-DeclClass. Decl ::= ClassDecl ;
-DeclFunc. Decl ::= FuncDecl ;
-DeclVar. Decl ::= VarDecl ";" ;
-DeclStmt. Decl ::= Stmt ;
+Lines. Lines ::= [Line] ;
 
-ClassDecl. ClassDecl ::= "class" Ident MayExtend "{" [FuncDecl] "}" ;
+LineType. Line ::= "type" TyName [TyVar] ;
+LineCons. Line ::= "constructors" TyName [ConName] ;
+-- LineInst. Line ::= "instance" ... ;
+-- LineFunc. Line ::= ... "::" ... ;
+-- LineCls. Line ::= "class" ... ;
+LineMod. Line ::= "module" ModName ;
+-- LineRule. Line ::= "rule" ... ;
+LineLit. Line ::= "literals" [Lit] ;
 
-FuncDecl. FuncDecl ::= "fun" Ident "(" [Param] ")" Block ;
-
-VarDecl. VarDecl ::= "var" Ident MayDef ;
-
-Extend. Extend ::= Ident ;
-
-Def. Def ::= Exp ;
-
-StmtFor. Stmt ::= ForStmt ;
-StmtIf. Stmt ::= IfStmt ;
-StmtPrint. Stmt ::= "print" Exp ";" ;
-StmtReturn. Stmt ::= "return" Exp ";" ;
-StmtWhile. Stmt ::= WhileStmt ;
-StmtBlock. Stmt ::= Block ;
-StmtAssign. Stmt ::= Assign ";" ;
-StmtCall. Stmt ::= Call ";" ;
-
-ForStmt. ForStmt ::= "for" "(" MayForInit ";" MayExp ";" MayStmt ")" Stmt ;
-
-ForInitDecl. ForInit ::= VarDecl ;
-ForInitAssign. ForInit ::= Assign ;
-
-Assign. Assign ::= Target "=" Exp ;
-
-IfStmt. IfStmt ::= "if" "(" Exp ")" Stmt MayElse ;
-
-Else. Else ::= "else" Stmt ;
-
-WhileStmt. WhileStmt ::= "while" "(" Exp ")" Stmt ;
-
-Block. Block ::= "{" [Decl] "}" ;
-
-KnownTarget. KnownTarget ::= KnownTargetHead MayKnownTargetTail ;
-
-KnownTargetHeadThis. KnownTargetHead ::= "this" ;
-KnownTargetHeadSuper. KnownTargetHead ::= "super" ;
-KnownTargetHeadIdent. KnownTargetHead ::= Ident ;
-
-KnownTargetTail. KnownTargetTail ::= "." Ident MayKnownTargetTail ;
-
-ExpNil. Exp ::= "nil" ;
-ExpTarget. Exp ::= Target ;
-ExpVar. Exp ::= Ident ;
-ExpLit. Exp ::= Lit ;
-ExpOp. Exp ::= Op ;
-ExpCall. Exp ::= Call ;
-
-Call. Call ::= Target "(" [Arg] ")" ;
-
-TargetKnown. Target ::= KnownTarget ;
-TargetExp. Target ::= "(" Exp ")" ;
-
-LitBool. Lit ::= BoolLit ;
-LitInt. Lit ::= Integer ;
+LitFloat. Lit ::= SignedFloat ;
+LitInteger. Lit ::= SignedInt ;
 LitString. Lit ::= String ;
+LitChar. Lit ::= Char ;
 
-BoolLitTrue. BoolLit ::= "true" ;
-BoolLitFalse. BoolLit ::= "false" ;
+[]. [Line] ::= ;
+(:). [Line] ::= Line "\n" [Line] ;
 
-OpBool. Op ::= BoolOp;
-OpNum. Op ::= NumOp;
-OpCmp. Op ::= CmpOp;
-OpStr. Op ::= StrOp;
+[]. [Lit] ::= ;
+(:). [Lit] ::= Lit " " [Lit] ;
 
-BoolOpBin. BoolOp ::= Exp BoolBinOp Exp ;
-BoolOpUn. BoolOp ::= BoolUnOp Exp ;
+[]. [TyVar] ::= ;
+(:). [TyVar] ::= TyVar " " [TyVar] ;
 
-BoolBinOpOr. BoolBinOp ::= "or" ;
-BoolBinOpAnd. BoolBinOp ::= "and" ;
-
-BoolUnOpNot. BoolUnOp ::= "!" ;
-
-CmpOpBin. CmpOp ::= Exp CmpBinOp Exp ;
-
-CmpBinOpEq. CmpBinOp ::= "==" ;
-CmpBinOpNe. CmpBinOp ::= "!=" ;
-CmpBinOpGt. CmpBinOp ::= ">" ;
-CmpBinOpGe. CmpBinOp ::= ">=" ;
-CmpBinOpLt. CmpBinOp ::= "<" ;
-CmpBinOpLe. CmpBinOp ::= "<=" ;
-
-NumOpBin. NumOp ::= Exp NumBinOp Exp ;
-NumOpUn. NumOp ::= NumUnOp Exp ;
-
-NumBinOpAdd. NumBinOp ::= "+" ;
-NumBinOpSub. NumBinOp ::= "-" ;
-NumBinOpMul. NumBinOp ::= "*" ;
-NumBinOpDiv. NumBinOp ::= "/" ;
-
-NumUnOpNeg. NumUnOp ::= "-";
-
-StrOpBin. StrOp ::= Exp StrBinOp Exp ;
-
-StrBinOpAppend. StrBinOp ::= "++" ;
-
-Param. Param ::= Ident ;
-
-Arg. Arg ::= Exp ;
-
-[]. [Decl] ::= ;
-(:). [Decl] ::= Decl [Decl] ;
-
-[]. [FuncDecl] ::= ;
-(:). [FuncDecl] ::= FuncDecl [FuncDecl] ;
-
-[]. [Param] ::= ;
-(:). [Param] ::= Param "," [Param] ;
-
-[]. [Arg] ::= ;
-(:). [Arg] ::= Arg "," [Arg] ;
-
-MayExtendNone. MayExtend ::= ;
-MayExtendSome. MayExtend ::= "<" Extend ;
-
-MayDefNone. MayDef ::= ;
-MayDefSome. MayDef ::= "=" Def ;
-
-MayExpNone. MayExp ::= ;
-MayExpSome. MayExp ::= Exp ;
-
-MayVarDeclNone. MayVarDecl ::= ;
-MayVarDeclSome. MayVarDecl ::= VarDecl ;
-
-MayElseNone. MayElse ::= ;
-MayElseSome. MayElse ::= Else ;
-
-MayStmtNone. MayStmt ::= ;
-MayStmtSome. MayStmt ::= Stmt ;
-
-MayForInitNone. MayForInit ::= ;
-MayForInitSome. MayForInit ::= ForInit ;
-
-MayKnownTargetTailNone. MayKnownTargetTail ::= ;
-MayKnownTargetTailSome. MayKnownTargetTail ::= KnownTargetTail ;
+[]. [ConName] ::= ;
+(:). [ConName] ::= ConName " " [ConName] ;

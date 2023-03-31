@@ -68,5 +68,5 @@ report-deps:
 gen-grammar:
 	rm -rf searchterm/src/Searchterm/Grammar/Gen searchterm/exe
 	mkdir -p searchterm/src/Searchterm/Grammar/Gen searchterm/exe
-	stack exec -- bnfc --haskell --text-token --functor --generic -o searchterm/src -p Searchterm.Grammar -d searchterm/Gen.cf
+	stack exec -- bnfc --haskell --text-token -o searchterm/src -p Searchterm.Grammar -d searchterm/Gen.cf
 	mv searchterm/src/Searchterm/Grammar/Gen/Test.hs searchterm/exe/Main.hs
