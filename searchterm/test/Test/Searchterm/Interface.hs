@@ -5,19 +5,21 @@ module Test.Searchterm.Interface (testInterface) where
 import Control.Exception (throwIO)
 import Control.Monad (when)
 import Data.Foldable (for_)
-import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import Prettyprinter (pretty)
 import Searchterm.Interface.Core (ConPat (..), Forall (..), Inst (..), Lit (..), Pat (..), PatPair (..),
-                                  Strained (..), Tm (..), TmName, TmVar, Ty (..), TyScheme, TyVar, KindAnno (..), Kind (..), ClsName)
+                                  Strained (..), Tm (..), TmName, TmVar, Ty (..), TyScheme, TyVar, KindAnno (..), Kind (..), ClsName, Cls (..), InstScheme, ClsScheme)
 import Searchterm.Interface.ParenPretty (docToText)
 import Searchterm.Interface.Parser (parseLine, parseLines, parseLinesIO, parseTerm, parseType)
 import Searchterm.Interface.Printer (printLines)
-import Searchterm.Interface.Types (Line (..), LitLine (..))
-import Searchterm.Util
+import Searchterm.Interface.Types (Line (..), LitLine (..), ModLine (..), FuncLine (FuncLine), ClsLine (..), InstLine (..))
+import Searchterm.Util (dieOnParseErr)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
+import Searchterm.Interface.Core (TyScheme(..))
+import Searchterm.Interface.Core (ClsScheme(..))
+import Searchterm.Interface.Core (InstScheme(..))
 
 testInterface :: TestTree
 testInterface = testGroup "interface"
@@ -98,8 +100,17 @@ assertParseTy roundtrip expectedTxt expectedAst = do
   actualAst <- either dieOnParseErr pure (parseType expectedTxt)
   actualAst @?= expectedAst
 
-mkS :: [KindAnno TyVar] -> [Inst TyVar] -> Ty TyVar -> TyScheme TyVar
-mkS tvs insts body = Forall (Seq.fromList tvs) (Strained (Seq.fromList insts) body)
+mkF :: [KindAnno TyVar] -> [Inst TyVar] -> a -> Forall (KindAnno TyVar) (Strained TyVar a)
+mkF tvs insts body = Forall (Seq.fromList tvs) (Strained (Seq.fromList insts) body)
+
+mkTS :: [KindAnno TyVar] -> [Inst TyVar] -> Ty TyVar -> TyScheme TyVar
+mkTS tvs insts body = TyScheme $ mkF tvs insts body
+
+mkCS :: [KindAnno TyVar] -> [Inst TyVar] -> Cls TyVar -> ClsScheme TyVar
+mkCS tvs insts body = ClsScheme $ mkF tvs insts body
+
+mkIS :: [KindAnno TyVar] -> [Inst TyVar] -> Inst TyVar -> InstScheme TyVar
+mkIS tvs insts body = InstScheme $ mkF tvs insts body
 
 mkA :: [TyVar] -> [KindAnno TyVar]
 mkA = fmap (`KindAnno` Nothing)
@@ -109,26 +120,26 @@ mkI cn tas = Inst cn (Seq.fromList tas)
 
 testParseTy :: TestTree
 testParseTy = testCase "parseTy" $ do
-  assertParseTy True "Int" (mkS [] [] (TyKnown "Int"))
+  assertParseTy True "Int" (mkTS [] [] (TyKnown "Int"))
   assertParseTy True "forall f a. f a" $
-    mkS (mkA ["f", "a"]) [] (tyAppFree "f" [TyFree "a"])
+    mkTS (mkA ["f", "a"]) [] (tyAppFree "f" [TyFree "a"])
   assertParseTy True "forall a. ([]) a" $
-    mkS (mkA ["a"]) [] (tyAppKnown "([])" [TyFree "a"])
+    mkTS (mkA ["a"]) [] (tyAppKnown "([])" [TyFree "a"])
   assertParseTy False "forall a. [a]" $
-    mkS (mkA ["a"]) [] (tyAppKnown "([])" [TyFree "a"])
+    mkTS (mkA ["a"]) [] (tyAppKnown "([])" [TyFree "a"])
   assertParseTy True "forall a b. (,) a b" $
-    mkS (mkA ["a", "b"]) [] (tyAppKnown "(,)" [TyFree "a", TyFree "b"])
+    mkTS (mkA ["a", "b"]) [] (tyAppKnown "(,)" [TyFree "a", TyFree "b"])
   assertParseTy False "forall a b. (a, b)" $
-    mkS (mkA ["a", "b"]) [] (tyAppKnown "(,)" [TyFree "a", TyFree "b"])
+    mkTS (mkA ["a", "b"]) [] (tyAppKnown "(,)" [TyFree "a", TyFree "b"])
   assertParseTy True "forall a b c d. (,,,) a b c d" $
-    mkS (mkA ["a", "b", "c", "d"]) [] (tyAppKnown "(,,,)" (fmap TyFree ["a", "b", "c", "d"]))
+    mkTS (mkA ["a", "b", "c", "d"]) [] (tyAppKnown "(,,,)" (fmap TyFree ["a", "b", "c", "d"]))
   assertParseTy False "forall a b c d. (a, b, c, d)" $
-    mkS (mkA ["a", "b", "c", "d"]) [] (tyAppKnown "(,,,)" (fmap TyFree ["a", "b", "c", "d"]))
-  assertParseTy True "()" (mkS [] [] (TyKnown "()"))
+    mkTS (mkA ["a", "b", "c", "d"]) [] (tyAppKnown "(,,,)" (fmap TyFree ["a", "b", "c", "d"]))
+  assertParseTy True "()" (mkTS [] [] (TyKnown "()"))
   assertParseTy True "forall a. Show a => a -> String" $
-    mkS (mkA ["a"]) [mkI "Show" [TyFree "a"]] (TyFun (TyFree "a") (TyKnown "String"))
+    mkTS (mkA ["a"]) [mkI "Show" [TyFree "a"]] (TyFun (TyFree "a") (TyKnown "String"))
   assertParseTy True "forall (m :: Type -> Type) (a :: Type). a -> m a" $
-    mkS
+    mkTS
       [KindAnno "m" (Just (KindTyCon (Seq.singleton KindTy))), KindAnno "a" (Just KindTy)]
       [] (TyFun (TyFree "a") (TyApp (TyFree "m") (Seq.singleton (TyFree "a"))))
   where
@@ -144,7 +155,13 @@ assertParseLine expectedTxt expectedLine = do
 
 testParseLine :: TestTree
 testParseLine = testCase "parseLine" $ do
+  assertParseLine "module Foo.Bar" (LineMod (ModLine "Foo.Bar"))
   assertParseLine "literals Int 0 -1 2" (LineLit (LitLine "Int" (Seq.fromList (fmap LitInteger [0, -1, 2]))))
   assertParseLine "literals Char 'a' '_'" (LineLit (LitLine "Char" (Seq.fromList (fmap LitChar ['a', '_']))))
   assertParseLine "literals String \"foo\" \"\"" (LineLit (LitLine "String" (Seq.fromList (fmap LitString ["foo", ""]))))
   assertParseLine "literals Double 0.1 -1.0" (LineLit (LitLine "Double" (Seq.fromList (fmap LitScientific [read "0.1", read "-1.0"]))))
+  assertParseLine "foo :: Int" (LineFunc (FuncLine "foo" (mkTS [] [] (TyKnown "Int"))))
+  assertParseLine "(<*>) :: Int -> Double" (LineFunc (FuncLine "(<*>)" (mkTS [] [] (TyFun (TyKnown "Int") (TyKnown "Double")))))
+  assertParseLine "x :: forall a. a -> Int" (LineFunc (FuncLine "x" (mkTS (mkA ["a"]) [] (TyFun (TyFree "a") (TyKnown "Int")))))
+  assertParseLine "class Foo a" (LineCls (ClsLine (mkCS (mkA ["a"]) [] (Cls "Foo" (Seq.singleton "a")))))
+  assertParseLine "instance Foo Int" (LineInst (InstLine (mkIS [] [] (Inst "Foo" (Seq.singleton (TyKnown "Int"))))))

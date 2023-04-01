@@ -12,7 +12,7 @@ module Searchterm.Synth.Example where
 
 import Control.Exception (throwIO)
 import Data.Sequence (Seq (..))
-import Searchterm.Interface.Core (Forall (..), Strained (..), Ty (..))
+import Searchterm.Interface.Core (Forall (..), Strained (..), Ty (..), TyScheme (..))
 import Searchterm.Interface.Decl (DeclErr, DeclSet, mkDecls)
 -- import Searchterm.Synth.Search (Found, SearchConfig (..), SearchErr, UseSkolem (..), runSearchN, runSearchSusp,
 --                                 takeSearchResults)
@@ -23,9 +23,9 @@ exampleDecls = res where
   tyInt = TyApp (TyKnown "Int") Empty
   tyIntFun2 = TyFun tyInt (TyFun tyInt tyInt)
   res = mkDecls
-    [ ("0", Forall Empty (Strained Empty tyInt))
-    , ("1", Forall Empty (Strained Empty tyInt))
-    , ("+", Forall Empty (Strained Empty tyIntFun2))
+    [ ("0", TyScheme (Forall Empty (Strained Empty tyInt)))
+    , ("1", TyScheme (Forall Empty (Strained Empty tyInt)))
+    , ("+", TyScheme (Forall Empty (Strained Empty tyIntFun2)))
     ]
 
 -- -- | Search for N terms matching the "Int" type.

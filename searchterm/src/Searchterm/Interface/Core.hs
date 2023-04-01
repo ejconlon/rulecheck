@@ -27,10 +27,11 @@ module Searchterm.Interface.Core
   , Cls (..)
   , Strained (..)
   , strainedVars
-  , ClsScheme
-  , InstScheme
+  , ClsScheme (..)
+  , clsSchemeBody
+  , InstScheme (..)
   , instSchemeBody
-  , TyScheme
+  , TyScheme (..)
   , tySchemeBody
   , Rw (..)
   , RwScheme (..)
@@ -250,11 +251,6 @@ data Forall b a = Forall
   , faBody :: a
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance (Pretty b, Pretty a) => Pretty (Forall b a) where
-  pretty (Forall binders body) = startDoc where
-    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
-    startDoc = P.hsep (join [faDoc, [pretty body]])
-
 -- | Instance/Constraint decl (The same datatype is used for both)
 data Inst a = Inst
   { instName :: !ClsName
@@ -291,17 +287,37 @@ instance (Pretty b, Pretty a) => Pretty (Strained b a) where
 strainedVars :: Foldable f => Strained b (f b) -> [b]
 strainedVars (Strained x y) = (toList x >>= toList) ++ toList y
 
-type ClsScheme a = Forall (KindAnno TyVar) (Strained a (Cls a))
+newtype ClsScheme a = ClsScheme { unClsScheme :: Forall (KindAnno TyVar) (Strained a (Cls a)) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord)
 
-type InstScheme a = Forall (KindAnno TyVar) (Strained a (Inst a))
+instance Pretty a => Pretty (ClsScheme a) where
+  pretty (ClsScheme (Forall _ body)) = pretty body
+
+clsSchemeBody :: ClsScheme a -> Cls a
+clsSchemeBody = strainedIn . faBody . unClsScheme
+
+newtype InstScheme a = InstScheme { unInstScheme :: Forall (KindAnno TyVar) (Strained a (Inst a)) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord)
+
+instance Pretty a => Pretty (InstScheme a) where
+  pretty (InstScheme (Forall _ body)) = pretty body
 
 instSchemeBody :: InstScheme a -> Inst a
-instSchemeBody = strainedIn . faBody
+instSchemeBody = strainedIn . faBody . unInstScheme
 
-type TyScheme a = Forall (KindAnno TyVar) (Strained a (Ty a))
+newtype TyScheme a = TyScheme { unTyScheme :: Forall (KindAnno TyVar) (Strained a (Ty a)) }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord)
+
+instance Pretty a => Pretty (TyScheme a) where
+  pretty (TyScheme (Forall binders body)) = startDoc where
+    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
+    startDoc = P.hsep (join [faDoc, [pretty body]])
 
 tySchemeBody :: TyScheme a -> Ty a
-tySchemeBody = strainedIn . faBody
+tySchemeBody = strainedIn . faBody . unTyScheme
 
 data Rw tmf = Rw
   { rwLhs :: !(Tm TmVar tmf)
@@ -313,7 +329,12 @@ instance Pretty tmf => Pretty (Rw tmf) where
 
 newtype RwScheme tmf = RwScheme { unRwScheme :: Forall TmVar (Rw tmf) }
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Pretty)
+  deriving newtype (Eq, Ord)
+
+instance Pretty a => Pretty (RwScheme a) where
+  pretty (RwScheme (Forall binders body)) = startDoc where
+    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
+    startDoc = P.hsep (join [faDoc, [pretty body]])
 
 data Rule tyf tmf = Rule
   { ruleName :: !Text
@@ -355,11 +376,11 @@ unrollTy = go Empty where
 -- | "Explode" a type scheme into result scheme and function arguments.
 -- NOTE: Forbids any constraints in the scheme.
 explodeTy :: TyScheme a -> Maybe (TyScheme a, Seq (Ty a))
-explodeTy (Forall tvs (Strained is tyStart)) =
+explodeTy (TyScheme (Forall tvs (Strained is tyStart))) =
   if Seq.null is
     then
       let (tyEnd, tyArgs) = unrollTy tyStart
-      in Just (Forall tvs (Strained Empty tyEnd), tyArgs)
+      in Just (TyScheme (Forall tvs (Strained Empty tyEnd)), tyArgs)
     else Nothing
 
 instance Pretty a => Pretty (Partial a) where

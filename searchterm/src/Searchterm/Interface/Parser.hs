@@ -21,10 +21,10 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void (Void)
-import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme, ConPat (..), Forall (..),
-                                  Inst (..), InstScheme, Lit (..), ModName (..), Pat (..), PatPair (..), Rule (..),
+import Searchterm.Interface.Core (Cls (..), ClsName (..), ClsScheme (..), ConPat (..), Forall (..),
+                                  Inst (..), InstScheme (..), Lit (..), ModName (..), Pat (..), PatPair (..), Rule (..),
                                   Rw (..), RwScheme (..), Strained (..), Tm (..), TmName (..), TmVar (..), Ty (..),
-                                  TyName (..), TyScheme, TyVar (..), strainedVars, KindAnno (..), Kind (..))
+                                  TyName (..), TyScheme (..), TyVar (..), strainedVars, KindAnno (..), Kind (..))
 import Searchterm.Interface.Types (ClsLine (..), ConsLine (..), FuncLine (..), InstLine (..), Line (..), LitLine (..),
                                    ModLine (..), RuleLine (..), TypeLine (..))
 import Text.Megaparsec (ParseErrorBundle, Parsec)
@@ -288,7 +288,7 @@ forallStrainedP :: Foldable f => P (f TyVar) -> P (Forall (KindAnno TyVar) (Stra
 forallStrainedP = forallP (fmap (`KindAnno` Nothing) . nub . strainedVars) (kindAnnoP tyVarP) . strainedP
 
 tySchemeP :: P (TyScheme TyVar)
-tySchemeP = forallStrainedP (tyP False False)
+tySchemeP = fmap TyScheme (forallStrainedP (tyP False False))
 
 clsNameP :: P ClsName
 clsNameP = fmap ClsName upperP
@@ -315,7 +315,7 @@ clsP = do
   pure (Cls cn (Seq.fromList as))
 
 clsSchemeP :: P (ClsScheme TyVar)
-clsSchemeP = forallStrainedP clsP
+clsSchemeP = fmap ClsScheme (forallStrainedP clsP)
 
 instP :: P (Inst TyVar)
 instP = do
@@ -324,7 +324,7 @@ instP = do
   pure (Inst cn (Seq.fromList as))
 
 instSchemeP :: P (InstScheme TyVar)
-instSchemeP = forallStrainedP instP
+instSchemeP = fmap InstScheme (forallStrainedP instP)
 
 lineP :: P Line
 lineP = moreLexP $ foldr1 (<|>)
