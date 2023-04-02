@@ -308,14 +308,13 @@ constraintsP p = (single <|> multiple) <* keywordP "=>" where
     _ <- closeParenP
     pure (Seq.fromList as)
 
-clsP :: P (Cls TyVar)
-clsP = do
-  cn <- clsNameP
-  as <- many tyVarP
-  pure (Cls cn (Seq.fromList as))
-
 clsSchemeP :: P (ClsScheme TyVar)
-clsSchemeP = fmap ClsScheme (forallStrainedP clsP)
+clsSchemeP = do
+  cons <- optP Empty (constraintsP instP)
+  cn <- clsNameP
+  as <- many (kindAnnoP tyVarP)
+  let vs = fmap kaName as
+  pure (ClsScheme (Forall (Seq.fromList as) (Strained cons (Cls cn (Seq.fromList vs)))))
 
 instP :: P (Inst TyVar)
 instP = do

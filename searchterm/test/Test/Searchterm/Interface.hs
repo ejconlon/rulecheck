@@ -146,24 +146,44 @@ testParseTy = testCase "parseTy" $ do
     tyAppKnown s xs = TyApp (TyKnown s) (Seq.fromList xs)
     tyAppFree s xs = TyApp (TyFree s) (Seq.fromList xs)
 
-assertParseLine :: Text -> Line -> IO ()
-assertParseLine expectedTxt expectedLine = do
+assertParseLineSame :: Text -> Line -> IO ()
+assertParseLineSame expectedTxt expectedLine = do
   let actualTxt = docToText (pretty expectedLine)
   actualTxt @?= expectedTxt
   actualLine <- either dieOnParseErr pure (parseLine "<test>" expectedTxt)
   actualLine @?= expectedLine
 
+assertParseLineCanon :: Text -> Text -> Line -> IO ()
+assertParseLineCanon firstTxt expectedTxt expectedLine = do
+  assertParseLineSame expectedTxt expectedLine
+  firstLine <- either dieOnParseErr pure (parseLine "<test>" firstTxt)
+  firstLine @?= expectedLine
+
 testParseLine :: TestTree
 testParseLine = testCase "parseLine" $ do
-  assertParseLine "module Foo.Bar" (LineMod (ModLine "Foo.Bar"))
-  assertParseLine "literals Int 0 -1 2" (LineLit (LitLine "Int" (Seq.fromList (fmap LitInteger [0, -1, 2]))))
-  assertParseLine "literals Char 'a' '_'" (LineLit (LitLine "Char" (Seq.fromList (fmap LitChar ['a', '_']))))
-  assertParseLine "literals String \"foo\" \"\"" (LineLit (LitLine "String" (Seq.fromList (fmap LitString ["foo", ""]))))
-  assertParseLine "literals Double 0.1 -1.0" (LineLit (LitLine "Double" (Seq.fromList (fmap LitScientific [read "0.1", read "-1.0"]))))
-  assertParseLine "foo :: Int" (LineFunc (FuncLine "foo" (mkTS [] [] (TyKnown "Int"))))
-  assertParseLine "(<*>) :: Int -> Double" (LineFunc (FuncLine "(<*>)" (mkTS [] [] (TyFun (TyKnown "Int") (TyKnown "Double")))))
-  assertParseLine "x :: forall a. a -> Int" (LineFunc (FuncLine "x" (mkTS (mkA ["a"]) [] (TyFun (TyFree "a") (TyKnown "Int")))))
-  assertParseLine "class Foo a" (LineCls (ClsLine (mkCS (mkA ["a"]) [] (Cls "Foo" (Seq.singleton "a")))))
-  -- TODO make this work:
-  -- assertParseLine "class Foo (f :: Type -> Type)" (LineCls (ClsLine (mkCS [KindAnno "a" (Just (KindTyCon (Seq.singleton KindTy)))] [] (Cls "Foo" (Seq.singleton "f")))))
-  assertParseLine "instance Foo Int" (LineInst (InstLine (mkIS [] [] (Inst "Foo" (Seq.singleton (TyKnown "Int"))))))
+  assertParseLineSame "module Foo.Bar" $
+    LineMod (ModLine "Foo.Bar")
+  assertParseLineSame "literals Int 0 -1 2" $
+    LineLit (LitLine "Int" (Seq.fromList (fmap LitInteger [0, -1, 2])))
+  assertParseLineSame "literals Char 'a' '_'" $
+    LineLit (LitLine "Char" (Seq.fromList (fmap LitChar ['a', '_'])))
+  assertParseLineSame "literals String \"foo\" \"\"" $
+    LineLit (LitLine "String" (Seq.fromList (fmap LitString ["foo", ""])))
+  assertParseLineSame "literals Double 0.1 -1.0" $
+    LineLit (LitLine "Double" (Seq.fromList (fmap LitScientific [read "0.1", read "-1.0"])))
+  assertParseLineSame "foo :: Int" $
+    LineFunc (FuncLine "foo" (mkTS [] [] (TyKnown "Int")))
+  assertParseLineSame "(<*>) :: Int -> Double" $
+    LineFunc (FuncLine "(<*>)" (mkTS [] [] (TyFun (TyKnown "Int") (TyKnown "Double"))))
+  assertParseLineCanon "x :: a -> Int" "x :: forall a. a -> Int" $
+    LineFunc (FuncLine "x" (mkTS (mkA ["a"]) [] (TyFun (TyFree "a") (TyKnown "Int"))))
+  assertParseLineSame "class Foo a" $
+    LineCls (ClsLine (mkCS (mkA ["a"]) [] (Cls "Foo" (Seq.singleton "a"))))
+  assertParseLineSame "class Foo (f :: Type -> Type)" $
+    LineCls (ClsLine (mkCS [KindAnno "f" (Just (KindTyCon (Seq.singleton KindTy)))] [] (Cls "Foo" (Seq.singleton "f"))))
+  assertParseLineSame "instance Foo Int" $
+    LineInst (InstLine (mkIS [] [] (Inst "Foo" (Seq.singleton (TyKnown "Int")))))
+  assertParseLineSame "instance forall a. Foo a" $
+    LineInst (InstLine (mkIS (mkA ["a"]) [] (Inst "Foo" (Seq.singleton (TyFree "a")))))
+  assertParseLineSame "instance forall (f :: Type -> Type). Foo f" $
+    LineInst (InstLine (mkIS [KindAnno "f" (Just (KindTyCon (Seq.singleton KindTy)))] [] (Inst "Foo" (Seq.singleton (TyFree "f")))))

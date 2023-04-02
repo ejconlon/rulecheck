@@ -53,7 +53,7 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.String (IsString)
 import Data.Text (Text)
-import Prettyprinter (Pretty (..), (<+>))
+import Prettyprinter (Pretty (..), (<+>), Doc)
 import qualified Prettyprinter as P
 import Searchterm.Interface.ParenPretty (ParenPretty (..), parenAtom, parenDoc, parenList, parenPrettyToDoc, parenToDoc)
 
@@ -261,13 +261,14 @@ instance Pretty a => Pretty (Inst a) where
   pretty (Inst cn tys) = parenToDoc (parenList False (parenAtom cn : fmap (parenPretty [Just "app"]) (toList tys)))
 
 -- | Class decl
+-- No pretty instance because kind information needs to come from annotations stored above.
 data Cls a = Cls
   { clsName :: !ClsName
   , clsVars :: !(Seq a)
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-instance Pretty a => Pretty (Cls a) where
-  pretty (Cls cn vs) = P.hsep (pretty cn : fmap pretty (toList vs))
+-- instance Pretty a => Pretty (Cls a) where
+--   pretty (Cls cn vs) = P.hsep (pretty cn : fmap pretty (toList vs))
 
 -- | Something conSTRAINed by typeclasses.
 -- "Strain" is the best of some bad naming options. "Con" is constructor, etc...
@@ -276,13 +277,19 @@ data Strained b a = Strained
   , strainedIn :: !a
   } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
+prettyStrainedBy :: Pretty b => Seq (Inst b) -> Maybe (Doc ann)
+prettyStrainedBy x =
+  case toList x of
+    [] -> Nothing
+    [p] -> Just $ pretty p <+> "=>"
+    ps -> Just $ "(" <> P.hsep (P.punctuate "," (fmap pretty ps)) <> ")" <+> "=>"
+
 instance (Pretty b, Pretty a) => Pretty (Strained b a) where
-  pretty (Strained x y) = startDoc where
-    endDoc = pretty y
-    startDoc = case toList x of
-      [] -> endDoc
-      [p] -> pretty p <+> "=>" <+> endDoc
-      ps -> "(" <> P.hsep (P.punctuate "," (fmap pretty ps)) <> ")" <+> "=>" <+> endDoc
+  pretty (Strained x y) =
+    let endDoc = pretty y
+    in case prettyStrainedBy x of
+      Nothing -> endDoc
+      Just startDoc -> startDoc <+> endDoc
 
 strainedVars :: Foldable f => Strained b (f b) -> [b]
 strainedVars (Strained x y) = (toList x >>= toList) ++ toList y
@@ -292,7 +299,11 @@ newtype ClsScheme a = ClsScheme { unClsScheme :: Forall (KindAnno TyVar) (Strain
   deriving newtype (Eq, Ord)
 
 instance Pretty a => Pretty (ClsScheme a) where
-  pretty (ClsScheme (Forall _ body)) = pretty body
+  pretty (ClsScheme (Forall as (Strained is (Cls cn _)))) =
+    let endDoc = P.hsep (pretty cn : fmap pretty (toList as))
+    in case prettyStrainedBy is of
+      Nothing -> endDoc
+      Just startDoc -> startDoc <+> endDoc
 
 clsSchemeBody :: ClsScheme a -> Cls a
 clsSchemeBody = strainedIn . faBody . unClsScheme
@@ -302,7 +313,9 @@ newtype InstScheme a = InstScheme { unInstScheme :: Forall (KindAnno TyVar) (Str
   deriving newtype (Eq, Ord)
 
 instance Pretty a => Pretty (InstScheme a) where
-  pretty (InstScheme (Forall _ body)) = pretty body
+  pretty (InstScheme (Forall binders body)) = startDoc where
+    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
+    startDoc = P.hsep (join [faDoc, [pretty body]])
 
 instSchemeBody :: InstScheme a -> Inst a
 instSchemeBody = strainedIn . faBody . unInstScheme

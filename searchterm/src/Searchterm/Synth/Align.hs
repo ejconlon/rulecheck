@@ -142,6 +142,9 @@ alignKindM k1 k2 =
 -- | Aligns two kind-annotated vertices
 alignAnnoM :: KindAnno TyVert -> KindAnno TyVert -> AlignM (KindAnno TyVert)
 alignAnnoM (KindAnno v1 k1) (KindAnno v2 k2) = do
+  -- Here is where we assume that un-annotated kinds are Type.
+  -- If we didn't do that and just solved for kinds via unification, silly
+  -- things could happen.
   let k1' = fromMaybe KindTy k1
       k2' = fromMaybe KindTy k2
   k3 <- alignKindM k1' k2'
