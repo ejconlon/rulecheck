@@ -164,4 +164,6 @@ testParseLine = testCase "parseLine" $ do
   assertParseLine "(<*>) :: Int -> Double" (LineFunc (FuncLine "(<*>)" (mkTS [] [] (TyFun (TyKnown "Int") (TyKnown "Double")))))
   assertParseLine "x :: forall a. a -> Int" (LineFunc (FuncLine "x" (mkTS (mkA ["a"]) [] (TyFun (TyFree "a") (TyKnown "Int")))))
   assertParseLine "class Foo a" (LineCls (ClsLine (mkCS (mkA ["a"]) [] (Cls "Foo" (Seq.singleton "a")))))
+  -- TODO make this work:
+  -- assertParseLine "class Foo (f :: Type -> Type)" (LineCls (ClsLine (mkCS [KindAnno "a" (Just (KindTyCon (Seq.singleton KindTy)))] [] (Cls "Foo" (Seq.singleton "f")))))
   assertParseLine "instance Foo Int" (LineInst (InstLine (mkIS [] [] (Inst "Foo" (Seq.singleton (TyKnown "Int"))))))
