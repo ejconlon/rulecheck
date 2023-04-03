@@ -41,6 +41,7 @@ module Searchterm.Interface.Core
   , tyToPartials
   , unrollTy
   , explodeTy
+  , prettyScheme
 ) where
 
 import Control.Monad (join)
@@ -312,10 +313,13 @@ newtype InstScheme a = InstScheme { unInstScheme :: Forall (KindAnno TyVar) (Str
   deriving stock (Show)
   deriving newtype (Eq, Ord)
 
+prettyScheme :: (Pretty b, Pretty a) => Forall a b -> Doc ann
+prettyScheme (Forall binders body) = startDoc where
+  faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
+  startDoc = P.hsep (join [faDoc, [pretty body]])
+
 instance Pretty a => Pretty (InstScheme a) where
-  pretty (InstScheme (Forall binders body)) = startDoc where
-    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
-    startDoc = P.hsep (join [faDoc, [pretty body]])
+  pretty = prettyScheme . unInstScheme
 
 instSchemeBody :: InstScheme a -> Inst a
 instSchemeBody = strainedIn . faBody . unInstScheme
@@ -325,9 +329,7 @@ newtype TyScheme a = TyScheme { unTyScheme :: Forall (KindAnno TyVar) (Strained 
   deriving newtype (Eq, Ord)
 
 instance Pretty a => Pretty (TyScheme a) where
-  pretty (TyScheme (Forall binders body)) = startDoc where
-    faDoc = ["forall " <> P.hsep (fmap pretty (toList binders)) <> "." | not (Seq.null binders)]
-    startDoc = P.hsep (join [faDoc, [pretty body]])
+  pretty = prettyScheme . unTyScheme
 
 tySchemeBody :: TyScheme a -> Ty a
 tySchemeBody = strainedIn . faBody . unTyScheme
