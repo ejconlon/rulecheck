@@ -6,6 +6,7 @@ import os
 import re
 import requests as req
 import pathlib
+import shutil
 
 
 RESOLVER = 'lts-19.27'
@@ -101,6 +102,28 @@ def download(listing: str, scratch: str):
         version = package['version']
         if name not in BLACKLIST:
             run_unpack(scratch, name, version)
+            
+def repack(listing: str, output: Optional[str]):
+    assert os.path.isfile(listing)
+    assert os.path.isdir(os.path.dirname(output))
+    os.makedirs(output, exist_ok=True)
+    packages: List[Dict[str, str]]
+    with open(listing, 'r') as f:
+        packages = json.load(f)
+    for package in packages:
+        name = package['name']
+        version = package['version']
+        dirname = f'{name}-{version}'
+        srcname = f'../../haskell-packages/{dirname}'
+        assert os.path.isdir(srcname)
+        destname = f'{output}/{dirname}'
+        os.makedirs(destname, exist_ok=True)
+        for fn in package['files']:
+            srcfile = f'{srcname}/{fn}'
+            assert os.path.isfile(srcfile)
+            destfile = f'{destname}/{fn}'
+            os.makedirs(os.path.dirname(destfile), exist_ok=True)
+            shutil.copy(srcfile, destfile)
 
 
 def extract(listing: str, scratch: str, output: Optional[str]):
@@ -160,6 +183,10 @@ def build_parser() -> ArgumentParser:
     extract_parser.add_argument('--scratch', required=True, help='directory to read packages from')
     extract_parser.add_argument('--output', help='file to write info to')
 
+    repack_parser = op_subparser.add_parser('repack', help='repack files that have rewrite rules') 
+    repack_parser.add_argument('--listing', required=True, help='file to read package info from')
+    repack_parser.add_argument('--output', help='directory to write pack into')
+
     return parser
 
 
@@ -171,6 +198,7 @@ def main():
         case 'find': find(args.listing)
         case 'download': download(args.listing, args.scratch)
         case 'extract': extract(args.listing, args.scratch, args.output)
+        case 'repack': repack(args.listing, args.output)
         case _: raise Exception(f'Unhandled: {args.op}')
 
 

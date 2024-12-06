@@ -4,17 +4,21 @@
 
 set -eux
 
+mkdir -p ../haskell-packages
+PACKAGEDIR=$(cd ../haskell-packages && pwd)
+mkdir -p ../haskell-rules
+RULESDIR=$(cd ../haskell-rules && pwd)
+
 pushd auto
   if [ ! -d .venv ]; then
     make venv
   fi
 
-  PACKAGEDIR=../../haskell-packages
   LISTINGFILE=./listing.json
   RULESFILE=./rules.json
 
   # rm -rf ${PACKAGEDIR}
-  mkdir -p ${PACKAGEDIR}
+  # mkdir -p ${PACKAGEDIR}
 
   rm -f "$RULESFILE"
 
@@ -23,4 +27,5 @@ pushd auto
 
   ./run.sh main download --listing ${LISTINGFILE} --scratch ${PACKAGEDIR}
   ./run.sh main extract --listing ${LISTINGFILE} --scratch ${PACKAGEDIR} --output ${RULESFILE}
+  ./run.sh main repack --listing ${LISTINGFILE} --output ${RULESDIR}
 popd

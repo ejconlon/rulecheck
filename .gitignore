@@ -11,3 +11,4 @@ package-tests/*
 auto/rules.json
 .DS_Store
 .auctex-auto
+haskell-packages/
